@@ -63,38 +63,7 @@ class AppScaffold extends StatelessWidget {
         ),
       ),
 
-      tabletBody: Scaffold(
-        key: scaffoldKey,
-        drawer: AppSidebar(
-          isMobile: true,
-          selectedMenu: selectedMenu,
-          sidebarExpanded: true,
-          onMenuSelected: (menu) {
-            onMenuSelected(menu);
-            Navigator.pop(context);
-          },
-        ),
-
-        body: SafeArea(
-          child: Column(
-            children: [
-              AppHeader(
-                isMobile: true,
-                onMenuPressed: onMenuPressed,
-                searchController: searchController,
-              ),
-
-              Expanded(child: child),
-
-              AppBottomNavigation(selectedMenu: selectedMenu, onItemSelected: onMenuSelected)
-            ],
-          ),
-        ),
-
-        
-      ),
-
-      webBody: Scaffold(
+      contentMaxWidht: Scaffold(
         backgroundColor: EducanoColors.background,
         key: scaffoldKey,
 
