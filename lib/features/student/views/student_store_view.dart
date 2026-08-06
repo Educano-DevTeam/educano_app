@@ -327,26 +327,31 @@ class _StudentStoreViewState extends State<StudentStoreView>
             ],
           ),
           const Spacer(),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'Como ganhar mais?',
-                style: TextStyle(
-                  color: EducanoColors.textWhite,
-                  fontSize: 11,
+          const Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Como ganhar mais?',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: EducanoColors.textWhite,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Complete cursos e atividades',
-                style: TextStyle(
-                  color: EducanoColors.textWhite,
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
+                SizedBox(height: 2),
+                Text(
+                  'Complete cursos e atividades',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: EducanoColors.textWhite,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
