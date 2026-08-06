@@ -8,6 +8,7 @@ enum AppMenu {
   courses,
   questions,
   store,
+  storeItems,
   settings,
   logout,
 }

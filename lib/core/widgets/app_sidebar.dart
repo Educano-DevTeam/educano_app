@@ -26,25 +26,36 @@ class AppSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
+    // No desktop, o menu hamburguer esconde a coluna inteira (largura 0)
+    // em vez de apenas recolher para os ícones.
     final double sidebarWidth =
-        sidebarExpanded ? 260 : 80;
+        sidebarExpanded ? 260 : 0;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      width: sidebarWidth,
+    return ClipRect(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        width: sidebarWidth,
 
-      decoration: BoxDecoration(
-        color: Colors.white,
+        decoration: BoxDecoration(
+          color: Colors.white,
 
-        border: Border(
-          right: BorderSide(
-            color: EducanoColors.border,
-          ),
+          border: sidebarExpanded
+            ? Border(
+                right: BorderSide(
+                  color: EducanoColors.border,
+                ),
+              )
+            : null,
         ),
-      ),
 
-      child: Column(
+        child: sidebarExpanded ? _buildContent() : null,
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
         children: [
           Divider(
             color: EducanoColors.border,
@@ -93,6 +104,14 @@ class AppSidebar extends StatelessWidget {
                         expanded: sidebarExpanded,
                         onTap: () => onMenuSelected(AppMenu.profile),
                       ),
+                      SidebarItem(
+                        icon: Icons.storefront_rounded,
+                        title: "Loja",
+                        menu: AppMenu.store,
+                        selectedMenu: selectedMenu,
+                        expanded: sidebarExpanded,
+                        onTap: () => onMenuSelected(AppMenu.store),
+                      ),
                     ],
                   ),
 
@@ -135,11 +154,11 @@ class AppSidebar extends StatelessWidget {
                     ),
                     SidebarItem(
                       icon: Icons.store_rounded,
-                      title: "Loja",
-                      menu: AppMenu.store,
+                      title: "Itens da Loja",
+                      menu: AppMenu.storeItems,
                       selectedMenu: selectedMenu,
                       expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.store),
+                      onTap: () => onMenuSelected(AppMenu.storeItems),
                     ),
 
                   ],
@@ -170,9 +189,8 @@ class AppSidebar extends StatelessWidget {
                 ),
               ],
             ),
-          )
+          ),
         ],
-      ),
     );
   }
 }

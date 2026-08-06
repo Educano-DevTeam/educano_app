@@ -68,9 +68,9 @@ class _SidebarItemState extends State<SidebarItem> {
 
           decoration: BoxDecoration(
             color: selected
-              ? EducanoColors.primaryBlue.withOpacity(0.12)
+              ? EducanoColors.primaryBlue.withValues(alpha: 0.12)
               : isHovering
-                ? EducanoColors.secondaryBlue.withOpacity(0.10)
+                ? EducanoColors.secondaryBlue.withValues(alpha: 0.10)
                 : Colors.transparent,
 
             borderRadius: BorderRadius.circular(12),

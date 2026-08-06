@@ -70,6 +70,14 @@ class AppBottomNavigation extends StatelessWidget {
                 menu: AppMenu.profile,
               ),
             ),
+
+            Expanded(
+              child: _buildItem(
+                icon: Icons.storefront_rounded,
+                label: "Loja",
+                menu: AppMenu.store,
+              ),
+            ),
           ],
         ),
       ),
@@ -98,7 +106,7 @@ class AppBottomNavigation extends StatelessWidget {
 
           decoration: BoxDecoration(
             color: selected
-              ? EducanoColors.lightBlue.withOpacity(.18)
+              ? EducanoColors.lightBlue.withValues(alpha: .18)
               : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
