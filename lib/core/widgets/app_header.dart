@@ -66,8 +66,20 @@ class AppHeader extends StatelessWidget {
 
               if (isMobile)
                 const Spacer()
-              else 
+              else
                 const SizedBox(width: 30),
+
+              // Notificações (presente em todos os frames do Figma)
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: EducanoColors.surface,
+                ),
+                tooltip: "Notificações",
+                onPressed: () {},
+              ),
+
+              const SizedBox(width: 4),
 
               if (isMobile)
                 const CircleAvatar(

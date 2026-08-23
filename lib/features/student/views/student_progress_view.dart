@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 import 'course_catalog_view.dart';
+import 'finish_simulado_view.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -25,6 +27,10 @@ class StudentProgressView extends StatefulWidget {
 class _StudentProgressViewState extends State<StudentProgressView> {
   String? _selectedCourseId;
   String? _selectedTrilhaId;
+
+  /// Lição de simulado aberta na tela de encerramento (IBL – Finalizar
+  /// Simulado). Fica em `null` enquanto o aluno navega pelas trilhas.
+  Map<String, dynamic>? _openSimulado;
 
   final List<Map<String, dynamic>> _myCourses = [
     {
@@ -91,13 +97,21 @@ class _StudentProgressViewState extends State<StudentProgressView> {
           'id': 'trilha-mat-simulados',
           'title': 'Simulados',
           'description': 'Pratique com questões de vestibular',
-          'status': 'locked',
+          'status': 'current',
           'modulos': [
             {
               'id': 'mod-mat-5',
               'title': 'Módulo 5: Simulado Geral',
-              'status': 'locked',
-              'licao': {'title': 'Prova Simulada', 'xp': 150, 'status': 'locked'},
+              'status': 'current',
+              'licao': {
+                'title': 'Prova Simulada',
+                'xp': 150,
+                'status': 'current',
+                'type': 'simulado',
+                'questoes': 45,
+                'respondidas': 38,
+                'tempoRestante': Duration(minutes: 12, seconds: 34),
+              },
               'materiais': [
                 {'name': 'Caderno de questões', 'icon': Icons.quiz_rounded},
               ],
@@ -256,6 +270,9 @@ class _StudentProgressViewState extends State<StudentProgressView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_openSimulado != null) {
+      return _buildSimuladoLevel(context);
+    }
     if (_selectedTrilhaId != null) {
       return _buildModulosLevel(context);
     }
@@ -276,20 +293,7 @@ class _StudentProgressViewState extends State<StudentProgressView> {
           const SizedBox(height: _spacingLarge),
           _buildOverallProgress(context),
           const SizedBox(height: _spacingLarge),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Meus Cursos',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              ElevatedButton.icon(
-                onPressed: _openCatalog,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Adicionar curso'),
-              ),
-            ],
-          ),
+          _buildMyCoursesHeader(context),
           const SizedBox(height: _spacingSmall),
           _buildCourseCardsGrid(),
         ],
@@ -297,12 +301,46 @@ class _StudentProgressViewState extends State<StudentProgressView> {
     );
   }
 
+  /// Título da seção + botão de catálogo. Empilha no mobile para o botão
+  /// não espremer o título (frame mobile do Figma).
+  Widget _buildMyCoursesHeader(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final title = Text(
+          'Meus Cursos',
+          style: Theme.of(context).textTheme.titleLarge,
+        );
+        final action = ElevatedButton.icon(
+          onPressed: _openCatalog,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Adicionar curso'),
+        );
+
+        if (constraints.maxWidth < AppBreakpoints.compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              title,
+              const SizedBox(height: _spacingSmall),
+              action,
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [Flexible(child: title), action],
+        );
+      },
+    );
+  }
+
   Widget _buildCourseCardsGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth < 600
+        final columns = constraints.maxWidth < AppBreakpoints.compact
             ? 1
-            : constraints.maxWidth < 1000
+            : constraints.maxWidth < AppBreakpoints.medium
                 ? 2
                 : 3;
         return GridView.builder(
@@ -509,50 +547,55 @@ class _StudentProgressViewState extends State<StudentProgressView> {
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          shape: const Border(),
-          leading: CircleAvatar(
-            radius: 18,
-            backgroundColor: color.withValues(alpha: 0.15),
-            child: Icon(Icons.folder_rounded, color: color, size: 18),
-          ),
-          title: Text(
-            modulo['title'] as String,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: EducanoColors.textPrimary,
+        // O ExpansionTile usa ListTile, que precisa de um Material mais
+        // próximo que o Container decorado deste card.
+        child: Material(
+          type: MaterialType.transparency,
+          child: ExpansionTile(
+            shape: const Border(),
+            leading: CircleAvatar(
+              radius: 18,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(Icons.folder_rounded, color: color, size: 18),
             ),
-          ),
-          trailing: Icon(icon, color: color, size: 20),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                _spacingMedium,
-                0,
-                _spacingMedium,
-                _spacingSmall,
+            title: Text(
+              modulo['title'] as String,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: EducanoColors.textPrimary,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(),
-                  _buildLicaoRow(licao),
-                  const SizedBox(height: _spacingMinimum),
-                  Text(
-                    'Materiais didáticos',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: EducanoColors.textSecondary,
-                      fontSize: 12,
+            ),
+            trailing: Icon(icon, color: color, size: 20),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  _spacingMedium,
+                  0,
+                  _spacingMedium,
+                  _spacingSmall,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(),
+                    _buildLicaoRow(licao),
+                    const SizedBox(height: _spacingMinimum),
+                    Text(
+                      'Materiais didáticos',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: EducanoColors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  ...materiais.map(
-                    (material) => _buildMaterialRow(material as Map<String, dynamic>),
-                  ),
-                ],
+                    ...materiais.map(
+                      (material) => _buildMaterialRow(material as Map<String, dynamic>),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -561,8 +604,9 @@ class _StudentProgressViewState extends State<StudentProgressView> {
   Widget _buildLicaoRow(Map<String, dynamic> licao) {
     final status = licao['status'] as String;
     final (color, icon) = _statusVisuals(status);
+    final isSimulado = licao['type'] == 'simulado' && status != 'locked';
 
-    return Container(
+    final row = Container(
       padding: const EdgeInsets.all(_spacingMinimum),
       margin: const EdgeInsets.symmetric(vertical: _spacingMinimum),
       decoration: BoxDecoration(
@@ -597,8 +641,42 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               ),
             ),
           ),
+          if (isSimulado)
+            const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: EducanoColors.textSecondary,
+                size: 20,
+              ),
+            ),
         ],
       ),
+    );
+
+    if (!isSimulado) return row;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _openSimulado = licao),
+        child: row,
+      ),
+    );
+  }
+
+  /// Nível 3 – tela de encerramento do simulado (Finalizar Simulado).
+  Widget _buildSimuladoLevel(BuildContext context) {
+    final licao = _openSimulado!;
+
+    return FinishSimuladoView(
+      totalQuestions: licao['questoes'] as int? ?? 45,
+      answeredQuestions: licao['respondidas'] as int? ?? 38,
+      remainingTime: licao['tempoRestante'] as Duration? ??
+          const Duration(minutes: 12, seconds: 34),
+      onReview: () => setState(() => _openSimulado = null),
+      onFinished: () => setState(() => _openSimulado = null),
     );
   }
 
@@ -641,15 +719,25 @@ class _StudentProgressViewState extends State<StudentProgressView> {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         const SizedBox(width: _spacingMinimum),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            Text(
-              subtitle,
-              style: const TextStyle(color: EducanoColors.textSecondary, fontSize: 13),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: EducanoColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -738,7 +826,8 @@ Widget _buildOverallProgress(BuildContext context) {
         const Divider(),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth < 600 ? 2 : 4;
+            final columns =
+                constraints.maxWidth < AppBreakpoints.medium ? 2 : 4;
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -752,7 +841,7 @@ Widget _buildOverallProgress(BuildContext context) {
               itemBuilder: (context, index) {
                 final stat = stats[index];
                 return Container(
-                  padding: const EdgeInsets.all(_spacingSmall),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: (stat['color'] as Color).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
@@ -764,19 +853,28 @@ Widget _buildOverallProgress(BuildContext context) {
                       Icon(
                         stat['icon'] as IconData,
                         color: stat['color'] as Color,
-                        size: 28,
+                        size: 26,
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        stat['value'] as String,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: stat['color'] as Color,
+                      // Valores como "7 dias" precisam encolher em telas
+                      // estreitas em vez de quebrar em duas linhas.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          stat['value'] as String,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: stat['color'] as Color,
+                          ),
                         ),
                       ),
                       Text(
                         stat['label'] as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: EducanoColors.textSecondary,
                           fontSize: 12,
@@ -793,10 +891,13 @@ Widget _buildOverallProgress(BuildContext context) {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'XP para o próximo nível',
-              style: Theme.of(context).textTheme.bodyMedium,
+            Flexible(
+              child: Text(
+                'XP para o próximo nível',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ),
+            const SizedBox(width: _spacingMinimum),
             Text(
               '$totalXp / $nextLevelXp XP',
               style: const TextStyle(

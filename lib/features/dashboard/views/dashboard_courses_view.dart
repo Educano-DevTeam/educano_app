@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 import 'course_editor_view.dart';
 
@@ -261,6 +262,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           const SizedBox(height: _spacingLarge),
           _buildStats(),
           const SizedBox(height: _spacingLarge),
+          _buildActions(context),
+          const SizedBox(height: _spacingSmall),
           _buildSearchAndFilters(),
           const SizedBox(height: _spacingMedium),
           _buildCoursesList(context),
@@ -270,67 +273,48 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final title = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Cursos Cadastrados',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: _spacingMinimum),
-            Text(
-              'Encontre seus cursos para editar informações e materiais.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: EducanoColors.textSecondary,
-                  ),
-            ),
-          ],
-        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Cursos Cadastrados',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: _spacingMinimum),
+        Text(
+          'Encontre seus cursos para editar informações e materiais.',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: EducanoColors.textSecondary,
+              ),
+        ),
+      ],
+    );
+  }
 
-        final actions = Wrap(
-          spacing: _spacingMinimum,
-          runSpacing: _spacingMinimum,
-          children: [
-            ElevatedButton.icon(
-              onPressed: () => _openCourseEditor(context),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Novo Curso'),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _showEnrollDialog(context),
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('Inscrever Usuário'),
-            ),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.download_rounded),
-              label: const Text('Exportar'),
-            ),
-          ],
-        );
-
-        if (constraints.maxWidth < 700) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              title,
-              const SizedBox(height: _spacingSmall),
-              actions,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: title),
-            Flexible(child: Align(alignment: Alignment.topRight, child: actions)),
-          ],
-        );
-      },
+  /// Barra de ações acima da busca (frame do Figma: botão primário à
+  /// esquerda, ações secundárias na sequência).
+  Widget _buildActions(BuildContext context) {
+    return Wrap(
+      spacing: _spacingMinimum,
+      runSpacing: _spacingMinimum,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () => _openCourseEditor(context),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Novo Curso'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _showEnrollDialog(context),
+          icon: const Icon(Icons.person_add_alt_1_rounded),
+          label: const Text('Inscrever Usuário'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.download_rounded),
+          label: const Text('Exportar'),
+        ),
+      ],
     );
   }
 
@@ -372,7 +356,9 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth < 700 ? 2 : 4;
+        final isCompact = constraints.maxWidth < AppBreakpoints.medium;
+        final columns = isCompact ? 2 : 4;
+
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -386,10 +372,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           itemBuilder: (context, index) {
             final stat = stats[index];
             return Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _spacingSmall,
-                vertical: _spacingSmall,
-              ),
+              padding: EdgeInsets.all(isCompact ? 12.0 : _spacingSmall),
               decoration: BoxDecoration(
                 color: EducanoColors.background,
                 borderRadius: BorderRadius.circular(_radius),
@@ -404,14 +387,16 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
               child: Row(
                 children: [
                   CircleAvatar(
+                    radius: isCompact ? 16 : 20,
                     backgroundColor:
                         (stat['color'] as Color).withValues(alpha: 0.15),
                     child: Icon(
                       stat['icon'] as IconData,
+                      size: isCompact ? 18 : 24,
                       color: stat['color'] as Color,
                     ),
                   ),
-                  const SizedBox(width: _spacingSmall),
+                  SizedBox(width: isCompact ? _spacingMinimum : _spacingSmall),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,16 +404,17 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                       children: [
                         Text(
                           stat['label'] as String,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: EducanoColors.textSecondary,
                             fontSize: 12,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           stat['value'] as String,
-                          style: const TextStyle(
-                            fontSize: 22,
+                          style: TextStyle(
+                            fontSize: isCompact ? 20 : 22,
                             fontWeight: FontWeight.bold,
                             color: EducanoColors.textPrimary,
                           ),
@@ -446,26 +432,22 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
   }
 
   Widget _buildSearchAndFilters() {
-    final filters = Wrap(
-      spacing: _spacingSmall,
-      runSpacing: _spacingSmall,
-      children: [
-        _buildFilterDropdown(
+    Widget statusFilter({double? width}) => _buildFilterDropdown(
+          width: width,
           value: _selectedStatus,
           options: const ['Todos', 'Ativo', 'Inativo', 'Rascunho'],
           onChanged: (value) => setState(() => _selectedStatus = value!),
-        ),
-        _buildFilterDropdown(
+        );
+    Widget categoryFilter({double? width}) => _buildFilterDropdown(
+          width: width,
           value: _selectedCategory,
           options: _categoryOptions,
           onChanged: (value) => setState(() => _selectedCategory = value!),
-        ),
-      ],
-    );
+        );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 700;
+        final isNarrow = constraints.maxWidth < AppBreakpoints.medium;
         final searchField = TextField(
           controller: _searchController,
           onChanged: (value) => setState(() => _searchQuery = value),
@@ -475,13 +457,20 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           ),
         );
 
+        // Mobile: busca em cima e os dois filtros dividindo a linha de baixo.
         if (isNarrow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               searchField,
               const SizedBox(height: _spacingSmall),
-              filters,
+              Row(
+                children: [
+                  Expanded(child: statusFilter()),
+                  const SizedBox(width: _spacingSmall),
+                  Expanded(child: categoryFilter()),
+                ],
+              ),
             ],
           );
         }
@@ -490,7 +479,9 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           children: [
             Expanded(child: searchField),
             const SizedBox(width: _spacingSmall),
-            filters,
+            statusFilter(width: 170),
+            const SizedBox(width: _spacingSmall),
+            categoryFilter(width: 170),
           ],
         );
       },
@@ -501,8 +492,11 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     required String value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    double? width,
   }) {
     return Container(
+      width: width,
+      height: 56,
       padding: const EdgeInsets.symmetric(horizontal: _spacingSmall),
       decoration: BoxDecoration(
         color: EducanoColors.searchBackground,
@@ -512,8 +506,14 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
+          isExpanded: true,
           items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .map(
+                (o) => DropdownMenuItem(
+                  value: o,
+                  child: Text(o, overflow: TextOverflow.ellipsis),
+                ),
+              )
               .toList(),
           onChanged: onChanged,
         ),
@@ -523,53 +523,48 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
 
   Widget _buildCoursesList(BuildContext context) {
     final courses = _filteredCourses;
-    return Container(
-      decoration: BoxDecoration(
-        color: EducanoColors.background,
-        borderRadius: BorderRadius.circular(_radius),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(_spacingMedium),
-            child: Text(
-              'Lista de Cursos (${courses.length})',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          const Divider(height: 1),
-          if (courses.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(_spacingLarge),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 48,
-                      color: EducanoColors.textSecondary,
-                    ),
-                    SizedBox(height: _spacingSmall),
-                    Text(
-                      'Nenhum curso encontrado.',
-                      style: TextStyle(color: EducanoColors.textSecondary),
-                    ),
-                  ],
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Lista de Cursos (${courses.length})',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: _spacingSmall),
+        if (courses.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(_spacingLarge),
+            decoration: BoxDecoration(
+              color: EducanoColors.background,
+              borderRadius: BorderRadius.circular(_radius),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
                 ),
-              ),
-            )
-          else
-            ...courses.map((course) => _buildCourseItem(context, course)),
-        ],
-      ),
+              ],
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 48,
+                  color: EducanoColors.textSecondary,
+                ),
+                SizedBox(height: _spacingSmall),
+                Text(
+                  'Nenhum curso encontrado.',
+                  style: TextStyle(color: EducanoColors.textSecondary),
+                ),
+              ],
+            ),
+          )
+        else
+          ...courses.map((course) => _buildCourseItem(context, course)),
+      ],
     );
   }
 
@@ -585,145 +580,167 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     final progress =
         (course['enrolled'] as int) / (course['capacity'] as int);
 
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _showCourseSummaryDialog(context, course),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _spacingMedium,
-                vertical: _spacingSmall,
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 560;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: EducanoColors.primaryBlue
-                                .withValues(alpha: 0.12),
-                            child: const Icon(
-                              Icons.menu_book_rounded,
-                              color: EducanoColors.primaryBlue,
+    return Container(
+      margin: const EdgeInsets.only(bottom: _spacingSmall),
+      decoration: BoxDecoration(
+        color: EducanoColors.background,
+        borderRadius: BorderRadius.circular(_radius),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_radius),
+          onTap: () => _showCourseSummaryDialog(context, course),
+          child: Padding(
+            padding: const EdgeInsets.all(_spacingSmall),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow =
+                    constraints.maxWidth < AppBreakpoints.compact;
+
+                final enrollButton = ElevatedButton(
+                  onPressed: () => _showEnrollDialog(
+                    context,
+                    courseName: course['name'] as String,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _spacingSmall,
+                      vertical: 10,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Inscrever',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor:
+                              EducanoColors.primaryBlue.withValues(alpha: 0.12),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: EducanoColors.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: _spacingSmall),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                course['name'] as String,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: EducanoColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${course['category']}  ·  Criado em '
+                                '${course['createdAt']}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: EducanoColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isNarrow) ...[
+                          const SizedBox(width: _spacingSmall),
+                          _buildStatusBadge(
+                            course['status'] as String,
+                            statusColor,
+                          ),
+                          const SizedBox(width: _spacingSmall),
+                          Text(
+                            '${course['enrolled']}/${course['capacity']}',
+                            style: const TextStyle(
+                              color: EducanoColors.textSecondary,
                             ),
                           ),
                           const SizedBox(width: _spacingSmall),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  course['name'] as String,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: EducanoColors.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  '${course['category']}  ·  Criado em ${course['createdAt']}',
-                                  style: const TextStyle(
-                                    color: EducanoColors.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          enrollButton,
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: EducanoColors.textSecondary,
                           ),
-                          if (!isNarrow) ...[
-                            _buildStatusBadge(
-                              course['status'] as String,
-                              statusColor,
-                            ),
-                            const SizedBox(width: _spacingSmall),
-                            Text(
-                              '${course['enrolled']}/${course['capacity']}',
-                              style: const TextStyle(
-                                color: EducanoColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: _spacingMinimum),
-                            IconButton(
-                              tooltip: 'Inscrever usuário neste curso',
-                              icon: const Icon(
-                                Icons.person_add_alt_1_rounded,
-                                color: EducanoColors.primaryBlue,
-                              ),
-                              onPressed: () => _showEnrollDialog(
-                                context,
-                                courseName: course['name'] as String,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: EducanoColors.textSecondary,
-                            ),
-                          ],
                         ],
+                      ],
+                    ),
+                    const SizedBox(height: _spacingMinimum),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: EducanoColors.border,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          EducanoColors.primaryBlue,
+                        ),
+                        minHeight: 6,
                       ),
-                      const SizedBox(height: _spacingMinimum),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: EducanoColors.border,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            EducanoColors.primaryBlue,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${(progress * 100).toStringAsFixed(0)}% de capacidade '
+                      'preenchida',
+                      style: const TextStyle(
+                        color: EducanoColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                    // Mobile: status, vagas e ação vão para uma linha própria.
+                    if (isNarrow) ...[
+                      const SizedBox(height: _spacingSmall),
+                      Row(
+                        children: [
+                          _buildStatusBadge(
+                            course['status'] as String,
+                            statusColor,
                           ),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${(progress * 100).toStringAsFixed(0)}% de capacidade preenchida',
-                        style: const TextStyle(
-                          color: EducanoColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (isNarrow) ...[
-                        const SizedBox(height: _spacingMinimum),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildStatusBadge(
-                              course['status'] as String,
-                              statusColor,
-                            ),
-                            Text(
-                              '${course['enrolled']}/${course['capacity']} vagas',
+                          const SizedBox(width: _spacingMinimum),
+                          Expanded(
+                            child: Text(
+                              '${course['enrolled']}/${course['capacity']} '
+                              'vagas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: EducanoColors.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Inscrever usuário neste curso',
-                              icon: const Icon(
-                                Icons.person_add_alt_1_rounded,
-                                color: EducanoColors.primaryBlue,
-                              ),
-                              onPressed: () => _showEnrollDialog(
-                                context,
-                                courseName: course['name'] as String,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          enrollButton,
+                        ],
+                      ),
                     ],
-                  );
-                },
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ),
-        const Divider(height: 1, indent: _spacingMedium),
-      ],
+      ),
     );
   }
 

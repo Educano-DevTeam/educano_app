@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 
 const double _spacingMinimum = 8;
@@ -192,20 +193,27 @@ class _AccountPlanViewState extends State<AccountPlanView> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(_spacingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context),
-          const SizedBox(height: _spacingLarge),
-          _buildCurrentPlanBanner(context),
-          const SizedBox(height: _spacingLarge),
-          _buildPlanCards(context),
-          const SizedBox(height: _spacingLarge),
-          _buildFaq(context),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compact;
+        final sectionGap = isCompact ? _spacingMedium : _spacingLarge;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isCompact ? _spacingSmall : _spacingMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              SizedBox(height: sectionGap),
+              _buildCurrentPlanBanner(context),
+              SizedBox(height: sectionGap),
+              _buildPlanCards(context),
+              SizedBox(height: sectionGap),
+              _buildFaq(context),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -232,68 +240,84 @@ class _AccountPlanViewState extends State<AccountPlanView> {
     final plan = _plans.firstWhere((p) => p['name'] == _currentPlan);
     final color = plan['color'] as Color;
 
-    return Container(
-      padding: const EdgeInsets.all(_spacingMedium),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: color.withValues(alpha: 0.2),
-            child: Icon(
-              plan['icon'] as IconData,
-              color: color,
-              size: 24,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compact;
+
+        return Container(
+          padding: EdgeInsets.all(isCompact ? _spacingSmall : _spacingMedium),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(_radius),
+            border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
-          const SizedBox(width: _spacingSmall),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Plano Atual',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: EducanoColors.textSecondary,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: isCompact ? 20 : 24,
+                backgroundColor: color.withValues(alpha: 0.2),
+                child: Icon(
+                  plan['icon'] as IconData,
+                  color: color,
+                  size: isCompact ? 20 : 24,
+                ),
+              ),
+              const SizedBox(width: _spacingSmall),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Plano Atual',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: EducanoColors.textSecondary,
+                          ),
+                    ),
+                    Text(
+                      _currentPlan,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: isCompact ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                        color: color,
                       ),
+                    ),
+                  ],
                 ),
-                Text(
-                  _currentPlan,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+              ),
+              const SizedBox(width: _spacingMinimum),
+              Text(
+                plan['price'] as String,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: isCompact ? 13 : null,
+                  color: EducanoColors.textPrimary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Text(
-            plan['price'] as String,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: EducanoColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildPlanCards(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 700;
+        // Abaixo de 900px os três planos não cabem lado a lado sem espremer
+        // a lista de benefícios, então empilham (frame mobile do Figma).
+        final isNarrow = constraints.maxWidth < AppBreakpoints.medium;
         if (isNarrow) {
           return Column(
             children: _plans
                 .map(
                   (plan) => Padding(
-                    padding: const EdgeInsets.only(bottom: _spacingSmall),
+                    padding: const EdgeInsets.only(
+                      top: _spacingSmall,
+                      bottom: _spacingSmall,
+                    ),
                     child: _buildPlanCard(context, plan),
                   ),
                 )
@@ -508,7 +532,10 @@ class _AccountPlanViewState extends State<AccountPlanView> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(_spacingMedium),
+      padding: const EdgeInsets.symmetric(
+        horizontal: _spacingSmall,
+        vertical: _spacingMedium,
+      ),
       decoration: BoxDecoration(
         color: EducanoColors.background,
         borderRadius: BorderRadius.circular(_radius),
@@ -524,29 +551,38 @@ class _AccountPlanViewState extends State<AccountPlanView> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const Divider(),
-          ...faqs.map(
-            (faq) => ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: Text(
-                faq['question'] as String,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: EducanoColors.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: _spacingSmall),
-                  child: Text(
-                    faq['answer'] as String,
-                    style: const TextStyle(
-                      color: EducanoColors.textSecondary,
-                      fontSize: 13,
+          // Material próprio: o ExpansionTile usa ListTile, que precisa de um
+          // Material mais próximo que o Container decorado desta seção.
+          Material(
+            type: MaterialType.transparency,
+            child: Column(
+              children: faqs
+                  .map(
+                    (faq) => ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        faq['question'] as String,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: EducanoColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: _spacingSmall),
+                          child: Text(
+                            faq['answer'] as String,
+                            style: const TextStyle(
+                              color: EducanoColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
+                  )
+                  .toList(),
             ),
           ),
         ],

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
 const double _spacingMedium = 24;
-const double _spacingLarge = 32;
 
 const double _radius = 18;
 
@@ -211,13 +211,16 @@ class _StudentStoreViewState extends State<StudentStoreView>
 
   @override
   Widget build(BuildContext context) {
+    final isCompact =
+        MediaQuery.sizeOf(context).width < AppBreakpoints.compact;
+
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _spacingMedium,
-            _spacingMedium,
-            _spacingMedium,
+          padding: EdgeInsets.fromLTRB(
+            isCompact ? _spacingSmall : _spacingMedium,
+            isCompact ? _spacingSmall : _spacingMedium,
+            isCompact ? _spacingSmall : _spacingMedium,
             0,
           ),
           child: Column(
@@ -276,112 +279,217 @@ class _StudentStoreViewState extends State<StudentStoreView>
   }
 
   Widget _buildCoinBalance() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: _spacingMedium,
-        vertical: _spacingSmall,
-      ),
-      decoration: BoxDecoration(
-        gradient: EducanoColors.primaryGradient,
-        borderRadius: BorderRadius.circular(_radius),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.account_balance_wallet_rounded,
-            color: EducanoColors.textWhite,
-            size: 32,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compact;
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? _spacingSmall : _spacingMedium,
+            vertical: _spacingSmall,
           ),
-          const SizedBox(width: _spacingSmall),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Saldo de Moedas',
-                style: TextStyle(
-                  color: EducanoColors.textWhite,
-                  fontSize: 13,
-                ),
-              ),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.monetization_on_rounded,
-                    color: EducanoColors.accentYellow,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$_playerCoins',
-                    style: const TextStyle(
-                      color: EducanoColors.textWhite,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+          decoration: BoxDecoration(
+            gradient: EducanoColors.primaryGradient,
+            borderRadius: BorderRadius.circular(_radius),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 4),
               ),
             ],
           ),
-          const Spacer(),
-          const Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Como ganhar mais?',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: EducanoColors.textWhite,
-                    fontSize: 11,
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_balance_wallet_rounded,
+                color: EducanoColors.textWhite,
+                size: isCompact ? 26 : 32,
+              ),
+              const SizedBox(width: _spacingSmall),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Saldo de Moedas',
+                      style: TextStyle(
+                        color: EducanoColors.textWhite,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.monetization_on_rounded,
+                          color: EducanoColors.accentYellow,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$_playerCoins',
+                          style: TextStyle(
+                            color: EducanoColors.textWhite,
+                            fontSize: isCompact ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // No mobile o texto de apoio sai para o saldo não quebrar.
+              if (!isCompact)
+                const Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Como ganhar mais?',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: EducanoColors.textWhite,
+                          fontSize: 11,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Complete cursos e atividades',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: EducanoColors.textWhite,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Complete cursos e atividades',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: EducanoColors.textWhite,
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildStoreTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(_spacingMedium),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth < 500
-              ? 1
-              : constraints.maxWidth < 900
-                  ? 2
-                  : 3;
-          return GridView.builder(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Mobile: itens em lista compacta (frame mobile do Figma).
+        if (constraints.maxWidth < AppBreakpoints.compact) {
+          return ListView.separated(
+            padding: const EdgeInsets.all(_spacingSmall),
+            itemCount: _storeItems.length,
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: _spacingMinimum),
+            itemBuilder: (context, index) =>
+                _buildStoreItemRow(_storeItems[index]),
+          );
+        }
+
+        final columns =
+            constraints.maxWidth < AppBreakpoints.medium ? 2 : 3;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(_spacingMedium),
+          child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
               crossAxisSpacing: _spacingSmall,
               mainAxisSpacing: _spacingSmall,
-              childAspectRatio: 1.5,
+              mainAxisExtent: 172,
             ),
             itemCount: _storeItems.length,
             itemBuilder: (context, index) =>
                 _buildStoreItemCard(_storeItems[index]),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  /// Versão em linha do item da loja, usada no mobile.
+  Widget _buildStoreItemRow(Map<String, dynamic> item) {
+    final canAfford = _playerCoins >= (item['price'] as int);
+    final color = item['color'] as Color;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: EducanoColors.background,
+        borderRadius: BorderRadius.circular(_radius),
+        border: Border.all(color: EducanoColors.border),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Icon(item['icon'] as IconData, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item['name'] as String,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: EducanoColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.monetization_on_rounded,
+                      color: canAfford
+                          ? EducanoColors.accentYellow
+                          : EducanoColors.textSecondary,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${item['price']}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: canAfford
+                            ? EducanoColors.textPrimary
+                            : EducanoColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: _spacingMinimum),
+          ElevatedButton(
+            onPressed: canAfford ? () => _buyItem(item) : null,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              canAfford ? 'Comprar' : 'Sem saldo',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -533,14 +641,19 @@ class _StudentStoreViewState extends State<StudentStoreView>
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(_spacingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _inventoryItems
-            .map((item) => _buildInventoryItemCard(item))
-            .toList(),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compact;
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isCompact ? _spacingSmall : _spacingMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _inventoryItems
+                .map((item) => _buildInventoryItemCard(item))
+                .toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -605,11 +718,15 @@ class _StudentStoreViewState extends State<StudentStoreView>
               children: [
                 Row(
                   children: [
-                    Text(
-                      item['name'] as String,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: EducanoColors.textPrimary,
+                    Flexible(
+                      child: Text(
+                        item['name'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: EducanoColors.textPrimary,
+                        ),
                       ),
                     ),
                     if (isActive) ...[
@@ -637,6 +754,8 @@ class _StudentStoreViewState extends State<StudentStoreView>
                 ),
                 Text(
                   item['description'] as String,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: EducanoColors.textSecondary,
                     fontSize: 12,
@@ -645,6 +764,7 @@ class _StudentStoreViewState extends State<StudentStoreView>
               ],
             ),
           ),
+          const SizedBox(width: _spacingMinimum),
           ElevatedButton(
             onPressed: isActive
                 ? null
