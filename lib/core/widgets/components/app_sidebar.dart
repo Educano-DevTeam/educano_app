@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../theme/theme.dart';
-import '../navigation/app_menu.dart';
+import '../../theme/theme.dart';
+import '../../navigation/app_menu.dart';
 import 'sidebar_item.dart';
 import 'sidebar_section.dart';
 

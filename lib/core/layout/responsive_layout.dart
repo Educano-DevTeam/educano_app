@@ -4,12 +4,12 @@ import '../constants/app_breakpoints.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   final Widget mobileBody;
-  final Widget contentMaxWidht;
+  final Widget desktopBody;
 
   const ResponsiveLayout({
     super.key, 
     required this.mobileBody, 
-    required this.contentMaxWidht,
+    required this.desktopBody,
   });
 
   @override
@@ -19,7 +19,7 @@ class ResponsiveLayout extends StatelessWidget {
         if (constraints.maxWidth  <= AppBreakpoints.mobile) {
           return mobileBody;
         } else {
-          return contentMaxWidht;
+          return desktopBody;
         }
       },
     );

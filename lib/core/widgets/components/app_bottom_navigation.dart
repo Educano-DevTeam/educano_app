@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/educano_colors.dart';
+import '../../theme/educano_colors.dart';
 import '../../../core/navigation/app_menu.dart';
 
 class AppBottomNavigation extends StatelessWidget {

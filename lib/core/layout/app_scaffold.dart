@@ -4,9 +4,9 @@ import '../navigation/app_menu.dart';
 import '../theme/theme.dart';
 import 'responsive_layout.dart';
 
-import '../widgets/app_header.dart';
-import '../widgets/app_sidebar.dart';
-import '../widgets/app_bottom_navigation.dart';
+import '../widgets/components/app_header.dart';
+import '../widgets/components/app_sidebar.dart';
+import '../widgets/components/app_bottom_navigation.dart';
 
 class AppScaffold extends StatelessWidget {
   final Widget child;
@@ -63,7 +63,7 @@ class AppScaffold extends StatelessWidget {
         ),
       ),
 
-      contentMaxWidht: Scaffold(
+      desktopBody: Scaffold(
         backgroundColor: EducanoColors.background,
         key: scaffoldKey,
 
