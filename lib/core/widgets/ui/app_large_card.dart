@@ -4,11 +4,12 @@ import '../../theme/theme.dart';
 
 class AppLargeCard extends StatelessWidget {
   final Widget child;
-
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
 
-  final double height;
+  /// Altura mínima do card.
+  final double minHeight;
+
   final Color? color;
   final double borderRadius;
 
@@ -17,7 +18,7 @@ class AppLargeCard extends StatelessWidget {
     required this.child,
     this.padding,
     this.margin,
-    this.height = 280,
+    this.minHeight = 280,
     this.color,
     this.borderRadius = 18,
   });
@@ -26,7 +27,9 @@ class AppLargeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: height,
+      constraints: BoxConstraints(
+        minHeight: minHeight,
+      ),
       margin: margin,
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(

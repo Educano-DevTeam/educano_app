@@ -1,71 +1,80 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/theme.dart';
-
 class AppListItem extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final List<String> columns;
-
-  final IconData? icon;
-  final bool showIcon;
-
+  final Widget? leading;
+  final Widget? content;
   final Widget? trailing;
+
+  final EdgeInsetsGeometry padding;
+
+  final double leadingSpacing;
+  final double trailingSpacing;
+
+  final VoidCallback? onTap;
+
+  final Color? backgroundColor;
+  final BorderRadius? borderRadius;
 
   const AppListItem({
     super.key,
-    required this.data,
-    required this.columns,
-    this.icon,
-    this.showIcon = true,
+    this.leading,
+    this.content,
     this.trailing,
+    this.padding = const EdgeInsets.symmetric(vertical: 6),
+    this.leadingSpacing = 10,
+    this.trailingSpacing = 6,
+    this.onTap,
+    this.backgroundColor,
+    this.borderRadius,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
-      decoration: const BoxDecoration(
-        color: EducanoColors.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: EducanoColors.divider,
-          ),
-        ),
-      ),
+    Widget item = Padding(
+      padding: padding,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showIcon) ...[
-            SizedBox(
-              width: 40,
-              child: Icon(
-                icon ?? Icons.circle_outlined,
-                size: 20,
-                color: EducanoColors.textSecondary,
-              ),
-            ),
-            const SizedBox(width: 12),
+          if (leading != null) ...[
+            leading!,
+            SizedBox(width: leadingSpacing),
           ],
 
-          ...columns.map(
-            (column) {
-              return Expanded(
-                child: Text(
-                  data[column]?.toString() ?? "-",
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            },
-          ),
+          if (content != null)
+            Expanded(
+              child: content!,
+            ),
 
           if (trailing != null) ...[
-            const SizedBox(width: 12),
+            SizedBox(width: trailingSpacing),
             trailing!,
           ],
         ],
       ),
     );
+
+    if (backgroundColor != null || borderRadius != null) {
+      item = Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: borderRadius,
+        ),
+        child: item,
+      );
+    }
+
+    if (onTap != null) {
+      item = Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: borderRadius,
+          child: item,
+        ),
+      );
+    }
+
+    return item;
   }
 }

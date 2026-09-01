@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
@@ -7,6 +9,9 @@ import '../../../core/widgets/ui/app_large_card.dart';
 import '../../../core/widgets/ui/app_button.dart';
 import '../../../core/widgets/ui/app_small_button.dart';
 import '../../../core/widgets/ui/app_fab_menu.dart';
+import '../../../core/widgets/ui/app_list.dart';
+import '../../../core/widgets/ui/app_list_item.dart';
+import '../../../core/widgets/charts/revenue_chart.dart';
 
 class DashboardHomeView extends StatelessWidget {
   const DashboardHomeView({super.key});
@@ -130,27 +135,6 @@ class DashboardHomeView extends StatelessWidget {
   }
 
   // ============================================================
-  // TAMANHO TELA
-  // ============================================================
-
-  int _getGridColumns(
-    double width, {
-    required int mobile,
-    required int tablet,
-    required int desktop,
-  }) {
-    if (width < AppBreakpoints.mobile) {
-      return mobile;
-    }
-
-    if (width < AppBreakpoints.desktop) {
-      return tablet;
-    }
-
-    return desktop;
-  }
-
-  // ============================================================
   // SAUDAÇÃO
   // ============================================================
 
@@ -222,45 +206,44 @@ class DashboardHomeView extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth <= AppBreakpoints.mobile;
+        final width = constraints.maxWidth;
 
-        final columns = _getGridColumns(
-          constraints.maxWidth,
-          mobile: 1,
-          tablet: 2,
-          desktop: 4,
-        );
+        // ============================================================
+        // CELULAR
+        // ============================================================
 
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.45,
-          ),
-
-          itemCount: statistics.length,
-
-          itemBuilder: (context, index) {
-            // ...
-          },
-        );
-
-        if (isMobile) {
+        if (width < 600) {
           return Column(
-            children: statistics
-                .map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildStatisticCard(context, item, mobile: true),
-                  ),
-                )
-                .toList(),
+            children: [
+              for (int i = 0; i < statistics.length; i++) ...[
+                _buildStatisticCard(context, statistics[i], mobile: true),
+
+                if (i != statistics.length - 1) const SizedBox(height: 10),
+              ],
+            ],
           );
         }
+
+        // ============================================================
+        // TABLET / TELA MÉDIA
+        // ============================================================
+
+        if (width < 1100) {
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: statistics.map((item) {
+              return SizedBox(
+                width: (width - 12) / 2,
+                child: _buildStatisticCard(context, item, mobile: false),
+              );
+            }).toList(),
+          );
+        }
+
+        // ============================================================
+        // DESKTOP
+        // ============================================================
 
         return Row(
           children: statistics.asMap().entries.map((entry) {
@@ -288,57 +271,64 @@ class DashboardHomeView extends StatelessWidget {
   }) {
     return AppCard(
       padding: EdgeInsets.all(mobile ? 16 : 14),
-      child: SizedBox(
-        height: mobile ? 105 : 112,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
                   item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
-                Icon(item.icon, color: item.color, size: 25),
-              ],
-            ),
-
-            const Spacer(),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  item.value,
-                  style: TextStyle(
-                    fontSize: mobile ? 38 : 34,
-                    fontWeight: FontWeight.bold,
-                    color: EducanoColors.textPrimary,
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                _buildVariation(item.variation, item.variationColor),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            Text(
-              item.footer,
-              style: const TextStyle(
-                fontSize: 11,
-                color: EducanoColors.textSecondary,
               ),
+
+              const SizedBox(width: 8),
+
+              Icon(item.icon, color: item.color, size: 25),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                item.value,
+                style: TextStyle(
+                  fontSize: mobile ? 38 : 34,
+                  fontWeight: FontWeight.bold,
+                  color: EducanoColors.textPrimary,
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              Flexible(
+                child: _buildVariation(item.variation, item.variationColor),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            item.footer,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: EducanoColors.textSecondary,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -366,72 +356,10 @@ class DashboardHomeView extends StatelessWidget {
   // ============================================================
 
   Widget _buildRevenueCard(BuildContext context) {
-    return AppLargeCard(
-      height: 310,
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Total de Ganhos',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-
-          const SizedBox(height: 4),
-
-          const Expanded(child: _RevenueChart()),
-
-          const SizedBox(height: 8),
-
-          _buildRevenueSummary(),
-
-          const SizedBox(height: 6),
-
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(color: EducanoColors.border),
-              ),
-              child: const Text(
-                'Total Geral:          R\$ 480.594,75',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRevenueSummary() {
-    final items = [
-      ('R\$ 243.512,03', EducanoColors.primaryBlue, Icons.person_rounded),
-      ('R\$ 174.203,72', const Color(0xFFE94B0C), Icons.shield_rounded),
-      ('R\$ 62.570,00', Colors.grey, Icons.menu_book_rounded),
-      ('R\$ 0,00', EducanoColors.accentYellow, Icons.school_rounded),
-    ];
-
-    return Row(
-      children: items.map((item) {
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: AppSmallButton(
-              text: item.$1,
-              icon: item.$3,
-              color: Colors.white,
-              textColor: EducanoColors.textPrimary,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }).toList(),
+    return const AppLargeCard(
+      minHeight: 360,
+      padding: EdgeInsets.fromLTRB(18, 14, 18, 12),
+      child: RevenueChart(),
     );
   }
 
@@ -457,26 +385,6 @@ class DashboardHomeView extends StatelessWidget {
             const SizedBox(height: 4),
 
             const Expanded(child: _UsersDonutChart()),
-
-            Row(
-              children: [
-                _buildArrowButton(Icons.chevron_left_rounded),
-
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Planos',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-                _buildArrowButton(Icons.chevron_right_rounded),
-              ],
-            ),
           ],
         ),
       ),
@@ -545,56 +453,54 @@ class DashboardHomeView extends StatelessWidget {
 
           const Divider(height: 12),
 
-          ...activities.map((activity) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 17,
-                    backgroundColor: activity.$5.withValues(alpha: 0.18),
-                    child: Icon(activity.$4, color: activity.$5, size: 18),
-                  ),
+          AppList(
+            itemCount: activities.length,
+            itemSpacing: 0,
+            itemBuilder: (context, index) {
+              final activity = activities[index];
 
-                  const SizedBox(width: 10),
+              return AppListItem(
+                padding: const EdgeInsets.symmetric(vertical: 5),
 
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          activity.$1,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          activity.$2,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: EducanoColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                leading: CircleAvatar(
+                  radius: 17,
+                  backgroundColor: activity.$5.withValues(alpha: 0.18),
+                  child: Icon(activity.$4, color: activity.$5, size: 18),
+                ),
+
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      activity.$1,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(width: 6),
-
-                  Text(
-                    activity.$3,
-                    style: const TextStyle(
-                      fontSize: 8,
-                      color: EducanoColors.textSecondary,
+                    Text(
+                      activity.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: EducanoColors.textSecondary,
+                      ),
                     ),
+                  ],
+                ),
+
+                trailing: Text(
+                  activity.$3,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    color: EducanoColors.textSecondary,
                   ),
-                ],
-              ),
-            );
-          }),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -638,60 +544,47 @@ class DashboardHomeView extends StatelessWidget {
 
             const Divider(height: 12),
 
-            Expanded(
-              child: ListView.builder(
-                itemCount: questions.length,
-                itemBuilder: (context, index) {
-                  final question = questions[index];
+            AppList(
+              height: 240,
+              itemCount: questions.length,
+              itemBuilder: (context, index) {
+                final question = questions[index];
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const CircleAvatar(
-                          radius: 16,
-                          backgroundColor: EducanoColors.secondaryBlue,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 18,
-                          ),
+                return AppListItem(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+
+                  leading: const CircleAvatar(
+                    radius: 16,
+                    backgroundColor: EducanoColors.secondaryBlue,
+                    child: Icon(Icons.person, color: Colors.white, size: 18),
+                  ),
+
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question.$1,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
 
-                        const SizedBox(width: 8),
+                      const SizedBox(height: 2),
 
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                question.$1,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-
-                              const SizedBox(height: 2),
-
-                              Text(
-                                question.$2,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 8,
-                                  color: EducanoColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
+                      Text(
+                        question.$2,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 8,
+                          color: EducanoColors.textSecondary,
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
 
             const Center(
@@ -848,172 +741,277 @@ class _StatisticData {
 }
 
 // ================================================================
-// GRÁFICO DE GANHOS
-// ================================================================
-
-class _RevenueChart extends StatelessWidget {
-  const _RevenueChart();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _RevenueChartPainter(),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _RevenueChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = Colors.grey.shade300
-      ..strokeWidth = 1;
-
-    final bluePaint = Paint()
-      ..color = EducanoColors.primaryBlue
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final orangePaint = Paint()
-      ..color = const Color(0xFFE94B0C)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final greyPaint = Paint()
-      ..color = Colors.grey
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    const rows = 5;
-
-    for (int i = 0; i <= rows; i++) {
-      final y = size.height * i / rows;
-
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final bluePoints = [
-      Offset(0, size.height * .20),
-      Offset(size.width * .10, size.height * .25),
-      Offset(size.width * .20, size.height * .35),
-      Offset(size.width * .30, size.height * .36),
-      Offset(size.width * .40, size.height * .28),
-      Offset(size.width * .50, size.height * .32),
-      Offset(size.width * .60, size.height * .23),
-      Offset(size.width * .70, size.height * .15),
-      Offset(size.width * .80, size.height * .05),
-      Offset(size.width * .90, size.height * .02),
-    ];
-
-    final orangePoints = [
-      Offset(0, size.height * .38),
-      Offset(size.width * .10, size.height * .55),
-      Offset(size.width * .20, size.height * .45),
-      Offset(size.width * .30, size.height * .65),
-      Offset(size.width * .40, size.height * .55),
-      Offset(size.width * .50, size.height * .78),
-      Offset(size.width * .60, size.height * .50),
-      Offset(size.width * .70, size.height * .47),
-      Offset(size.width * .80, size.height * .22),
-      Offset(size.width * .90, size.height * .12),
-    ];
-
-    final greyPoints = [
-      Offset(0, size.height * .55),
-      Offset(size.width * .10, size.height * .60),
-      Offset(size.width * .20, size.height * .70),
-      Offset(size.width * .30, size.height * .60),
-      Offset(size.width * .40, size.height * .58),
-      Offset(size.width * .50, size.height * .68),
-      Offset(size.width * .60, size.height * .68),
-      Offset(size.width * .70, size.height * .58),
-      Offset(size.width * .80, size.height * .55),
-      Offset(size.width * .90, size.height * .54),
-    ];
-
-    _drawLine(canvas, bluePoints, bluePaint);
-    _drawLine(canvas, orangePoints, orangePaint);
-    _drawLine(canvas, greyPoints, greyPaint);
-  }
-
-  void _drawLine(Canvas canvas, List<Offset> points, Paint paint) {
-    final path = Path();
-
-    path.moveTo(points.first.dx, points.first.dy);
-
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-// ================================================================
 // GRÁFICO DE USUÁRIOS
 // ================================================================
 
-class _UsersDonutChart extends StatelessWidget {
+enum _DonutType { plans, courses, activity }
+
+class _DonutData {
+  final String label;
+  final double value;
+  final Color color;
+
+  const _DonutData({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+}
+
+class _UsersDonutChart extends StatefulWidget {
   const _UsersDonutChart();
 
   @override
+  State<_UsersDonutChart> createState() => _UsersDonutChartState();
+}
+
+class _UsersDonutChartState extends State<_UsersDonutChart> {
+  int _currentType = 0;
+
+  // ================================================================
+  // TIPOS DE GRÁFICO
+  // ================================================================
+
+  static const _types = [
+    _DonutType.plans,
+    _DonutType.courses,
+    _DonutType.activity,
+  ];
+
+  _DonutType get _type => _types[_currentType];
+
+  void _previousType() {
+    setState(() {
+      _currentType = (_currentType - 1 + _types.length) % _types.length;
+    });
+  }
+
+  void _nextType() {
+    setState(() {
+      _currentType = (_currentType + 1) % _types.length;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
+    final data = _getData();
+
+    return Column(
       children: [
         Expanded(
-          flex: 5,
-          child: CustomPaint(
-            painter: _DonutPainter(),
-            child: const SizedBox.expand(),
-          ),
-        ),
+          child: Row(
+            children: [
+              // ====================================================
+              // DONUT
+              // ====================================================
+              Expanded(
+                flex: 5,
+                child: CustomPaint(
+                  painter: _DonutPainter(data: data),
+                  child: const SizedBox.expand(),
+                ),
+              ),
 
-        Expanded(
-          flex: 4,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _LegendItem(color: EducanoColors.primaryBlue, label: 'Básico'),
-              _LegendItem(color: Color(0xFFE94B0C), label: 'Bronze'),
-              _LegendItem(color: Colors.grey, label: 'Prata'),
-              _LegendItem(color: EducanoColors.accentYellow, label: 'Ouro'),
+              // ====================================================
+              // LEGENDA
+              // ====================================================
+              Expanded(
+                flex: 4,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: data.map((item) {
+                    return _LegendItem(
+                      color: item.color,
+                      label: item.label,
+                      value: item.value,
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         ),
+
+        Row(
+          children: [
+            _buildArrowButton(
+              icon: Icons.chevron_left_rounded,
+              onPressed: _previousType,
+            ),
+
+            Expanded(
+              child: Center(
+                child: Text(
+                  _getTitle(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
+            _buildArrowButton(
+              icon: Icons.chevron_right_rounded,
+              onPressed: _nextType,
+            ),
+          ],
+        ),
       ],
     );
+  }
+
+  String _getTitle() {
+    switch (_type) {
+      case _DonutType.plans:
+        return 'Planos';
+
+      case _DonutType.courses:
+        return 'Cursos inscritos';
+
+      case _DonutType.activity:
+        return 'Frequência';
+    }
+  }
+
+  Widget _buildArrowButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 28,
+      height: 25,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTap: onPressed,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: EducanoColors.border),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(icon, size: 18, color: EducanoColors.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================================================================
+  // DADOS
+  // ================================================================
+
+  List<_DonutData> _getData() {
+    switch (_type) {
+      case _DonutType.plans:
+        return const [
+          _DonutData(
+            label: 'Básico',
+            value: 940,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(label: 'Bronze', value: 236, color: Color(0xFFE94B0C)),
+          _DonutData(label: 'Prata', value: 594, color: Colors.grey),
+          _DonutData(
+            label: 'Ouro',
+            value: 0,
+            color: EducanoColors.accentYellow,
+          ),
+        ];
+
+      case _DonutType.courses:
+        return const [
+          _DonutData(
+            label: '1 curso',
+            value: 480,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(
+            label: '2–3 cursos',
+            value: 720,
+            color: EducanoColors.successGreen,
+          ),
+          _DonutData(
+            label: '4–5 cursos',
+            value: 420,
+            color: EducanoColors.accentYellow,
+          ),
+          _DonutData(label: '6+ cursos', value: 150, color: Color(0xFFE94B0C)),
+        ];
+
+      case _DonutType.activity:
+        return const [
+          _DonutData(
+            label: 'Ativos hoje',
+            value: 780,
+            color: EducanoColors.successGreen,
+          ),
+          _DonutData(
+            label: '3–5 dias',
+            value: 320,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(
+            label: '6–14 dias',
+            value: 280,
+            color: EducanoColors.accentYellow,
+          ),
+          _DonutData(label: '15–30 dias', value: 210, color: Color(0xFFE94B0C)),
+          _DonutData(label: '+30 dias', value: 150, color: Colors.grey),
+        ];
+    }
   }
 }
 
 class _LegendItem extends StatelessWidget {
   final Color color;
   final String label;
+  final double value;
 
-  const _LegendItem({required this.color, required this.label});
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Container(
-            width: 13,
-            height: 13,
+            width: 11,
+            height: 11,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(3),
             ),
           ),
+
           const SizedBox(width: 7),
-          Text(label, style: const TextStyle(fontSize: 10)),
+
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9),
+            ),
+          ),
+
+          const SizedBox(width: 4),
+
+          Text(
+            value.toInt().toString(),
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: EducanoColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -1021,6 +1019,10 @@ class _LegendItem extends StatelessWidget {
 }
 
 class _DonutPainter extends CustomPainter {
+  final List<_DonutData> data;
+
+  const _DonutPainter({required this.data});
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -1036,20 +1038,18 @@ class _DonutPainter extends CustomPainter {
 
     const startAngle = -0.75;
 
-    final values = [0.53, 0.35, 0.12];
+    final total = data.fold<double>(0, (sum, item) => sum + item.value);
 
-    final colors = [
-      EducanoColors.primaryBlue,
-      const Color(0xFFE94B0C),
-      Colors.grey,
-    ];
+    if (total <= 0) return;
 
     double currentAngle = startAngle;
 
-    for (int i = 0; i < values.length; i++) {
-      paint.color = colors[i];
+    for (final item in data) {
+      if (item.value <= 0) continue;
 
-      final sweep = values[i] * 2 * 3.14159265359;
+      paint.color = item.color;
+
+      final sweep = (item.value / total) * 2 * math.pi;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -1064,7 +1064,7 @@ class _DonutPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }
