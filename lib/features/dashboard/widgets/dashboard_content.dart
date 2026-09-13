@@ -1,32 +1,41 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/navigation/app_menu.dart';
+
 import '../views/dashboard_home_view.dart';
+import '../views/dashboard_users_view.dart';
+import '../views/dashboard_courses_view.dart';
+import '../views/dashboard_questions_view.dart';
+import '../views/dashboard_items_view.dart';
 
 class DashboardContent extends StatelessWidget {
-   final AppMenu selectedMenu;
+  final AppMenu selectedMenu;
 
-   const DashboardContent({
-      super.key,
-      required this.selectedMenu,
-   });
+  const DashboardContent({
+    super.key,
+    required this.selectedMenu,
+  });
 
-   @override
-   Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
+    switch (selectedMenu) {
+      case AppMenu.dashboard:
+        return const DashboardHomeView();
 
-      switch(selectedMenu){
-         case AppMenu.dashboard:
-          return const DashboardHomeView();
-        // case AppMenu.users:
-        //   return const DashboardUsersView();
-        // case AppMenu.courses:
-        //   return const DashboardCoursesView();
-        // case AppMenu.questions:
-        //   return const DashboardQuestionsView();
-        // case AppMenu.store:
-        //   return const DashboardItemsView();
-        default:
-          return const SizedBox();
-      }
-   }
+      // case AppMenu.users:
+      //   return const DashboardUsersView();
+
+      // case AppMenu.courses:
+      //   return const DashboardCoursesView();
+
+      // case AppMenu.questions:
+      //   return const DashboardQuestionsView();
+
+      // case AppMenu.store:
+      //   return const DashboardItemsView();
+
+      default:
+        return const SizedBox();
+    }
+  }
 }

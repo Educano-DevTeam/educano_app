@@ -847,7 +847,7 @@ class _RevenueSummaryCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 8,
+                    fontSize: 10,
                     color: EducanoColors.textSecondary,
                   ),
                 ),
@@ -859,7 +859,7 @@ class _RevenueSummaryCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: EducanoColors.textPrimary,
                   ),

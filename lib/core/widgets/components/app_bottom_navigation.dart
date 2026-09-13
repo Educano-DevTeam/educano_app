@@ -65,9 +65,9 @@ class AppBottomNavigation extends StatelessWidget {
 
             Expanded(
               child: _buildItem(
-                icon: Icons.person_rounded,
-                label: "Perfil",
-                menu: AppMenu.profile,
+                icon: Icons.star,
+                label: "Loja",
+                menu: AppMenu.store_inventory,
               ),
             ),
           ],

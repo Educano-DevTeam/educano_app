@@ -1,3 +1,5 @@
+import 'package:educano_app/core/navigation/app_routes.dart';
+import 'package:educano_app/core/navigation/navigation_service.dart';
 import 'package:flutter/material.dart';
 
 import '../navigation/app_menu.dart';
@@ -41,8 +43,8 @@ class AppScaffold extends StatelessWidget {
           selectedMenu: selectedMenu,
           sidebarExpanded: true,
           onMenuSelected: (menu) {
-            onMenuSelected(menu);
             Navigator.pop(context);
+            onMenuSelected(menu);
           },
         ),
 
@@ -57,7 +59,10 @@ class AppScaffold extends StatelessWidget {
 
               Expanded(child: child),
 
-              AppBottomNavigation(selectedMenu: selectedMenu, onItemSelected: onMenuSelected)
+              AppBottomNavigation(
+                selectedMenu: selectedMenu,
+                onItemSelected: onMenuSelected,
+              ),
             ],
           ),
         ),
@@ -87,9 +92,7 @@ class AppScaffold extends StatelessWidget {
                       onMenuSelected: onMenuSelected,
                     ),
 
-                    Expanded(
-                      child: child,
-                    ),
+                    Expanded(child: child),
                   ],
                 ),
               ),

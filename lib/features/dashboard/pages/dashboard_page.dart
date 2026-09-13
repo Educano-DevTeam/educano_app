@@ -1,5 +1,8 @@
+import 'package:educano_app/core/navigation/app_navigation.dart';
+import 'package:educano_app/features/dashboard/views/course_editor_view.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/educano_colors.dart';
 import '../../../core/navigation/app_menu.dart';
 import '../../../core/layout/app_scaffold.dart';
@@ -8,18 +11,28 @@ import '../widgets/dashboard_content.dart';
 
 /// StatefulWidget
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final AppMenu initialMenu;
+
+  const DashboardPage({super.key, this.initialMenu = AppMenu.dashboard});
+
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  AppMenu selectedMenu = AppMenu.dashboard;
+  late AppMenu selectedMenu;
   bool sidebarExpanded = true;
 
   final TextEditingController searchController = TextEditingController();
 
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+
+    selectedMenu = widget.initialMenu;
+  }
 
   @override
   void dispose() {
@@ -35,7 +48,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width <= 500;
+    final isMobile = MediaQuery.of(context).size.width <= AppBreakpoints.mobile;
 
     return Stack(
       children: [
@@ -47,7 +60,7 @@ class _DashboardPageState extends State<DashboardPage> {
           scaffoldKey: scaffoldKey,
 
           onMenuPressed: () {
-            if (MediaQuery.of(context).size.width < 768) {
+            if (isMobile) {
               scaffoldKey.currentState?.openDrawer();
             } else {
               toggleSidebar();
@@ -55,9 +68,13 @@ class _DashboardPageState extends State<DashboardPage> {
           },
 
           onMenuSelected: (menu) {
-            setState(() {
-              selectedMenu = menu;
-            });
+            if (AppNavigation.isDashboardMenu(menu)) {
+              setState(() {
+                selectedMenu = menu;
+              });
+            } else {
+              AppNavigation.onMenuSelected(context, menu);
+            }
           },
 
           child: DashboardContent(selectedMenu: selectedMenu),
@@ -88,8 +105,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 label: 'Cadastrar Curso',
                 icon: Icons.school_rounded,
                 color: EducanoColors.successGreen,
-                onPressed: () {
-                  // TODO
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CourseEditorView()),
+                  );
+
+                  if (result != null) {
+                    // Futuramente atualizar os dados do dashboard.
+                  }
                 },
               ),
 

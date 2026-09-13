@@ -84,31 +84,29 @@ class _AppFabMenuState extends State<AppFabMenu>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomRight,
-      children: [
-        // ==========================================================
-        // MENU DE AÇÕES
-        // ==========================================================
-        if (_isOpen)
-          Positioned(
-            right: 0,
-            bottom: 68,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: _buildActionsMenu(),
+    return SizedBox(
+      width: 250,
+      height: 380,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomRight,
+        children: [
+          if (_isOpen)
+            Positioned(
+              right: 0,
+              bottom: 68,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: _buildActionsMenu(),
+                ),
               ),
             ),
-          ),
 
-        // ==========================================================
-        // FAB
-        // ==========================================================
-        _buildFab(),
-      ],
+          _buildFab(),
+        ],
+      ),
     );
   }
 

@@ -1,14 +1,13 @@
 import 'dart:math' as math;
 
+import 'package:educano_app/core/widgets/ui/app_fab_menu.dart';
+import 'package:educano_app/features/dashboard/views/course_editor_view.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/widgets/ui/app_card.dart';
 import '../../../core/widgets/ui/app_large_card.dart';
-import '../../../core/widgets/ui/app_button.dart';
-import '../../../core/widgets/ui/app_small_button.dart';
-import '../../../core/widgets/ui/app_fab_menu.dart';
 import '../../../core/widgets/ui/app_list.dart';
 import '../../../core/widgets/ui/app_list_item.dart';
 import '../../../core/widgets/charts/revenue_chart.dart';
@@ -20,116 +19,125 @@ class DashboardHomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 768;
+        final width = constraints.maxWidth;
+        final isSmall = width < AppBreakpoints.mobile;
+        final isLarge = width >= AppBreakpoints.expanded;
 
-        return Stack(
-          children: [
-            // ======================================================
-            // CONTEÚDO DA DASHBOARD
-            // ======================================================
-            SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 12 : 24,
-                vertical: isMobile ? 8 : 24,
-              ),
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmall ? 12 : 24,
+            vertical: isSmall ? 8 : 24,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGreeting(context),
+              SizedBox(height: isSmall ? 12 : 24),
 
-              child: isMobile
-                  ? _buildMobileLayout(context)
-                  : _buildWebLayout(context),
-            ),
-          ],
+              _buildStatistics(context),
+
+              SizedBox(height: isSmall ? 12 : 24),
+
+              _buildMainContent(context, isMobile: isSmall, isDesktop: isLarge),
+            ],
+          ),
         );
       },
     );
   }
 
-  // ============================================================
-  // WEB
-  // ============================================================
+  Widget _buildMainContent(
+    BuildContext context, {
+    required bool isMobile,
+    required bool isDesktop,
+  }) {
+    // ============================================================
+    // MOBILE
+    // ============================================================
 
-  Widget _buildWebLayout(BuildContext context) {
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRevenueCard(context),
+          const SizedBox(height: 12),
+
+          _buildUsersCard(context),
+          const SizedBox(height: 12),
+
+          _buildRecentActivity(context),
+          const SizedBox(height: 12),
+
+          _buildFaqCard(context),
+        ],
+      );
+    }
+
+    // ============================================================
+    // TABLET / TELA MÉDIA
+    // ============================================================
+
+    if (!isDesktop) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildRevenueCard(context)),
+
+              const SizedBox(width: 14),
+
+              Expanded(child: _buildUsersCard(context)),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildRecentActivity(context)),
+
+              const SizedBox(width: 14),
+
+              Expanded(child: _buildFaqCard(context)),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // ============================================================
+    // DESKTOP / EXPANDED
+    // ============================================================
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildGreeting(context),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 2, child: _buildRevenueCard(context)),
 
-        const SizedBox(height: 16),
+            const SizedBox(width: 16),
 
-        _buildStatistics(context),
+            Expanded(child: _buildUsersCard(context)),
+          ],
+        ),
 
         const SizedBox(height: 16),
 
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ====================================================
-            // COLUNA PRINCIPAL
-            // ====================================================
-            Expanded(
-              flex: 7,
-              child: Column(
-                children: [
-                  _buildRevenueCard(context),
-
-                  const SizedBox(height: 16),
-
-                  _buildRecentActivity(context),
-                ],
-              ),
-            ),
+            Expanded(flex: 2, child: _buildRecentActivity(context)),
 
             const SizedBox(width: 16),
 
-            // ====================================================
-            // COLUNA LATERAL
-            // ====================================================
-            Expanded(
-              flex: 4,
-              child: Column(
-                children: [
-                  _buildUsersCard(context),
-
-                  const SizedBox(height: 16),
-
-                  _buildFaqCard(context),
-                ],
-              ),
-            ),
+            Expanded(child: _buildFaqCard(context)),
           ],
         ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // MOBILE
-  // ============================================================
-
-  Widget _buildMobileLayout(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildGreeting(context),
-
-        const SizedBox(height: 12),
-
-        _buildStatistics(context),
-
-        const SizedBox(height: 12),
-
-        _buildRevenueCard(context),
-
-        const SizedBox(height: 12),
-
-        _buildUsersCard(context),
-
-        const SizedBox(height: 12),
-
-        _buildRecentActivity(context),
-
-        const SizedBox(height: 12),
-
-        _buildFaqCard(context),
       ],
     );
   }
@@ -141,14 +149,6 @@ class DashboardHomeView extends StatelessWidget {
   Widget _buildGreeting(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          Icons.arrow_back_rounded,
-          color: EducanoColors.textSecondary,
-          size: 30,
-        ),
-
-        const SizedBox(width: 8),
-
         Text(
           'Bom dia, Miguel!',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -181,8 +181,8 @@ class DashboardHomeView extends StatelessWidget {
         variation: '— 15,5%',
         footer: 'desde 1 de Jul de 2026',
         icon: Icons.shield_rounded,
-        color: const Color(0xFFE94B0C),
-        variationColor: EducanoColors.accentYellow,
+        color: const Color(0xFFCD7F32),
+        variationColor: EducanoColors.textSecondary,
       ),
       _StatisticData(
         title: 'Plano Prata',
@@ -190,8 +190,8 @@ class DashboardHomeView extends StatelessWidget {
         variation: '▼ 2,5%',
         footer: 'desde 1 de Jul de 2026',
         icon: Icons.menu_book_rounded,
-        color: Colors.grey,
-        variationColor: Colors.redAccent,
+        color: const Color(0xFFB0B8C1),
+        variationColor: EducanoColors.error,
       ),
       _StatisticData(
         title: 'Plano Ouro',
@@ -200,7 +200,7 @@ class DashboardHomeView extends StatelessWidget {
         footer: 'nenhum usuário',
         icon: Icons.school_rounded,
         color: EducanoColors.accentYellow,
-        variationColor: Colors.grey,
+        variationColor: EducanoColors.textSecondary,
       ),
     ];
 
@@ -208,57 +208,30 @@ class DashboardHomeView extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
 
-        // ============================================================
-        // CELULAR
-        // ============================================================
+        final columns = _getGridColumns(
+          width,
+          mobile: 1,
+          tablet: 2,
+          desktop: 4,
+        );
 
-        if (width < 600) {
-          return Column(
-            children: [
-              for (int i = 0; i < statistics.length; i++) ...[
-                _buildStatisticCard(context, statistics[i], mobile: true),
-
-                if (i != statistics.length - 1) const SizedBox(height: 10),
-              ],
-            ],
-          );
-        }
-
-        // ============================================================
-        // TABLET / TELA MÉDIA
-        // ============================================================
-
-        if (width < 1100) {
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: statistics.map((item) {
-              return SizedBox(
-                width: (width - 12) / 2,
-                child: _buildStatisticCard(context, item, mobile: false),
-              );
-            }).toList(),
-          );
-        }
-
-        // ============================================================
-        // DESKTOP
-        // ============================================================
-
-        return Row(
-          children: statistics.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: index == statistics.length - 1 ? 0 : 12,
-                ),
-                child: _buildStatisticCard(context, item, mobile: false),
-              ),
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: statistics.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 2.15,
+          ),
+          itemBuilder: (context, index) {
+            return _buildStatisticCard(
+              context,
+              statistics[index],
+              mobile: width < AppBreakpoints.mobile,
             );
-          }).toList(),
+          },
         );
       },
     );
@@ -283,19 +256,18 @@ class DashboardHomeView extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
+                    color: EducanoColors.textPrimary,
                   ),
                 ),
               ),
 
-              const SizedBox(width: 8),
-
-              Icon(item.icon, color: item.color, size: 25),
+              Icon(item.icon, color: item.color, size: 20),
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -303,7 +275,7 @@ class DashboardHomeView extends StatelessWidget {
               Text(
                 item.value,
                 style: TextStyle(
-                  fontSize: mobile ? 38 : 34,
+                  fontSize: mobile ? 30 : 26,
                   fontWeight: FontWeight.bold,
                   color: EducanoColors.textPrimary,
                 ),
@@ -324,7 +296,7 @@ class DashboardHomeView extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: EducanoColors.textSecondary,
             ),
           ),
@@ -335,15 +307,15 @@ class DashboardHomeView extends StatelessWidget {
 
   Widget _buildVariation(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: color,
         ),
@@ -371,7 +343,7 @@ class DashboardHomeView extends StatelessWidget {
     return AppCard(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: SizedBox(
-        height: 255,
+        height: 360,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -382,7 +354,7 @@ class DashboardHomeView extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
 
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
 
             const Expanded(child: _UsersDonutChart()),
           ],
@@ -411,31 +383,31 @@ class DashboardHomeView extends StatelessWidget {
     final activities = [
       (
         'Novo usuário cadastrado',
-        'Daniel de Oliveira foi cadastrado',
-        'Hoje',
+        'Daniel de Oliveira foi cadastrado.',
+        '1h',
         Icons.person_add_alt_rounded,
         EducanoColors.successGreen,
       ),
       (
         'Edição de Curso',
-        'Daniel de Oliveira editou curso de Matemática',
-        '20/03',
-        Icons.school_rounded,
+        'Daniel de Oliveira editou curso de Matemática.',
+        '10:02',
+        Icons.edit_note_rounded,
         EducanoColors.accentYellow,
       ),
       (
         'Questão de concurso adicionada',
-        'Daniel de Oliveira adicionou questão',
-        'Há 6 Meses',
-        Icons.article_rounded,
+        'Daniel de Oliveira adicionou uma questão para Ciências Humanas.',
+        'há 5 horas',
+        Icons.quiz_rounded,
         EducanoColors.successGreen,
       ),
       (
         'Exclusão de Item',
-        'Daniel de Oliveira excluiu um item',
-        'Há 1 Ano',
-        Icons.store_rounded,
-        Colors.redAccent,
+        'Daniel de Oliveira excluiu o item "XP em dobro" da loja.',
+        'há 1 dia',
+        Icons.delete_outline_rounded,
+        EducanoColors.error,
       ),
     ];
 
@@ -474,7 +446,7 @@ class DashboardHomeView extends StatelessWidget {
                     Text(
                       activity.$1,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -484,7 +456,7 @@ class DashboardHomeView extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: EducanoColors.textSecondary,
                       ),
                     ),
@@ -494,7 +466,7 @@ class DashboardHomeView extends StatelessWidget {
                 trailing: Text(
                   activity.$3,
                   style: const TextStyle(
-                    fontSize: 8,
+                    fontSize: 10,
                     color: EducanoColors.textSecondary,
                   ),
                 ),
@@ -514,16 +486,16 @@ class DashboardHomeView extends StatelessWidget {
     final questions = [
       (
         'Daniel de Oliveira',
-        'Estou com um problema com XP, sempre que faço uma atividade recebo 0xp.',
+        'Estou tendo um problema com XP, sempre que faço uma atividade recebo 0xp. O que devo fazer?',
       ),
       ('Manuela Souza', 'Como devo fazer para ver meus simulados anteriores?'),
       (
         'Mateus Lima',
-        'Para os professores do Curso de Matemática: Qual a resposta da questão?',
+        'Para os professores do Curso de Matemática: Qual a resposta da questão sobre Sigma?',
       ),
       (
         'Luana Castanho',
-        'Estou com um problema com XP, sempre que faço uma atividade recebo 0xp.',
+        'Estou tendo um problema com XP, sempre que faço uma atividade recebo 0xp. O que devo fazer?',
       ),
       ('Rafael Cristiano', 'Como posso me inscrever em um curso?'),
     ];
@@ -565,7 +537,7 @@ class DashboardHomeView extends StatelessWidget {
                       Text(
                         question.$1,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -577,7 +549,7 @@ class DashboardHomeView extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 8,
+                          fontSize: 10,
                           color: EducanoColors.textSecondary,
                         ),
                       ),
@@ -599,119 +571,6 @@ class DashboardHomeView extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  // ============================================================
-  // AÇÕES RÁPIDAS
-  // ============================================================
-
-  // Widget _buildQuickActions(BuildContext context) {
-  //   return AppCard(
-  //     padding: const EdgeInsets.all(10),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           'Ações Rápidas',
-  //           style: Theme.of(
-  //             context,
-  //           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-  //         ),
-
-  //         const SizedBox(height: 8),
-
-  //         _quickActionButton(
-  //           'Cadastrar Usuário',
-  //           Icons.person_add_alt_rounded,
-  //           EducanoColors.primaryBlue,
-  //         ),
-
-  //         const SizedBox(height: 5),
-
-  //         _quickActionButton(
-  //           'Cadastrar Curso',
-  //           Icons.school_rounded,
-  //           EducanoColors.successGreen,
-  //         ),
-
-  //         const SizedBox(height: 5),
-
-  //         _quickActionButton(
-  //           'Cadastrar Questão',
-  //           Icons.quiz_rounded,
-  //           EducanoColors.accentYellow,
-  //         ),
-
-  //         const SizedBox(height: 5),
-
-  //         _quickActionButton(
-  //           'Cadastrar Item',
-  //           Icons.store_rounded,
-  //           const Color(0xFFE94B0C),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _quickActionButton(String text, IconData icon, Color color) {
-  //   return SizedBox(
-  //     width: double.infinity,
-  //     child: AppButton(
-  //       text: text,
-  //       icon: icon,
-  //       color: color,
-  //       textColor: Colors.white,
-  //       height: 48,
-  //       onPressed: () {},
-  //     ),
-  //   );
-  // }
-
-  // ============================================================
-  // FAB
-  // ============================================================
-
-  Widget _buildFab(BuildContext context) {
-    return AppFabMenu(
-      actions: [
-        AppFabAction(
-          label: 'Cadastrar Usuário',
-          icon: Icons.person_add_alt_rounded,
-          color: EducanoColors.primaryBlue,
-          onPressed: () {
-            // Futuramente abrirá o cadastro de usuário.
-          },
-        ),
-
-        AppFabAction(
-          label: 'Cadastrar Curso',
-          icon: Icons.school_rounded,
-          color: EducanoColors.successGreen,
-          onPressed: () {
-            // Futuramente abrirá o cadastro de curso.
-          },
-        ),
-
-        AppFabAction(
-          label: 'Cadastrar Questão',
-          icon: Icons.quiz_rounded,
-          color: EducanoColors.accentYellow,
-          onPressed: () {
-            // Futuramente abrirá o cadastro de questão.
-          },
-        ),
-
-        AppFabAction(
-          label: 'Cadastrar Item',
-          icon: Icons.store_rounded,
-          color: const Color(0xFFE94B0C),
-          onPressed: () {
-            // Futuramente abrirá o cadastro de item.
-          },
-        ),
-      ],
     );
   }
 }
@@ -805,7 +664,7 @@ class _UsersDonutChartState extends State<_UsersDonutChart> {
               // DONUT
               // ====================================================
               Expanded(
-                flex: 5,
+                flex: 4,
                 child: CustomPaint(
                   painter: _DonutPainter(data: data),
                   child: const SizedBox.expand(),
@@ -816,7 +675,7 @@ class _UsersDonutChartState extends State<_UsersDonutChart> {
               // LEGENDA
               // ====================================================
               Expanded(
-                flex: 4,
+                flex: 5,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -979,7 +838,7 @@ class _LegendItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Container(
@@ -998,7 +857,10 @@ class _LegendItem extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 9),
+              style: const TextStyle(
+                fontSize: 11,
+                color: EducanoColors.textPrimary,
+              ),
             ),
           ),
 
@@ -1067,4 +929,21 @@ class _DonutPainter extends CustomPainter {
   bool shouldRepaint(covariant _DonutPainter oldDelegate) {
     return oldDelegate.data != data;
   }
+}
+
+int _getGridColumns(
+  double width, {
+  required int mobile,
+  required int tablet,
+  required int desktop,
+}) {
+  if (width < AppBreakpoints.compact) {
+    return mobile;
+  }
+
+  if (width < AppBreakpoints.expanded) {
+    return tablet;
+  }
+
+  return desktop;
 }

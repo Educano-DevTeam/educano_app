@@ -1,3 +1,5 @@
+import 'package:educano_app/core/navigation/app_menu.dart';
+import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
 import 'package:flutter/material.dart';
 import '../../theme/theme.dart';
 
@@ -5,6 +7,7 @@ class AppHeader extends StatelessWidget {
   final VoidCallback? onMenuPressed;
 
   final bool isMobile;
+
   /// Controller compartilhado com o DashboardPage.
   /// Tudo que o usuário digitar ficará armazenado aqui.
   final TextEditingController searchController;
@@ -14,19 +17,24 @@ class AppHeader extends StatelessWidget {
     required this.onMenuPressed,
     required this.isMobile,
     required this.searchController,
-  }); 
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         // Container do Header
-        Container( 
+        Container(
           height: 72,
           padding: const EdgeInsets.symmetric(horizontal: 24),
           decoration: const BoxDecoration(
             color: EducanoColors.primaryBlue,
-            border: Border(bottom: BorderSide(color: EducanoColors.secondaryBlue, width: 1.5,)),
+            border: Border(
+              bottom: BorderSide(
+                color: EducanoColors.secondaryBlue,
+                width: 1.5,
+              ),
+            ),
           ),
 
           child: Row(
@@ -39,12 +47,20 @@ class AppHeader extends StatelessWidget {
               ),
 
               // Logo
-              const Icon(Icons.school_rounded, color: EducanoColors.textWhite, size: 32),
+              const Icon(
+                Icons.school_rounded,
+                color: EducanoColors.textWhite,
+                size: 32,
+              ),
               const SizedBox(width: 12),
 
               const Text(
                 "Educano",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: EducanoColors.textWhite),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: EducanoColors.textWhite,
+                ),
               ),
 
               const SizedBox(width: 32),
@@ -64,10 +80,7 @@ class AppHeader extends StatelessWidget {
                   ),
                 ),
 
-              if (isMobile)
-                const Spacer()
-              else 
-                const SizedBox(width: 30),
+              if (isMobile) const Spacer() else const SizedBox(width: 30),
 
               if (isMobile)
                 const CircleAvatar(
@@ -75,7 +88,6 @@ class AppHeader extends StatelessWidget {
                   backgroundColor: EducanoColors.surface,
                   child: Icon(Icons.person, color: EducanoColors.secondaryBlue),
                 )
-
               else
                 Row(
                   children: [
@@ -83,7 +95,10 @@ class AppHeader extends StatelessWidget {
                     const CircleAvatar(
                       radius: 22,
                       backgroundColor: EducanoColors.surface,
-                      child: Icon(Icons.person, color: EducanoColors.secondaryBlue),
+                      child: Icon(
+                        Icons.person,
+                        color: EducanoColors.secondaryBlue,
+                      ),
                     ),
 
                     const SizedBox(width: 12),
@@ -95,23 +110,24 @@ class AppHeader extends StatelessWidget {
                       children: [
                         const Text(
                           "Miguel Soares",
-                          style: TextStyle(fontWeight: FontWeight.bold, color: EducanoColors.textWhite),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: EducanoColors.textWhite,
+                          ),
                         ),
                         Text(
                           "Administrador",
-                          style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                              color: EducanoColors.secondaryBlue,
-                              fontSize: 11,
-                            ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: EducanoColors.secondaryBlue,
+                                fontSize: 11,
+                              ),
                         ),
                       ],
                     ),
                   ],
                 ),
-            ]
+            ],
           ),
         ),
 
@@ -119,10 +135,8 @@ class AppHeader extends StatelessWidget {
         Container(
           height: 1.5,
           width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: EducanoColors.primaryGradient,
-          ),
-        )
+          decoration: BoxDecoration(color: EducanoColors.accentYellow),
+        ),
       ],
     );
   }

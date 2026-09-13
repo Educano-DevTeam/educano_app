@@ -7,8 +7,8 @@ class ResponsiveLayout extends StatelessWidget {
   final Widget desktopBody;
 
   const ResponsiveLayout({
-    super.key, 
-    required this.mobileBody, 
+    super.key,
+    required this.mobileBody,
     required this.desktopBody,
   });
 
@@ -16,11 +16,11 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth  <= AppBreakpoints.mobile) {
+        if (constraints.maxWidth <= AppBreakpoints.mobile) {
           return mobileBody;
-        } else {
-          return desktopBody;
         }
+        
+        return desktopBody;
       },
     );
   }
