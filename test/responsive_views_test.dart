@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:educano_app/core/theme/educano_theme.dart';
+import 'package:educano_app/core/theme/theme.dart';
+import 'package:educano_app/features/dashboard/views/course_editor_view.dart';
 import 'package:educano_app/features/dashboard/views/dashboard_courses_view.dart';
+import 'package:educano_app/features/dashboard/views/material_editor_view.dart';
 import 'package:educano_app/features/student/views/account_plan_view.dart';
 import 'package:educano_app/features/student/views/finish_simulado_view.dart';
 import 'package:educano_app/features/student/views/student_progress_view.dart';
@@ -42,6 +44,12 @@ void main() {
     'Loja & Inventário': () => const StudentStoreView(),
     'Plano de Conta': () => const AccountPlanView(),
     'Finalizar Simulado': () => const FinishSimuladoView(),
+    'Novo Curso': () => const CourseEditorView(),
+    'Material Didático': () => const MaterialEditorView(
+          courseName: 'Matemática Básica',
+          trilhaTitle: 'Fundamentos',
+          moduloTitle: 'Módulo 1: Operações Básicas',
+        ),
   };
 
   final sizes = <String, Size>{
@@ -58,6 +66,108 @@ void main() {
       );
     }
   }
+
+  // A trilha começa fechada, então abre para renderizar módulo e material.
+  for (final size in sizes.entries) {
+    testWidgets(
+      'Editar Curso com trilha aberta renderiza sem overflow em ${size.key}',
+      (tester) async {
+        tester.view.physicalSize = size.value;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: EducanoTheme.lightTheme,
+            home: CourseEditorView(course: _sampleCourse()),
+          ),
+        );
+
+        final trilha = find.text('Fundamentos');
+        await tester.ensureVisible(trilha);
+        await tester.pumpAndSettle();
+        await tester.tap(trilha);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Módulo 1: Operações Básicas'), findsOneWidget);
+        expect(find.text('Vídeo-aula'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets('Adm cria curso com trilha, módulo e material didático', (
+    tester,
+  ) async {
+    tester.view.physicalSize = desktop;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: EducanoTheme.lightTheme,
+        home: const Scaffold(body: DashboardCoursesView()),
+      ),
+    );
+
+    Future<void> tapText(String label) async {
+      final finder = find.text(label);
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> fillField(String label, String text) async {
+      await tester.enterText(find.widgetWithText(TextFormField, label), text);
+      await tester.pump();
+    }
+
+    await tapText('Novo Curso');
+    await fillField('Nome do curso', 'Geografia Geral');
+    await fillField('Capacidade (vagas)', '30');
+
+    await tapText('Nova trilha');
+    await fillField('Título da trilha', 'Relevo');
+    await tapText('Salvar');
+
+    await tapText('Novo módulo');
+    await fillField('Título do módulo', 'Módulo 1: Planaltos');
+    await fillField('Título da lição', 'Formas de relevo');
+    await tapText('Salvar');
+
+    // Página de Material Didático.
+    await tapText('Adicionar material');
+    await tapText('Áudio');
+
+    // Sem arquivo e sem título o material não é salvo.
+    await tapText('Adicionar material');
+    expect(find.text('Selecione o arquivo do material'), findsOneWidget);
+    expect(find.text('Informe o título do material'), findsOneWidget);
+
+    await tapText('Selecionar arquivo');
+    expect(find.text('podcast.mp3'), findsOneWidget);
+    await fillField('Título do material', 'Podcast do relevo');
+    await tapText('Adicionar material');
+
+    // De volta ao curso, com o material dentro do módulo.
+    expect(find.text('Novo Curso'), findsOneWidget);
+    expect(find.text('Podcast do relevo'), findsOneWidget);
+
+    // Espera o snackbar sumir para não cobrir o botão de salvar.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    await tapText('Salvar curso');
+
+    expect(find.text('Lista de Cursos (7)'), findsOneWidget);
+    expect(find.text('Geografia Geral'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('Finalizar Simulado mostra o aviso de envio definitivo', (
     tester,
@@ -175,3 +285,38 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
+
+Map<String, dynamic> _sampleCourse() => {
+      'name': 'Matemática Básica',
+      'category': 'Exatas',
+      'description': 'Fundamentos de matemática para o ensino médio.',
+      'enrolled': 45,
+      'capacity': 100,
+      'status': 'Ativo',
+      'createdAt': '01/05/2026',
+      'icon': Icons.calculate_rounded,
+      'color': EducanoColors.primaryBlue,
+      'trilhas': [
+        {
+          'id': 'trilha-mat-fund',
+          'title': 'Fundamentos',
+          'description': 'Introdução aos conceitos básicos',
+          'modulos': [
+            {
+              'id': 'mod-mat-1',
+              'title': 'Módulo 1: Operações Básicas',
+              'licao': {'title': 'Adição e Subtração', 'xp': 50},
+              'materiais': [
+                {
+                  'name': 'Vídeo-aula',
+                  'type': MaterialKind.video,
+                  'fileName': 'video-aula-operacoes.mp4',
+                  'fileSize': '52,3 MB',
+                  'duration': '14:20',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
