@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-
-import 'core/theme/educano_theme.dart';
-import 'features/dashboard/pages/dashboard_page.dart';
+import 'core/app_theme.dart';
+import 'screens/ranking_screen.dart';
+import 'screens/perfil_screen.dart';
+import 'screens/configuracoes_screen.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const EducanoApp());
 }
 
@@ -17,8 +16,13 @@ class EducanoApp extends StatelessWidget {
     return MaterialApp(
       title: 'Educano',
       debugShowCheckedModeBanner: false,
-      theme: EducanoTheme.lightTheme,
-      home: const DashboardPage(),
+      theme: AppTheme.light,
+      initialRoute: '/ranking',
+      routes: {
+        '/ranking': (context) => const RankingScreen(),
+        '/perfil': (context) => const PerfilScreen(),
+        '/configuracoes': (context) => const ConfiguracoesScreen(),
+      },
     );
   }
 }
