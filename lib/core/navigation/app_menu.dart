@@ -2,7 +2,7 @@ enum AppMenu {
   home,
   flashcards,
   ranking,
-  store_inventory,
+  storeInventory,
   profile,
   dashboard,
   users,

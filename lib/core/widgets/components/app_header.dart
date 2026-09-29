@@ -1,7 +1,9 @@
 import 'package:educano_app/core/navigation/app_menu.dart';
-import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
+import 'package:educano_app/core/navigation/app_navigation.dart';
 import 'package:flutter/material.dart';
 import '../../theme/theme.dart';
+
+const String _logoAssetPath = 'lib/assets/Educano_Logo.jpeg';
 
 class AppHeader extends StatelessWidget {
   final VoidCallback? onMenuPressed;
@@ -46,21 +48,23 @@ class AppHeader extends StatelessWidget {
                 onPressed: onMenuPressed,
               ),
 
+              const SizedBox(width: 12),
+
               // Logo
-              const Icon(
-                Icons.school_rounded,
-                color: EducanoColors.textWhite,
-                size: 32,
+              ClipOval(
+                child: Image.asset(
+                  _logoAssetPath,
+                  width: 42,
+                  height: 42,
+                  fit: BoxFit.cover,
+                ),
               ),
+
               const SizedBox(width: 12),
 
               const Text(
                 "Educano",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                  color: EducanoColors.textWhite,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: EducanoColors.textWhite),
               ),
 
               const SizedBox(width: 32),
@@ -91,13 +95,18 @@ class AppHeader extends StatelessWidget {
               else
                 Row(
                   children: [
-                    // Ícone dePerfil
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: EducanoColors.surface,
-                      child: Icon(
-                        Icons.person,
-                        color: EducanoColors.secondaryBlue,
+                    // Icone de Perfil
+                    IconButton(
+                      onPressed: () {
+                        AppNavigation.onMenuSelected(context, AppMenu.profile);
+                      },
+                      icon: const CircleAvatar(
+                        radius: 22,
+                        backgroundColor: EducanoColors.surface,
+                        child: Icon(
+                          Icons.person,
+                          color: EducanoColors.secondaryBlue,
+                        ),
                       ),
                     ),
 

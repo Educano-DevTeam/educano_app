@@ -65,9 +65,9 @@ class AppBottomNavigation extends StatelessWidget {
 
             Expanded(
               child: _buildItem(
-                icon: Icons.star,
+                icon: Icons.store,
                 label: "Loja",
-                menu: AppMenu.store_inventory,
+                menu: AppMenu.storeInventory,
               ),
             ),
           ],

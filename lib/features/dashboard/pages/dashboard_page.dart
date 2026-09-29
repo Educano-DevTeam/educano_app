@@ -1,5 +1,6 @@
 import 'package:educano_app/core/navigation/app_navigation.dart';
 import 'package:educano_app/features/dashboard/views/course_editor_view.dart';
+import 'package:educano_app/features/dashboard/views/dashboard_home_view.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
@@ -11,28 +12,17 @@ import '../widgets/dashboard_content.dart';
 
 /// StatefulWidget
 class DashboardPage extends StatefulWidget {
-  final AppMenu initialMenu;
-
-  const DashboardPage({super.key, this.initialMenu = AppMenu.dashboard});
-
+  const DashboardPage({super.key});
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  late AppMenu selectedMenu;
+  AppMenu selectedMenu = AppMenu.dashboard;
   bool sidebarExpanded = true;
-
+  
   final TextEditingController searchController = TextEditingController();
-
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
-
-  @override
-  void initState() {
-    super.initState();
-
-    selectedMenu = widget.initialMenu;
-  }
 
   @override
   void dispose() {
@@ -68,16 +58,10 @@ class _DashboardPageState extends State<DashboardPage> {
           },
 
           onMenuSelected: (menu) {
-            if (AppNavigation.isDashboardMenu(menu)) {
-              setState(() {
-                selectedMenu = menu;
-              });
-            } else {
-              AppNavigation.onMenuSelected(context, menu);
-            }
+            AppNavigation.onMenuSelected(context, menu);
           },
 
-          child: DashboardContent(selectedMenu: selectedMenu),
+          child: DashboardContent(selectedMenu: selectedMenu,),
         ),
 
         // ============================================================

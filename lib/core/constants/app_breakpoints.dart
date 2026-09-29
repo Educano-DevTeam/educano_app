@@ -1,9 +1,6 @@
 class AppBreakpoints {
   AppBreakpoints._();
-
   
-  
-
   // Breakpoints de conteúdo — usados dentro das views para decidir o número
   // de colunas e o empilhamento dos blocos, seguindo os frames do Figma.
 

@@ -368,33 +368,34 @@ class _CourseCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(17),
         onTap: () {},
         child: Container(
-          height: 138,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(17),
             border: Border.all(color: const Color(0xFFD4D4D4), width: 1.5),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 315,
-                height: double.infinity,
-                child: Image.asset(course.image, fit: BoxFit.cover),
-              ),
-
-              const SizedBox(width: 18),
-
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    top: 10,
-                    right: 16,
-                    bottom: 10,
-                  ),
-                  child: _CourseInformation(course: course),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 315,
+                  child: Image.asset(course.image, fit: BoxFit.cover),
                 ),
-              ),
-            ],
+
+                const SizedBox(width: 18),
+
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      top: 10,
+                      right: 16,
+                      bottom: 10,
+                    ),
+                    child: _CourseInformation(course: course),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

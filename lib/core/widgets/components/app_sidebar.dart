@@ -60,7 +60,6 @@ class AppSidebar extends StatelessWidget {
                     title: "Principal",
                     expanded: sidebarExpanded,
                     children: [
-
                       SidebarItem(
                         icon: Icons.home,
                         title: "Home",
@@ -88,10 +87,10 @@ class AppSidebar extends StatelessWidget {
                       SidebarItem(
                         icon: Icons.store,
                         title: "Loja",
-                        menu: AppMenu.store_inventory,
+                        menu: AppMenu.storeInventory,
                         selectedMenu: selectedMenu,
                         expanded: sidebarExpanded,
-                        onTap: () => onMenuSelected(AppMenu.store_inventory),
+                        onTap: () => onMenuSelected(AppMenu.storeInventory),
                       ),
                     ],
                   ),
@@ -100,7 +99,6 @@ class AppSidebar extends StatelessWidget {
                   title: "Dashboard",
                   expanded: sidebarExpanded,
                   children: [
-
                     SidebarItem(
                       icon: Icons.dashboard_rounded,
                       title: "Painel",
@@ -141,7 +139,6 @@ class AppSidebar extends StatelessWidget {
                       expanded: sidebarExpanded,
                       onTap: () => onMenuSelected(AppMenu.itens),
                     ),
-
                   ],
                 ),
 
@@ -149,7 +146,6 @@ class AppSidebar extends StatelessWidget {
                   title: "Outras opções",
                   expanded: sidebarExpanded,
                   children: [
-
                     SidebarItem(
                       icon: Icons.settings_rounded,
                       title: "Configurações",

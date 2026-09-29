@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/navigation/app_menu.dart';
+import '../views/store_inventory_view.dart';
 
-import '../views/dashboard_home_view.dart';
-
-class DashboardContent extends StatelessWidget {
+class StoreInventoryContent extends StatelessWidget {
   final AppMenu selectedMenu;
 
-  const DashboardContent({
+  const StoreInventoryContent({
     super.key,
     required this.selectedMenu,
   });
@@ -15,8 +14,9 @@ class DashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (selectedMenu) {
-      case AppMenu.dashboard:
-        return const DashboardHomeView();
+      case AppMenu.storeInventory:
+        return const StoreInventoryView();
+
       default:
         return const SizedBox();
     }

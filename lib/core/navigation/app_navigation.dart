@@ -14,7 +14,7 @@ class AppNavigation {
       case AppMenu.users:
       case AppMenu.courses:
       case AppMenu.questions:
-      case AppMenu.store_inventory:
+      case AppMenu.itens:
         return true;
 
       default:
@@ -38,11 +38,11 @@ class AppNavigation {
         break;
 
       case AppMenu.ranking:
-        _goTo(AppRoutes.home);
+        _goTo(AppRoutes.ranking);
         break;
 
-      case AppMenu.store_inventory:
-        _goTo(AppRoutes.home);
+      case AppMenu.storeInventory:
+        _goTo(AppRoutes.storeInventory);
         break;
 
       // ==============================================================
@@ -50,11 +50,20 @@ class AppNavigation {
       // ==============================================================
 
       case AppMenu.dashboard:
+        _goTo(AppRoutes.dashboard);
+        break;
+
       case AppMenu.users:
+        _goTo(AppRoutes.dashboardUsers);
+        break;
       case AppMenu.courses:
+        _goTo(AppRoutes.dashboardCourses);
+        break;
       case AppMenu.questions:
+        _goTo(AppRoutes.dashboardQuestions);
+        break;
       case AppMenu.itens:
-        _goToDashboard(menu);
+        _goTo(AppRoutes.dashboardItems);
         break;
 
       // ==============================================================
@@ -79,14 +88,6 @@ class AppNavigation {
         _logout(context);
         break;
     }
-  }
-
-  /// Abre o Dashboard já selecionando uma seção específica.
-  static void _goToDashboard(AppMenu menu) {
-    NavigationService.pushReplacementNamed(
-      AppRoutes.dashboard,
-      arguments: menu,
-    );
   }
 
   static void _goTo(String route) {

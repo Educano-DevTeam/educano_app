@@ -4,7 +4,11 @@ class AppRoutes {
   static const String home = '/';
   static const String flashcards = '/flashcards';
   static const String ranking = '/ranking';
-  static const String store_inventory = '/store_inventory';
-  static const String dashboard = '/dashboard';
+  static const String storeInventory = '/store_inventory';
 
+  static const String dashboard = '/dashboard';
+  static const String dashboardUsers = '/dashboard/usuarios';
+  static const String dashboardCourses = '/dashboard/cursos';
+  static const String dashboardQuestions = '/dashboard/questoes';
+  static const String dashboardItems = '/dashboard/itens';
 }
