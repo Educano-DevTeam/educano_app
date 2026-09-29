@@ -1,0 +1,11 @@
+Coloque aqui o arquivo "logo.png" exportado do Figma
+(nó "Frame" dentro do Header das telas de Login/Cadastro/Verificação).
+
+Link do arquivo Figma:
+https://www.figma.com/design/aEeZ7FmRRbOGqZHOg2ElTz/Educano---Web-e-Mobile
+
+Caminho esperado pelo código: assets/images/logo.png
+
+Enquanto o arquivo não existir, o widget AppLogo (lib/widgets/app_logo.dart)
+exibe automaticamente um ícone de fallback, então o app funciona
+normalmente mesmo sem essa imagem.
