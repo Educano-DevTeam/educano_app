@@ -1,19 +1,21 @@
-import 'package:educano_app/core/navigation/app_menu.dart';
-import 'package:educano_app/features/dashboard/pages/dashboard_items_page.dart';
-import 'package:educano_app/features/dashboard/pages/dashcoard_courses_page.dart';
-import 'package:educano_app/features/dashboard/widgets/dashboard_courses_content.dart';
-import 'package:educano_app/features/dashboard/widgets/dashcoard_items_content.dart';
-import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
-import 'package:educano_app/features/home/pages/home_page.dart';
-import 'package:educano_app/features/ranking/pages/ranking_page.dart';
-import 'package:educano_app/features/store_inventory/pages/store_inventory_page.dart';
 import 'package:flutter/material.dart';
+
+import 'package:educano_app/core/navigation/app_menu.dart';
 
 import 'core/navigation/app_routes.dart';
 import 'core/navigation/navigation_service.dart';
 import 'core/theme/educano_theme.dart';
 
+import 'package:educano_app/features/home/pages/home_page.dart';
+import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
+import 'package:educano_app/features/ranking/pages/ranking_page.dart';
+import 'package:educano_app/features/store_inventory/pages/store_inventory_page.dart';
+
 import 'features/dashboard/pages/dashboard_page.dart';
+import 'package:educano_app/features/dashboard/pages/dashboard_items_page.dart';
+import 'package:educano_app/features/dashboard/pages/dashcoard_courses_page.dart';
+import 'package:educano_app/features/dashboard/widgets/dashboard_courses_content.dart';
+import 'package:educano_app/features/dashboard/widgets/dashcoard_items_content.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

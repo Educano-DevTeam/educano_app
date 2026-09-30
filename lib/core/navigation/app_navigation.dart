@@ -71,13 +71,11 @@ class AppNavigation {
       // ==============================================================
 
       case AppMenu.profile:
-        // Futuramente:
-        // _goTo(AppRoutes.profile);
+        _goTo(AppRoutes.profile);
         break;
 
       case AppMenu.settings:
-        // Futuramente:
-        // _goTo(AppRoutes.settings);
+        _goTo(AppRoutes.settings);
         break;
 
       // ==============================================================
