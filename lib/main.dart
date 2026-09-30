@@ -45,14 +45,14 @@ class EducanoApp extends StatelessWidget {
           case AppRoutes.flashcards:
             return _buildRoute(const FlashcardsPage(), settings);
 
-          case AppRoutes.ranking:
-            return _buildRoute(const RankingPage(), settings);
+          // case AppRoutes.ranking:
+          //   return _buildRoute(const RankingPage(), settings);
 
           case AppRoutes.storeInventory:
             return _buildRoute(const StoreInventoryPage(), settings);
 
-          case AppRoutes.profile:
-            return _buildRoute(const ProfilePage(), settings);
+          // case AppRoutes.profile:
+          //   return _buildRoute(const ProfilePage(), settings);
 
           case AppRoutes.dashboard:
             return _buildRoute(DashboardPage(), settings);
@@ -63,8 +63,8 @@ class EducanoApp extends StatelessWidget {
           case AppRoutes.dashboardItems:
             return _buildRoute(DashboardItemsPage(), settings);
 
-          case AppRoutes.settings:
-            return _buildRoute(const SettingsPage(), settings);
+          // case AppRoutes.settings:
+          //   return _buildRoute(const SettingsPage(), settings);
 
           default:
             return _buildRoute(const HomePage(), settings);

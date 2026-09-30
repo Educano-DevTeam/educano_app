@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme.dart';
 
+import '../controllers/dashboard_items_controller.dart';
+import '../../../core/models/dashboard_item.dart';
+
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
 const double _spacingMedium = 24;
@@ -20,93 +23,44 @@ class DashboardItemsView extends StatefulWidget {
 }
 
 class _DashboardItemsViewState extends State<DashboardItemsView> {
-  final List<Map<String, dynamic>> _iconOptions = [
-    {'label': 'Raio', 'icon': Icons.bolt_rounded},
-    {'label': 'Escudo', 'icon': Icons.shield_rounded},
-    {'label': 'Lâmpada', 'icon': Icons.lightbulb_rounded},
-    {'label': 'Cronômetro', 'icon': Icons.timer_rounded},
-    {'label': 'Reiniciar', 'icon': Icons.refresh_rounded},
-    {'label': 'Avatar', 'icon': Icons.face_rounded},
-    {'label': 'Estrela', 'icon': Icons.star_rounded},
-  ];
+  late final DashboardItemsController _controller;
 
-  final List<Map<String, dynamic>> _colorOptions = [
-    {'label': 'Amarelo', 'color': EducanoColors.accentYellow},
-    {'label': 'Azul', 'color': EducanoColors.primaryBlue},
-    {'label': 'Verde', 'color': EducanoColors.successGreen},
-    {'label': 'Verde Escuro', 'color': EducanoColors.darkGreen},
-    {'label': 'Vermelho', 'color': EducanoColors.error},
-  ];
+  @override
+  void initState() {
+    super.initState();
 
-  final List<String> _categories = [
-    'Boosts',
-    'Proteção',
-    'Estudos',
-    'Personalização',
-  ];
+    _controller = DashboardItemsController();
+    _controller.addListener(_onControllerChanged);
+  }
 
-  final List<Map<String, dynamic>> _items = [
-    {
-      'name': 'Boost de XP',
-      'description': 'Dobra o XP ganho por 24 horas.',
-      'price': 200,
-      'icon': Icons.bolt_rounded,
-      'color': EducanoColors.accentYellow,
-      'category': 'Boosts',
-    },
-    {
-      'name': 'Escudo de Sequência',
-      'description': 'Protege sua sequência por um dia.',
-      'price': 150,
-      'icon': Icons.shield_rounded,
-      'color': EducanoColors.primaryBlue,
-      'category': 'Proteção',
-    },
-    {
-      'name': 'Dica Extra',
-      'description': 'Revela uma dica em qualquer questão.',
-      'price': 80,
-      'icon': Icons.lightbulb_rounded,
-      'color': EducanoColors.successGreen,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Tempo Extra',
-      'description': 'Adiciona 5 minutos em simulados.',
-      'price': 120,
-      'icon': Icons.timer_rounded,
-      'color': EducanoColors.successGreen,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Reviver Tentativa',
-      'description': 'Refaz uma questão errada.',
-      'price': 100,
-      'icon': Icons.refresh_rounded,
-      'color': EducanoColors.error,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Avatar Especial',
-      'description': 'Desbloqueie um avatar exclusivo.',
-      'price': 500,
-      'icon': Icons.face_rounded,
-      'color': EducanoColors.darkGreen,
-      'category': 'Personalização',
-    },
-  ];
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
 
-  void _showItemDialog({Map<String, dynamic>? item}) {
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    setState(() {});
+  }
+
+  void _showItemDialog({DashboardItem? item}) {
     final isEditing = item != null;
-    final nameController = TextEditingController(text: item?['name'] as String? ?? '');
-    final descriptionController =
-        TextEditingController(text: item?['description'] as String? ?? '');
-    final priceController =
-        TextEditingController(text: item != null ? '${item['price']}' : '');
-    String category = item?['category'] as String? ?? _categories.first;
-    IconData icon = item?['icon'] as IconData? ?? _iconOptions.first['icon'] as IconData;
-    Color color = item?['color'] as Color? ?? _colorOptions.first['color'] as Color;
-    final formKey = GlobalKey<FormState>();
+
+    final nameController = TextEditingController(text: item?.name ?? '');
+
+    final descriptionController = TextEditingController(
+      text: item?.description ?? '',
+    );
+
+    final priceController = TextEditingController(
+      text: item != null ? '${item.price}' : '',
+    );
+
+    String category = item?.category ?? _categories.first;
+    IconData icon = item?.icon ?? _iconOptions.first['icon'] as IconData;
+    Color color = item?.color ?? _colorOptions.first['color'] as Color;
 
     showDialog(
       context: context,
@@ -128,8 +82,9 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                     TextFormField(
                       controller: nameController,
                       decoration: const InputDecoration(labelText: 'Nome'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Informe o nome'
+                          : null,
                     ),
                     const SizedBox(height: _spacingSmall),
                     TextFormField(
@@ -154,7 +109,9 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                       initialValue: category,
                       decoration: const InputDecoration(labelText: 'Categoria'),
                       items: _categories
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
                           .toList(),
                       onChanged: (v) => setDialogState(() => category = v!),
                     ),
@@ -216,26 +173,27 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
             ElevatedButton.icon(
               onPressed: () {
                 if (!formKey.currentState!.validate()) return;
-                final newItem = {
-                  'name': nameController.text,
-                  'description': descriptionController.text,
-                  'price': int.parse(priceController.text),
-                  'icon': icon,
-                  'color': color,
-                  'category': category,
-                };
+                final newItem = DashboardItem(
+                  name: nameController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  price: int.parse(priceController.text),
+                  icon: icon,
+                  color: color,
+                  category: category,
+                );
                 setState(() {
                   if (isEditing) {
-                    final index = _items.indexOf(item);
-                    _items[index] = newItem;
+                    _controller.update(item, newItem);
                   } else {
-                    _items.add(newItem);
+                    _controller.add(newItem);
                   }
                 });
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(isEditing ? 'Item atualizado!' : 'Item criado!'),
+                    content: Text(
+                      isEditing ? 'Item atualizado!' : 'Item criado!',
+                    ),
                     backgroundColor: EducanoColors.successGreen,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -258,7 +216,9 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
           borderRadius: BorderRadius.circular(_radius),
         ),
         title: const Text('Remover Item'),
-        content: Text('Tem certeza que deseja remover "${item['name']}" da loja?'),
+        content: Text(
+          'Tem certeza que deseja remover "${item['name']}" da loja?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -269,7 +229,9 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
               setState(() => _items.remove(item));
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: EducanoColors.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EducanoColors.error,
+            ),
             child: const Text('Remover'),
           ),
         ],
@@ -310,8 +272,8 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
               Text(
                 'Gerencie os itens disponíveis na loja dos alunos.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: EducanoColors.textSecondary,
-                    ),
+                  color: EducanoColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -329,7 +291,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
     final averagePrice = _items.isEmpty
         ? 0
         : _items.fold<int>(0, (sum, i) => sum + (i['price'] as int)) ~/
-            _items.length;
+              _items.length;
     final stats = [
       {
         'label': 'Total de Itens',
@@ -375,14 +337,23 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                 color: EducanoColors.background,
                 borderRadius: BorderRadius.circular(_radius),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
+                  ),
                 ],
               ),
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: (stat['color'] as Color).withValues(alpha: 0.15),
-                    child: Icon(stat['icon'] as IconData, color: stat['color'] as Color),
+                    backgroundColor: (stat['color'] as Color).withValues(
+                      alpha: 0.15,
+                    ),
+                    child: Icon(
+                      stat['icon'] as IconData,
+                      color: stat['color'] as Color,
+                    ),
                   ),
                   const SizedBox(width: _spacingSmall),
                   Expanded(
@@ -423,7 +394,11 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
         color: EducanoColors.background,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(

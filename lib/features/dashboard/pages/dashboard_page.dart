@@ -16,9 +16,7 @@ class DashboardPage extends StatelessWidget {
       children: [
         const AppScaffold(
           selectedMenu: AppMenu.dashboard,
-          child: DashboardContent(
-            selectedMenu: AppMenu.dashboard,
-          ),
+          child: DashboardContent(),
         ),
 
         Positioned(
