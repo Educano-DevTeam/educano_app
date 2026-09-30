@@ -36,7 +36,7 @@ class _DashboardItemsPageState extends State<DashboardItemsPage> {
     final isMobile = MediaQuery.sizeOf(context).width <= AppBreakpoints.mobile;
 
     return AppScaffold(
-      selectedMenu: AppMenu.courses,
+      selectedMenu: AppMenu.itens,
       sidebarExpanded: sidebarExpanded,
       searchController: searchController,
       scaffoldKey: scaffoldKey,

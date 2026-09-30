@@ -1,57 +1,77 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/theme.dart';
+import '../../theme/educano_colors.dart';
 
 class AppSmallButton extends StatelessWidget {
-  final String text;
+  final String label;
   final VoidCallback? onPressed;
-
-  final Color? color;
-  final Color? textColor;
-
   final IconData? icon;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final bool outlined;
 
   const AppSmallButton({
     super.key,
-    required this.text,
-    required this.onPressed,
-    this.color,
-    this.textColor,
+    required this.label,
+    this.onPressed,
     this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.outlined = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color ?? EducanoColors.primaryBlue,
-          foregroundColor: textColor ?? Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: icon == null
-            ? Text(
-                text,
-                style: const TextStyle(fontSize: 12),
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 14),
-                  const SizedBox(width: 5),
-                  Text(
-                    text,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-      ),
-    );
+    final background = backgroundColor ?? EducanoColors.primaryBlue;
+    final foreground = foregroundColor ?? Colors.white;
+
+    final style = outlined
+        ? OutlinedButton.styleFrom(
+            foregroundColor: foreground,
+            side: BorderSide(color: background),
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          )
+        : ElevatedButton.styleFrom(
+            backgroundColor: background,
+            foregroundColor: foreground,
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          );
+
+    if (icon == null) {
+      return outlined
+          ? OutlinedButton(
+              onPressed: onPressed,
+              style: style,
+              child: Text(label),
+            )
+          : ElevatedButton(
+              onPressed: onPressed,
+              style: style,
+              child: Text(label),
+            );
+    }
+
+    return outlined
+        ? OutlinedButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon, size: 16),
+            label: Text(label),
+          )
+        : ElevatedButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon, size: 16),
+            label: Text(label),
+          );
   }
 }

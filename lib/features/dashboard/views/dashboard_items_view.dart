@@ -319,7 +319,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
         AppSmallButton(
           onPressed: _showItemDialog,
           icon: Icons.add_rounded,
-          text: 'Novo Item',
+          label: 'Novo Item',
         ),
       ],
     );

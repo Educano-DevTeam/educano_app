@@ -10,12 +10,15 @@ import 'package:educano_app/features/home/pages/home_page.dart';
 import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
 import 'package:educano_app/features/ranking/pages/ranking_page.dart';
 import 'package:educano_app/features/store_inventory/pages/store_inventory_page.dart';
+import 'package:educano_app/features/profile/pages/profile_page.dart';
 
 import 'features/dashboard/pages/dashboard_page.dart';
 import 'package:educano_app/features/dashboard/pages/dashboard_items_page.dart';
 import 'package:educano_app/features/dashboard/pages/dashcoard_courses_page.dart';
 import 'package:educano_app/features/dashboard/widgets/dashboard_courses_content.dart';
 import 'package:educano_app/features/dashboard/widgets/dashcoard_items_content.dart';
+
+import 'package:educano_app/features/settings/pages/settings_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +51,9 @@ class EducanoApp extends StatelessWidget {
           case AppRoutes.storeInventory:
             return _buildRoute(const StoreInventoryPage(), settings);
 
+          case AppRoutes.profile:
+            return _buildRoute(const ProfilePage(), settings);
+
           case AppRoutes.dashboard:
             return _buildRoute(DashboardPage(), settings);
 
@@ -56,6 +62,9 @@ class EducanoApp extends StatelessWidget {
 
           case AppRoutes.dashboardItems:
             return _buildRoute(DashboardItemsPage(), settings);
+
+          case AppRoutes.settings:
+            return _buildRoute(const SettingsPage(), settings);
 
           default:
             return _buildRoute(const HomePage(), settings);

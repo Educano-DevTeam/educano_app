@@ -178,7 +178,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
               );
             },
             icon: Icons.edit_rounded,
-            text: 'Ver curso completo',
+            label: "",
           ),
         ],
       ),
@@ -303,7 +303,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
         AppSmallButton(
           onPressed: () => _openCourseEditor(context),
           icon: Icons.add_rounded,
-          text: 'Novo Curso',
+          label: 'Novo Curso',
         ),
         OutlinedButton.icon(
           onPressed: () => _showEnrollDialog(context),
@@ -611,7 +611,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                     context,
                     courseName: course['name'] as String,
                   ),
-                  text: 'Inscrever',
+                  label: 'Inscrever',
                 );
 
                 return Column(

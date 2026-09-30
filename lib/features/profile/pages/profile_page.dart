@@ -6,14 +6,14 @@ import '../widgets/section_card.dart';
 import '../widgets/mini_bar_chart.dart';
 import '../widgets/hover_button.dart';
 
-class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key});
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
 
   @override
-  State<PerfilScreen> createState() => _PerfilScreenState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _PerfilScreenState extends State<PerfilScreen> {
+class _ProfilePageState extends State<ProfilePage> {
   static const List<Course> _courses = [
     Course(initials: 'MB', color: AppColors.navy, name: 'Matemática Básica', progressLabel: '3 trilhas • 45% concluído'),
     Course(initials: 'PA', color: AppColors.green, name: 'Português Avançado', progressLabel: '2 trilhas • 62% concluído'),

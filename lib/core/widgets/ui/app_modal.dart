@@ -1,20 +1,40 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/theme.dart';
+import '../../theme/educano_colors.dart';
 
 class AppModal extends StatelessWidget {
+  final String title;
   final Widget child;
-
-  final String? title;
-
+  final List<Widget>? actions;
   final double maxWidth;
 
   const AppModal({
     super.key,
+    required this.title,
     required this.child,
-    this.title,
-    this.maxWidth = 600,
+    this.actions,
+    this.maxWidth = 520,
   });
+
+  static Future<T?> show<T>({
+    required BuildContext context,
+    required String title,
+    required Widget child,
+    List<Widget>? actions,
+    double maxWidth = 520,
+  }) {
+    return showDialog<T>(
+      context: context,
+      builder: (_) {
+        return AppModal(
+          title: title,
+          maxWidth: maxWidth,
+          actions: actions,
+          child: child,
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,44 +46,61 @@ class AppModal extends StatelessWidget {
           maxWidth: maxWidth,
         ),
         child: Container(
-          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: EducanoColors.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    if (title != null) ...[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          title!,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: EducanoColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                    ],
-                    child,
+                    ),
+
+                    IconButton(
+                      tooltip: 'Fechar',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
                 ),
-              ),
 
-              Positioned(
-                top: 0,
-                right: 0,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
+                const SizedBox(height: 16),
+
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: child,
+                  ),
                 ),
-              ),
-            ],
+
+                if (actions != null && actions!.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ...actions!.map(
+                        (action) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: action,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

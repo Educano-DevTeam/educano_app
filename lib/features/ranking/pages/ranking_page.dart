@@ -6,14 +6,14 @@ import '../widgets/app_shell.dart';
 import '../widgets/section_card.dart';
 import '../widgets/stat_card.dart';
 
-class RankingScreen extends StatefulWidget {
-  const RankingScreen({super.key});
+class RankingPage extends StatefulWidget {
+  const RankingPage({super.key});
 
   @override
-  State<RankingScreen> createState() => _RankingScreenState();
+  State<RankingPage> createState() => _RankingPageState();
 }
 
-class _RankingScreenState extends State<RankingScreen> {
+class _RankingPageState extends State<RankingPage> {
   static const List<RankingEntry> _entries = [
     RankingEntry(position: 1, name: 'Manuela Souza', xp: 4820),
     RankingEntry(position: 2, name: 'Rafael Cristiano', xp: 4510),
