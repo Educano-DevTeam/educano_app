@@ -14,9 +14,9 @@ import 'package:educano_app/features/profile/pages/profile_page.dart';
 
 import 'features/dashboard/pages/dashboard_page.dart';
 import 'package:educano_app/features/dashboard/pages/dashboard_items_page.dart';
-import 'package:educano_app/features/dashboard/pages/dashcoard_courses_page.dart';
+import 'package:educano_app/features/dashboard/pages/dashboard_courses_page.dart';
 import 'package:educano_app/features/dashboard/widgets/dashboard_courses_content.dart';
-import 'package:educano_app/features/dashboard/widgets/dashcoard_items_content.dart';
+import 'package:educano_app/features/dashboard/widgets/dashboard_items_content.dart';
 
 import 'package:educano_app/features/settings/pages/settings_page.dart';
 

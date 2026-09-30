@@ -14,7 +14,7 @@ class AppRoutes {
   static const String dashboardQuestions = '/dashboard/questoes';
   static const String dashboardItems = '/dashboard/itens';
 
-  static const String settings = '/settings';
+  static const String settings = '/configuracoes';
 
 
 }

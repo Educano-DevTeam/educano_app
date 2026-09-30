@@ -35,27 +35,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width <= AppBreakpoints.mobile;
-
     return AppScaffold(
       selectedMenu: selectedMenu,
-      sidebarExpanded: sidebarExpanded,
-      searchController: searchController,
-      onToggleSidebar: toggleSidebar,
-      scaffoldKey: scaffoldKey,
-
-      onMenuPressed: () {
-        if (isMobile) {
-          scaffoldKey.currentState?.openDrawer();
-        } else {
-          toggleSidebar();
-        }
-      },
-
-      onMenuSelected: (menu) {
-        AppNavigation.onMenuSelected(context, menu);
-      },
-
       child: HomeContent(selectedMenu: selectedMenu),
     );
   }

@@ -1,8 +1,7 @@
-import 'package:educano_app/core/navigation/app_routes.dart';
-import 'package:educano_app/core/navigation/navigation_service.dart';
 import 'package:flutter/material.dart';
 
 import '../navigation/app_menu.dart';
+import '../navigation/app_navigation.dart';
 import '../theme/theme.dart';
 import 'responsive_layout.dart';
 
@@ -10,94 +9,129 @@ import '../widgets/components/app_header.dart';
 import '../widgets/components/app_sidebar.dart';
 import '../widgets/components/app_bottom_navigation.dart';
 
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends StatefulWidget {
   final Widget child;
   final AppMenu selectedMenu;
-  final bool sidebarExpanded;
-  final TextEditingController searchController;
-  final ValueChanged<AppMenu> onMenuSelected;
-  final VoidCallback? onToggleSidebar;
-  final VoidCallback? onMenuPressed;
-
-  final GlobalKey<ScaffoldState> scaffoldKey;
 
   const AppScaffold({
     super.key,
     required this.child,
     required this.selectedMenu,
-    required this.sidebarExpanded,
-    required this.searchController,
-    required this.onMenuSelected,
-    required this.onMenuPressed,
-    required this.scaffoldKey,
-    this.onToggleSidebar,
   });
+
+  @override
+  State<AppScaffold> createState() => _AppScaffoldState();
+}
+
+class _AppScaffoldState extends State<AppScaffold> {
+  bool _sidebarExpanded = true;
+
+  final TextEditingController _searchController =
+      TextEditingController();
+
+  final GlobalKey<ScaffoldState> _scaffoldKey =
+      GlobalKey<ScaffoldState>();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSidebar() {
+    setState(() {
+      _sidebarExpanded = !_sidebarExpanded;
+    });
+  }
+
+  void _handleMenuSelected(AppMenu menu) {
+    AppNavigation.onMenuSelected(context, menu);
+  }
+
+  void _handleMenuPressed(bool isMobile) {
+    if (isMobile) {
+      _scaffoldKey.currentState?.openDrawer();
+      return;
+    }
+
+    _toggleSidebar();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
-      mobileBody: Scaffold(
-        key: scaffoldKey,
-        drawer: AppSidebar(
-          isMobile: true,
-          selectedMenu: selectedMenu,
-          sidebarExpanded: true,
-          onMenuSelected: (menu) {
-            Navigator.pop(context);
-            onMenuSelected(menu);
-          },
-        ),
+      mobileBody: _buildMobileLayout(),
+      desktopBody: _buildDesktopLayout(),
+    );
+  }
 
-        body: SafeArea(
-          child: Column(
-            children: [
-              AppHeader(
-                isMobile: true,
-                onMenuPressed: onMenuPressed,
-                searchController: searchController,
-              ),
+  Widget _buildMobileLayout() {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: EducanoColors.background,
+      drawer: AppSidebar(
+        isMobile: true,
+        selectedMenu: widget.selectedMenu,
+        sidebarExpanded: true,
+        onMenuSelected: (menu) {
+          Navigator.pop(context);
+          _handleMenuSelected(menu);
+        },
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppHeader(
+              isMobile: true,
+              onMenuPressed: () => _handleMenuPressed(true),
+              searchController: _searchController,
+            ),
 
-              Expanded(child: child),
+            Expanded(
+              child: widget.child,
+            ),
 
-              AppBottomNavigation(
-                selectedMenu: selectedMenu,
-                onItemSelected: onMenuSelected,
-              ),
-            ],
-          ),
+            AppBottomNavigation(
+              selectedMenu: widget.selectedMenu,
+              onItemSelected: _handleMenuSelected,
+            ),
+          ],
         ),
       ),
+    );
+  }
 
-      desktopBody: Scaffold(
-        backgroundColor: EducanoColors.background,
-        key: scaffoldKey,
+  Widget _buildDesktopLayout() {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: EducanoColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppHeader(
+              isMobile: false,
+              onMenuPressed: () => _handleMenuPressed(false),
+              searchController: _searchController,
+            ),
 
-        body: SafeArea(
-          child: Column(
-            children: [
-              AppHeader(
-                isMobile: false,
-                onMenuPressed: onMenuPressed,
-                searchController: searchController,
+            Expanded(
+              child: Row(
+                children: [
+                  AppSidebar(
+                    isMobile: false,
+                    selectedMenu: widget.selectedMenu,
+                    sidebarExpanded: _sidebarExpanded,
+                    onToggleSidebar: _toggleSidebar,
+                    onMenuSelected: _handleMenuSelected,
+                  ),
+
+                  Expanded(
+                    child: widget.child,
+                  ),
+                ],
               ),
-
-              Expanded(
-                child: Row(
-                  children: [
-                    AppSidebar(
-                      isMobile: false,
-                      selectedMenu: selectedMenu,
-                      sidebarExpanded: sidebarExpanded,
-                      onToggleSidebar: onToggleSidebar,
-                      onMenuSelected: onMenuSelected,
-                    ),
-
-                    Expanded(child: child),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

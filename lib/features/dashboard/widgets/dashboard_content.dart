@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/navigation/app_menu.dart';
-
 import '../views/dashboard_home_view.dart';
 
 class DashboardContent extends StatelessWidget {
-  final AppMenu selectedMenu;
-
   const DashboardContent({
     super.key,
-    required this.selectedMenu,
+    this.selectedMenu,
   });
+
+  final Object? selectedMenu;
 
   @override
   Widget build(BuildContext context) {
-    switch (selectedMenu) {
-      case AppMenu.dashboard:
-        return const DashboardHomeView();
-      default:
-        return const SizedBox();
-    }
+    return const DashboardHomeView();
   }
 }

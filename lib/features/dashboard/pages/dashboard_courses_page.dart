@@ -25,36 +25,10 @@ class _DashboardCoursesPageState extends State<DashboardCoursesPage> {
     super.dispose();
   }
 
-  void toggleSidebar() {
-    setState(() {
-      sidebarExpanded = !sidebarExpanded;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.sizeOf(context).width <= AppBreakpoints.mobile;
-
     return AppScaffold(
       selectedMenu: AppMenu.courses,
-      sidebarExpanded: sidebarExpanded,
-      searchController: searchController,
-      scaffoldKey: scaffoldKey,
-
-      onToggleSidebar: toggleSidebar,
-
-      onMenuPressed: () {
-        if (isMobile) {
-          scaffoldKey.currentState?.openDrawer();
-        } else {
-          toggleSidebar();
-        }
-      },
-
-      onMenuSelected: (menu) {
-        AppNavigation.onMenuSelected(context, menu);
-      },
-
       child: DashboardCoursesContent(selectedMenu: selectedMenu),
     );
   }
