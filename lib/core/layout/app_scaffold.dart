@@ -8,6 +8,7 @@ import 'responsive_layout.dart';
 import '../widgets/components/app_header.dart';
 import '../widgets/components/app_sidebar.dart';
 import '../widgets/components/app_bottom_navigation.dart';
+import '../../features/materials/widgets/course_mini_audio_player.dart';
 
 class AppScaffold extends StatefulWidget {
   final Widget child;
@@ -88,7 +89,10 @@ class _AppScaffoldState extends State<AppScaffold> {
             ),
 
             Expanded(
-              child: widget.child,
+              child: Stack(children: [
+                Positioned.fill(child: widget.child),
+                const Positioned(left: 0, right: 0, bottom: 0, child: CourseMiniAudioPlayer()),
+              ]),
             ),
 
             AppBottomNavigation(
@@ -126,7 +130,10 @@ class _AppScaffoldState extends State<AppScaffold> {
                   ),
 
                   Expanded(
-                    child: widget.child,
+                    child: Stack(children: [
+                      Positioned.fill(child: widget.child),
+                      const Positioned(left: 0, right: 0, bottom: 0, child: CourseMiniAudioPlayer()),
+                    ]),
                   ),
                 ],
               ),

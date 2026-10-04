@@ -1,6 +1,7 @@
 import 'package:educano_app/core/constants/app_breakpoints.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
 
 const double _spacingSmall = 16;
@@ -14,6 +15,7 @@ class HomeView extends StatelessWidget {
 
   static const List<_CourseData> _courses = [
     _CourseData(
+      id: 'vestibular-2026',
       title: 'Vestibular 2026 - Curso Preparatório',
       category: 'Multidisciplinar',
       hours: '75 Horas',
@@ -26,6 +28,7 @@ class HomeView extends StatelessWidget {
       image: 'assets/home/course_vestibular.png',
     ),
     _CourseData(
+      id: 'inteligencia-artificial',
       title: 'Introdução à Inteligência Artificial',
       category: 'Tecnologia',
       hours: '12 Horas',
@@ -38,6 +41,7 @@ class HomeView extends StatelessWidget {
       image: 'assets/home/course_ia.png',
     ),
     _CourseData(
+      id: 'financas-pessoais',
       title: 'Finanças Pessoais para Iniciantes',
       category: 'Educação Financeira',
       hours: '32 Horas',
@@ -50,6 +54,7 @@ class HomeView extends StatelessWidget {
       image: 'assets/home/course_financas.png',
     ),
     _CourseData(
+      id: 'design-profissional',
       title: 'Design Profissional',
       category: 'Design',
       hours: '48 Horas',
@@ -355,18 +360,22 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isMobile) {
-      return _buildMobile();
+      return _buildMobile(context);
     }
 
-    return _buildDesktop();
+    return _buildDesktop(context);
   }
 
-  Widget _buildDesktop() {
+  Widget _buildDesktop(BuildContext context) {
     return Material(
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(17),
-        onTap: () {},
+        onTap: () {
+          Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.course, arguments: course.id);
+        },
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(17),
@@ -402,7 +411,7 @@ class _CourseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMobile() {
+  Widget _buildMobile(BuildContext context) {
     return Material(
       color: Colors.white,
       child: InkWell(
@@ -608,6 +617,7 @@ class _SimuladosCard extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _CourseData {
+  final String id;
   final String title;
   final String category;
   final String hours;
@@ -617,6 +627,7 @@ class _CourseData {
   final String image;
 
   const _CourseData({
+    required this.id,
     required this.title,
     required this.category,
     required this.hours,

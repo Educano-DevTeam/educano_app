@@ -52,3 +52,27 @@ class AppCard extends StatelessWidget {
     );
   }
 }
+
+/// Bordered section card used by the profile, ranking and settings screens.
+class AppSectionCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  const AppSectionCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(20),
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: EducanoColors.legacyCardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: EducanoColors.legacyCardBorder),
+        ),
+        child: child,
+      );
+}
