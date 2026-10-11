@@ -35,6 +35,33 @@ class EducanoColors {
   static const Color warning = accentYellow;
   static const Color info = secondaryBlue;
   static const Color error = Color(0xFFE53935);
+  static const Color errorBackground = Color(0xFFFDE8E7);
+  static const Color successLight = Color(0xFFC0FFB3);
+  static const Color successBright = Color(0xFF30D50E);
+  static const Color successDark = Color(0xFF1B9E00);
+  static const Color warningLight = Color(0xFFFFE18D);
+  static const Color cardBorder = Color(0xFFD9D9D9);
+
+  // Cores complementares usadas nos protótipos de perfil, ranking e configurações.
+  static const Color legacyPrimary = Color(0xFF4C5FD5);
+  static const Color legacyBackground = Color(0xFFF4F5FA);
+  static const Color legacyTextSecondary = Color(0xFF8A8DA6);
+  static const Color legacyTextPrimary = Color(0xFF1F2340);
+  static const Color legacyCardBorder = Color(0xFFE7E8F0);
+  static const Color legacyCardBackground = Colors.white;
+  static const Color legacyGold = Color(0xFFF2B90E);
+  static const Color legacySilver = Color(0xFF6B7280);
+  static const Color legacyBronze = Color(0xFFB4713A);
+  static const Color legacyTopThreeBackground = Color(0xFFFDF1D6);
+  static const Color legacyAmber = Color(0xFFF2A70E);
+  static const Color legacyGradientStart = Color(0xFF4C63D2);
+  static const Color legacyGradientEnd = Color(0xFFE8964E);
+  static const Color legacyNavy = Color(0xFF3B5BA9);
+  static const Color legacyGreen = Color(0xFF4CAF6D);
+  static const Color legacyOrange = Color(0xFFF5A623);
+  static const Color legacyRed = Color(0xFFD9534F);
+  static const Color legacyRedSoft = Color(0xFFF3D5D3);
+  static const Color legacyLavender = Color(0xFFEEF0FF);
 
   // GRADIENTE OFICIAL
   static const LinearGradient primaryGradient =

@@ -1,0 +1,80 @@
+# Miscellaneous
+*.class
+*.lock
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+flycheck_*.el
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configs and tasks you might want to
+# share on a project
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android related
+**/android/**/*.iml
+**/android/app/libs/armeabi/
+**/android/app/libs/armeabi-v7a/
+**/android/app/libs/arm64-v8a/
+**/android/app/libs/x86/
+**/android/app/libs/x86_64/
+**/android/app/build/
+**/android/local.properties
+**/android/.gradle
+**/android/captures/
+**/android/gradle-wrapper.jar
+
+# iOS/macOS related
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/DerivedData/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/.last_build_id
+**/ios/ServiceDefinitions.json
+**/ios/Runner/Generated.h
+**/ios/Runner/Generated.m
+**/ios/Podfile.lock
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Flutter/ephemeral/
+
+# Web related
+**/web/favicon.png
+**/build/web/
+
+# Exceptions to above rules
+!**/android/app/src/debug/assets/flutter_assets/
+!**/android/app/src/profile/assets/flutter_assets/
+!**/android/app/src/release/assets/flutter_assets/

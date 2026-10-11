@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/educano_colors.dart';
+import '../../theme/educano_colors.dart';
 import '../../../core/navigation/app_menu.dart';
 
 class AppBottomNavigation extends StatelessWidget {
@@ -65,9 +65,9 @@ class AppBottomNavigation extends StatelessWidget {
 
             Expanded(
               child: _buildItem(
-                icon: Icons.person_rounded,
-                label: "Perfil",
-                menu: AppMenu.profile,
+                icon: Icons.store,
+                label: "Loja",
+                menu: AppMenu.storeInventory,
               ),
             ),
           ],

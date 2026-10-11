@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../theme/theme.dart';
-import '../navigation/app_menu.dart';
+import '../../theme/theme.dart';
+import '../../navigation/app_menu.dart';
 import 'sidebar_item.dart';
 import 'sidebar_section.dart';
 
@@ -60,7 +60,6 @@ class AppSidebar extends StatelessWidget {
                     title: "Principal",
                     expanded: sidebarExpanded,
                     children: [
-
                       SidebarItem(
                         icon: Icons.home,
                         title: "Home",
@@ -86,12 +85,12 @@ class AppSidebar extends StatelessWidget {
                         onTap: () => onMenuSelected(AppMenu.ranking),
                       ),
                       SidebarItem(
-                        icon: Icons.person_rounded,
-                        title: "Perfil",
-                        menu: AppMenu.profile,
+                        icon: Icons.store,
+                        title: "Loja",
+                        menu: AppMenu.storeInventory,
                         selectedMenu: selectedMenu,
                         expanded: sidebarExpanded,
-                        onTap: () => onMenuSelected(AppMenu.profile),
+                        onTap: () => onMenuSelected(AppMenu.storeInventory),
                       ),
                     ],
                   ),
@@ -100,7 +99,6 @@ class AppSidebar extends StatelessWidget {
                   title: "Dashboard",
                   expanded: sidebarExpanded,
                   children: [
-
                     SidebarItem(
                       icon: Icons.dashboard_rounded,
                       title: "Painel",
@@ -112,36 +110,35 @@ class AppSidebar extends StatelessWidget {
                     SidebarItem(
                       icon: Icons.group_rounded,
                       title: "Usuários",
-                      menu: AppMenu.users,
+                      menu: AppMenu.usersListage,
                       selectedMenu: selectedMenu,
                       expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.users),
+                      onTap: () => onMenuSelected(AppMenu.usersListage),
                     ),
                     SidebarItem(
                       icon: Icons.school_rounded,
                       title: "Cursos",
-                      menu: AppMenu.courses,
+                      menu: AppMenu.coursesListage,
                       selectedMenu: selectedMenu,
                       expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.courses),
+                      onTap: () => onMenuSelected(AppMenu.coursesListage),
                     ),
                     SidebarItem(
                       icon: Icons.quiz_rounded,
                       title: "Questões",
-                      menu: AppMenu.questions,
+                      menu: AppMenu.questionsListage,
                       selectedMenu: selectedMenu,
                       expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.questions),
+                      onTap: () => onMenuSelected(AppMenu.questionsListage),
                     ),
                     SidebarItem(
-                      icon: Icons.store_rounded,
-                      title: "Loja",
-                      menu: AppMenu.store,
+                      icon: Icons.star,
+                      title: "Itens",
+                      menu: AppMenu.itensListage,
                       selectedMenu: selectedMenu,
                       expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.store),
+                      onTap: () => onMenuSelected(AppMenu.itensListage),
                     ),
-
                   ],
                 ),
 
@@ -149,7 +146,6 @@ class AppSidebar extends StatelessWidget {
                   title: "Outras opções",
                   expanded: sidebarExpanded,
                   children: [
-
                     SidebarItem(
                       icon: Icons.settings_rounded,
                       title: "Configurações",
