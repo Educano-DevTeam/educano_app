@@ -38,10 +38,12 @@ dependencies:
   just_audio: ^0.10.6
   syncfusion_flutter_pdfviewer: ^35.1.37
   video_player: ^2.14.1
+  file_picker: ^13.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  shared_preferences_platform_interface: ^2.4.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -57,10 +59,15 @@ dev_dependencies:
 flutter:
 
   assets:
+    - lib/assets/courses/vestibular_course_image.jpg
+    - lib/assets/courses/ai_course_image.jpg
+    - lib/assets/courses/finances_course_image.jpg
+    - lib/assets/courses/desing_course_image.jpg
+    - lib/assets/courses/exam_image.jpg
     - lib/assets/Educano_Logo.jpeg
     - lib/assets/videoplayback.mp4
     - lib/assets/videoplayback.m4a
-    - lib/assets/sherlock_holmes.pdf
+    - lib/assets/ditadura.pdf
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

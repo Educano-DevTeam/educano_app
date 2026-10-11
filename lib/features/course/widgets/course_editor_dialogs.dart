@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/course_models.dart';
@@ -160,17 +163,23 @@ class _MaterialEditorDialogState extends State<_MaterialEditorDialog> {
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           transitionBuilder: (child, animation) {
-            final offset = Tween<Offset>(
-              begin: const Offset(.12, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-            return SlideTransition(position: offset, child: FadeTransition(
-              opacity: animation,
-              child: child,
-            ));
+            final offset =
+                Tween<Offset>(
+                  begin: const Offset(.12, 0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                );
+            return SlideTransition(
+              position: offset,
+              child: FadeTransition(opacity: animation, child: child),
+            );
           },
           child: _step == 0
-              ? _MaterialKindStep(key: const ValueKey('kind'), onSelect: _selectKind)
+              ? _MaterialKindStep(
+                  key: const ValueKey('kind'),
+                  onSelect: _selectKind,
+                )
               : _MaterialFormStep(
                   key: ValueKey(_kind),
                   kind: _kind!,
@@ -223,11 +232,13 @@ class _MaterialKindStep extends StatelessWidget {
                 ),
               ];
               return compact
-                  ? Column(children: [
-                      children[0],
-                      const SizedBox(height: 12),
-                      children[1],
-                    ])
+                  ? Column(
+                      children: [
+                        children[0],
+                        const SizedBox(height: 12),
+                        children[1],
+                      ],
+                    )
                   : Row(
                       children: [
                         Expanded(child: children[0]),
@@ -281,7 +292,10 @@ class _KindCard extends StatelessWidget {
               child: Icon(icon, color: _blue, size: 30),
             ),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+            ),
             const SizedBox(height: 4),
             Text(
               subtitle,
@@ -316,6 +330,11 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
   final _file = TextEditingController();
   final _theme = TextEditingController();
   final _duration = TextEditingController();
+  Uint8List? _fileBytes;
+  String? _selectedFileName;
+  String? _selectedFilePath;
+  int? _selectedFileSize;
+  bool _pickingFile = false;
 
   MaterialKind _fileKind = MaterialKind.video;
   final List<ActivityQuestion> _questions = [];
@@ -330,6 +349,52 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
   }
 
   bool get isActivity => widget.kind == MaterialKind.activity;
+
+  Future<void> _pickAttachment() async {
+    final extensions = switch (_fileKind) {
+      MaterialKind.video => ['mp4', 'mov', 'm4v', 'webm'],
+      MaterialKind.audio => ['mp3', 'm4a', 'wav', 'aac', 'ogg'],
+      MaterialKind.pdf => ['pdf'],
+      MaterialKind.activity => const <String>[],
+    };
+    setState(() => _pickingFile = true);
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: extensions,
+      );
+      if (!mounted || files.isEmpty) return;
+      final file = files.first;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _fileBytes = bytes;
+        _selectedFileName = file.name;
+        _selectedFilePath = file.path;
+        _selectedFileSize = bytes.lengthInBytes;
+        _file.text = file.name;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nao foi possivel selecionar o arquivo: $error'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _pickingFile = false);
+    }
+  }
+
+  void _clearAttachment() {
+    setState(() {
+      _fileBytes = null;
+      _selectedFileName = null;
+      _selectedFilePath = null;
+      _selectedFileSize = null;
+      _file.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -350,11 +415,17 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                 Expanded(
                   child: Text(
                     isActivity ? 'Cadastrar atividade' : 'Cadastrar aula',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 Chip(
-                  avatar: Icon(isActivity ? Icons.assignment : Icons.play_lesson_outlined, size: 17),
+                  avatar: Icon(
+                    isActivity ? Icons.assignment : Icons.play_lesson_outlined,
+                    size: 17,
+                  ),
                   label: Text(isActivity ? 'Atividade' : 'Aula'),
                 ),
               ],
@@ -377,7 +448,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                 ElevatedButton.icon(
                   onPressed: _submit,
                   icon: const Icon(Icons.check_rounded),
-                  label: Text(isActivity ? 'Cadastrar atividade' : 'Cadastrar aula'),
+                  label: Text(
+                    isActivity ? 'Cadastrar atividade' : 'Cadastrar aula',
+                  ),
                 ),
               ],
             ),
@@ -398,7 +471,17 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
             DropdownMenuItem(value: MaterialKind.audio, child: Text('Áudio')),
             DropdownMenuItem(value: MaterialKind.pdf, child: Text('PDF')),
           ],
-          onChanged: (value) => setState(() => _fileKind = value!),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _fileKind = value;
+              _fileBytes = null;
+              _selectedFileName = null;
+              _selectedFilePath = null;
+              _selectedFileSize = null;
+              _file.clear();
+            });
+          },
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -418,22 +501,50 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           controller: _file,
           decoration: InputDecoration(
             labelText: 'Anexo do arquivo',
-            hintText: 'URL ou caminho do arquivo',
-            suffixIcon: IconButton(
-              tooltip: 'Selecionar arquivo',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ponto preparado para conectar o file_picker no backend/app final.'),
-                    behavior: SnackBarBehavior.floating,
+            hintText: 'Selecione um arquivo ou informe uma URL',
+            suffixIcon: _pickingFile
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : _fileBytes != null
+                ? IconButton(
+                    tooltip: 'Remover anexo',
+                    onPressed: _clearAttachment,
+                    icon: const Icon(Icons.close_rounded),
+                  )
+                : IconButton(
+                    tooltip: 'Selecionar arquivo',
+                    onPressed: _pickAttachment,
+                    icon: const Icon(Icons.attach_file_rounded),
                   ),
-                );
-              },
-              icon: const Icon(Icons.attach_file_rounded),
-            ),
           ),
+          onChanged: (value) {
+            if (_fileBytes != null && value != _selectedFileName) {
+              setState(() {
+                _fileBytes = null;
+                _selectedFileName = null;
+                _selectedFilePath = null;
+                _selectedFileSize = null;
+              });
+            }
+          },
           validator: _required,
         ),
+        if (_selectedFileSize != null) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${(_selectedFileSize! / (1024 * 1024)).toStringAsFixed(2)} MB selecionados',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -457,7 +568,8 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           ),
           validator: (value) {
             final number = int.tryParse((value ?? '').trim());
-            if (number == null || number <= 0) return 'Informe um tempo válido.';
+            if (number == null || number <= 0)
+              return 'Informe um tempo válido.';
             return null;
           },
         ),
@@ -570,8 +682,12 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
         kind: _fileKind,
         title: _title.text.trim(),
         description: _description.text.trim(),
-        fileName: _file.text.trim().split('/').last,
-        fileUrl: _file.text.trim(),
+        fileName:
+            _selectedFileName ?? _file.text.trim().split(RegExp(r'[/\\]')).last,
+        fileUrl: _fileBytes == null ? _file.text.trim() : null,
+        fileBytes: _fileBytes,
+        filePath: _selectedFilePath,
+        fileSizeBytes: _selectedFileSize,
       ),
     );
   }
@@ -633,9 +749,13 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
     setState(() {
       _results = q.isEmpty
           ? []
-          : _bank.where((item) =>
-              item.title.toLowerCase().contains(q) ||
-              item.statement.toLowerCase().contains(q)).toList();
+          : _bank
+                .where(
+                  (item) =>
+                      item.title.toLowerCase().contains(q) ||
+                      item.statement.toLowerCase().contains(q),
+                )
+                .toList();
     });
   }
 
@@ -659,19 +779,30 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
-              children: _results.map((question) => ListTile(
-                dense: true,
-                title: Text(question.title),
-                subtitle: Text(question.statement, maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: IconButton(
-                  onPressed: () {
-                    widget.onAdd(question);
-                    _controller.clear();
-                    setState(() => _results = []);
-                  },
-                  icon: const Icon(Icons.add_circle_outline_rounded, color: _blue),
-                ),
-              )).toList(),
+              children: _results
+                  .map(
+                    (question) => ListTile(
+                      dense: true,
+                      title: Text(question.title),
+                      subtitle: Text(
+                        question.statement,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: IconButton(
+                        onPressed: () {
+                          widget.onAdd(question);
+                          _controller.clear();
+                          setState(() => _results = []);
+                        },
+                        icon: const Icon(
+                          Icons.add_circle_outline_rounded,
+                          color: _blue,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -733,11 +864,22 @@ class _QuestionEditorDialog extends StatefulWidget {
   State<_QuestionEditorDialog> createState() => _QuestionEditorDialogState();
 }
 
+/// Reutilizado pelas telas administrativas que precisam cadastrar uma questão.
+Future<ActivityQuestion?> showActivityQuestionDialog(BuildContext context) {
+  return showDialog<ActivityQuestion>(
+    context: context,
+    builder: (_) => const _QuestionEditorDialog(),
+  );
+}
+
 class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _statement = TextEditingController();
-  final List<TextEditingController> _answers = [TextEditingController(), TextEditingController()];
+  final List<TextEditingController> _answers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
   ActivityQuestionDifficulty _difficulty = ActivityQuestionDifficulty.easy;
   int _correctIndex = 0;
 
@@ -778,21 +920,30 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                 TextFormField(
                   controller: _title,
                   decoration: const InputDecoration(labelText: 'Título'),
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Informe o título.' : null,
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? 'Informe o título.' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _statement,
                   maxLines: 4,
                   decoration: const InputDecoration(labelText: 'Pergunta'),
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Informe a pergunta.' : null,
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? 'Informe a pergunta.' : null,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<ActivityQuestionDifficulty>(
                   initialValue: _difficulty,
-                  decoration: const InputDecoration(labelText: 'Nível de dificuldade'),
+                  decoration: const InputDecoration(
+                    labelText: 'Nível de dificuldade',
+                  ),
                   items: ActivityQuestionDifficulty.values
-                      .map((item) => DropdownMenuItem(value: item, child: Text(item.label)))
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(item.label),
+                        ),
+                      )
                       .toList(),
                   onChanged: (value) => setState(() => _difficulty = value!),
                 ),
@@ -800,12 +951,18 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                 Row(
                   children: [
                     const Expanded(
-                      child: Text('Respostas', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Respostas',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                     Text('${_answers.length}/5'),
                     IconButton(
                       onPressed: _answers.length >= 5 ? null : _addAnswer,
-                      icon: const Icon(Icons.add_circle_outline_rounded, color: _blue),
+                      icon: const Icon(
+                        Icons.add_circle_outline_rounded,
+                        color: _blue,
+                      ),
                     ),
                   ],
                 ),
@@ -820,25 +977,35 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                         Radio<int>(
                           value: index,
                           groupValue: _correctIndex,
-                          onChanged: (value) => setState(() => _correctIndex = value!),
+                          onChanged: (value) =>
+                              setState(() => _correctIndex = value!),
                         ),
                         CircleAvatar(
                           radius: 14,
                           backgroundColor: _blue.withValues(alpha: .10),
-                          child: Text(letter, style: const TextStyle(color: _blue, fontSize: 12)),
+                          child: Text(
+                            letter,
+                            style: const TextStyle(color: _blue, fontSize: 12),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
                             controller: controller,
-                            decoration: InputDecoration(labelText: 'Resposta $letter'),
-                            validator: (v) => (v ?? '').trim().isEmpty ? 'Preencha a resposta.' : null,
+                            decoration: InputDecoration(
+                              labelText: 'Resposta $letter',
+                            ),
+                            validator: (v) => (v ?? '').trim().isEmpty
+                                ? 'Preencha a resposta.'
+                                : null,
                           ),
                         ),
                         if (_answers.length > 2)
                           IconButton(
                             onPressed: () => _removeAnswer(index),
-                            icon: const Icon(Icons.remove_circle_outline_rounded),
+                            icon: const Icon(
+                              Icons.remove_circle_outline_rounded,
+                            ),
                           ),
                       ],
                     ),
@@ -857,7 +1024,10 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         ElevatedButton.icon(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;

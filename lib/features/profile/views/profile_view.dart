@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/educano_colors.dart';
+import '../../../core/models/app_user.dart';
 import '../../../core/models/profile_course.dart';
 import '../../../core/widgets/charts/mini_bar_chart.dart';
+import '../../../core/navigation/app_routes.dart';
+import '../../../core/navigation/navigation_service.dart';
+import '../../../services/storage_service.dart';
 
 import '../../../core/widgets/ui/app_card.dart';
 
@@ -16,10 +20,30 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   static const List<ProfileCourse> _courses = [
-    ProfileCourse(initials: 'MB', color: EducanoColors.legacyNavy, name: 'Matemática Básica', progressLabel: '3 trilhas • 45% concluído'),
-    ProfileCourse(initials: 'PA', color: EducanoColors.legacyGreen, name: 'Português Avançado', progressLabel: '2 trilhas • 62% concluído'),
-    ProfileCourse(initials: 'FQ', color: EducanoColors.legacyOrange, name: 'Física Quântica', progressLabel: '1 trilha • 20% concluído'),
-    ProfileCourse(initials: 'BC', color: EducanoColors.legacyRed, name: 'Biologia Celular', progressLabel: '1 trilha • 80% concluído'),
+    ProfileCourse(
+      initials: 'MB',
+      color: EducanoColors.legacyNavy,
+      name: 'Matemática Básica',
+      progressLabel: '3 trilhas • 45% concluído',
+    ),
+    ProfileCourse(
+      initials: 'PA',
+      color: EducanoColors.legacyGreen,
+      name: 'Português Avançado',
+      progressLabel: '2 trilhas • 62% concluído',
+    ),
+    ProfileCourse(
+      initials: 'FQ',
+      color: EducanoColors.legacyOrange,
+      name: 'Física Quântica',
+      progressLabel: '1 trilha • 20% concluído',
+    ),
+    ProfileCourse(
+      initials: 'BC',
+      color: EducanoColors.legacyRed,
+      name: 'Biologia Celular',
+      progressLabel: '1 trilha • 80% concluído',
+    ),
   ];
 
   static const List<ChartPoint> _chartData = [
@@ -33,99 +57,153 @@ class _ProfileViewState extends State<ProfileView> {
   ];
 
   int? _selectedCourse;
+  late final Future<AppUser?> _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userFuture = StorageService.instance.loadCurrentUser();
+  }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Meu Perfil',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: EducanoColors.legacyTextPrimary),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Meu Perfil',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EducanoColors.legacyTextPrimary,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Gerencie suas informações e confira seu progresso.',
-              style: TextStyle(fontSize: 13, color: EducanoColors.legacyTextSecondary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Gerencie suas informações e confira seu progresso.',
+            style: TextStyle(
+              fontSize: 13,
+              color: EducanoColors.legacyTextSecondary,
             ),
-            const SizedBox(height: 16),
-            const _ProfileHeaderCard(),
-            const SizedBox(height: 16),
-            const _PlanBanner(),
-            const SizedBox(height: 20),
-            const AppSectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Evolução das notas',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: EducanoColors.legacyTextPrimary),
-                      ),
-                      Spacer(),
-                      Text('2026', style: TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary)),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _LegendDot(color: EducanoColors.legacyRed, label: 'Atividades'),
-                      SizedBox(width: 16),
-                      _LegendDot(color: EducanoColors.legacyPrimary, label: 'Simulados'),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  MiniBarChart(data: _chartData),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            AppSectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Text(
-                        'Meus Cursos',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: EducanoColors.legacyTextPrimary),
-                      ),
-                      Spacer(),
-                      Text('4 em andamento', style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  for (int i = 0; i < _courses.length; i++)
-                    _CourseRow(
-                      course: _courses[i],
-                      selected: _selectedCourse == i,
-                      onTap: () => setState(
-                        () => _selectedCourse = _selectedCourse == i ? null : i,
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<AppUser?>(
+            future: _userFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const _ProfileDataError();
+              }
+              return _ProfileHeaderCard(user: snapshot.data);
+            },
+          ),
+          const SizedBox(height: 16),
+          const _PlanBanner(),
+          const SizedBox(height: 20),
+          const AppSectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Evolução das notas',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: EducanoColors.legacyTextPrimary,
                       ),
                     ),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Text(
-                      'Ver todos os cursos  ›',
-                      style: TextStyle(color: EducanoColors.legacyPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                    Spacer(),
+                    Text(
+                      '2026',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: EducanoColors.legacyTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    _LegendDot(
+                      color: EducanoColors.legacyRed,
+                      label: 'Atividades',
+                    ),
+                    SizedBox(width: 16),
+                    _LegendDot(
+                      color: EducanoColors.legacyPrimary,
+                      label: 'Simulados',
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                MiniBarChart(data: _chartData),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          AppSectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Text(
+                      'Meus Cursos',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: EducanoColors.legacyTextPrimary,
+                      ),
+                    ),
+                    Spacer(),
+                    Text(
+                      '4 em andamento',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: EducanoColors.legacyTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (int i = 0; i < _courses.length; i++)
+                  _CourseRow(
+                    course: _courses[i],
+                    selected: _selectedCourse == i,
+                    onTap: () => setState(
+                      () => _selectedCourse = _selectedCourse == i ? null : i,
                     ),
                   ),
-                ],
-              ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () {},
+                  child: const Text(
+                    'Ver todos os cursos  ›',
+                    style: TextStyle(
+                      color: EducanoColors.legacyPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard();
+  final AppUser? user;
+
+  const _ProfileHeaderCard({required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +218,10 @@ class _ProfileHeaderCard extends StatelessWidget {
                 height: 92,
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [EducanoColors.legacyGradientStart, EducanoColors.legacyGradientEnd],
+                    colors: [
+                      EducanoColors.legacyGradientStart,
+                      EducanoColors.legacyGradientEnd,
+                    ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -154,7 +235,10 @@ class _ProfileHeaderCard extends StatelessWidget {
                   width: 68,
                   height: 68,
                   padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
                   child: const CircleAvatar(
                     backgroundColor: EducanoColors.legacyPrimary,
                     child: Icon(Icons.person, color: Colors.white, size: 30),
@@ -169,15 +253,26 @@ class _ProfileHeaderCard extends StatelessWidget {
               builder: (context, constraints) {
                 final bool narrow = constraints.maxWidth < 460;
 
-                const Widget nameBlock = Column(
+                final nameBlock = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text('Daniel Lima',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: EducanoColors.legacyTextPrimary)),
-                    SizedBox(height: 2),
-                    Text('daniel.lima@gmail.com',
-                        style: TextStyle(fontSize: 12.5, color: EducanoColors.legacyTextSecondary)),
+                  children: [
+                    Text(
+                      user?.name ?? 'Conta Educano',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: EducanoColors.legacyTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user?.email ?? '',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: EducanoColors.legacyTextSecondary,
+                      ),
+                    ),
                   ],
                 );
 
@@ -204,9 +299,18 @@ class _ProfileHeaderCard extends StatelessWidget {
                     narrow
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [nameBlock, const SizedBox(height: 12), buttons],
+                            children: [
+                              nameBlock,
+                              const SizedBox(height: 12),
+                              buttons,
+                            ],
                           )
-                        : Row(children: [Expanded(child: nameBlock), buttons]),
+                        : Row(
+                            children: [
+                              Expanded(child: nameBlock),
+                              buttons,
+                            ],
+                          ),
                     const SizedBox(height: 20),
                     const _StatsRow(),
                   ],
@@ -245,9 +349,21 @@ class _StatsRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(items[i][0],
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: EducanoColors.legacyTextPrimary)),
-              Text(items[i][1], style: const TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary)),
+              Text(
+                items[i][0],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: EducanoColors.legacyTextPrimary,
+                ),
+              ),
+              Text(
+                items[i][1],
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: EducanoColors.legacyTextSecondary,
+                ),
+              ),
             ],
           ),
         ],
@@ -263,36 +379,71 @@ class _PlanBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: EducanoColors.legacyLavender, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: EducanoColors.legacyLavender,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
           Container(
             width: 36,
             height: 36,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.workspace_premium, color: EducanoColors.legacyPrimary, size: 18),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.workspace_premium,
+              color: EducanoColors.legacyPrimary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Plano Básico',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: EducanoColors.legacyTextPrimary)),
-                Text('Grátis - Tenha acesso a mais recursos disponíveis.',
-                    style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                Text(
+                  'Plano Básico',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: EducanoColors.legacyTextPrimary,
+                  ),
+                ),
+                Text(
+                  'Grátis - Tenha acesso a mais recursos disponíveis.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: EducanoColors.legacyTextSecondary,
+                  ),
+                ),
               ],
             ),
           ),
           HoverButton(
             label: 'Ver planos',
             trailingIcon: Icons.chevron_right,
-            onPressed: () {},
+            onPressed: () {
+              NavigationService.pushNamed(AppRoutes.accountPlan);
+            },
           ),
         ],
       ),
     );
   }
+}
+
+class _ProfileDataError extends StatelessWidget {
+  const _ProfileDataError();
+
+  @override
+  Widget build(BuildContext context) => const AppSectionCard(
+    child: Text(
+      'Não foi possível carregar as informações da conta.',
+      style: TextStyle(color: EducanoColors.error),
+    ),
+  );
 }
 
 class _LegendDot extends StatelessWidget {
@@ -305,9 +456,19 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: EducanoColors.legacyTextSecondary,
+          ),
+        ),
       ],
     );
   }
@@ -365,10 +526,17 @@ class _CourseRowState extends State<_CourseRow> {
                 width: 38,
                 height: 38,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: course.color, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                  color: course.color,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
                   course.initials,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -376,18 +544,30 @@ class _CourseRowState extends State<_CourseRow> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(course.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13.5, color: EducanoColors.legacyTextPrimary)),
-                    Text(course.progressLabel,
-                        style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                    Text(
+                      course.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: EducanoColors.legacyTextPrimary,
+                      ),
+                    ),
+                    Text(
+                      course.progressLabel,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: EducanoColors.legacyTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Icon(
                 Icons.chevron_right,
                 size: 18,
-                color: widget.selected ? EducanoColors.legacyPrimary : EducanoColors.legacyTextSecondary,
+                color: widget.selected
+                    ? EducanoColors.legacyPrimary
+                    : EducanoColors.legacyTextSecondary,
               ),
             ],
           ),

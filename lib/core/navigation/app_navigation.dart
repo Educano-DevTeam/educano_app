@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_menu.dart';
 import 'app_routes.dart';
 import 'navigation_service.dart';
+import '../../services/storage_service.dart';
 
 class AppNavigation {
   AppNavigation._();
@@ -11,10 +12,10 @@ class AppNavigation {
   static bool isDashboardMenu(AppMenu menu) {
     switch (menu) {
       case AppMenu.dashboard:
-      case AppMenu.users:
-      case AppMenu.courses:
-      case AppMenu.questions:
-      case AppMenu.itens:
+      case AppMenu.usersListage:
+      case AppMenu.coursesListage:
+      case AppMenu.questionsListage:
+      case AppMenu.itensListage:
         return true;
 
       default:
@@ -45,6 +46,47 @@ class AppNavigation {
         _goTo(AppRoutes.storeInventory);
         break;
 
+      case AppMenu.profile:
+        _goTo(AppRoutes.profile);
+        break;
+
+      case AppMenu.settings:
+        _goTo(AppRoutes.settings);
+        break;
+
+      case AppMenu.course:
+        _goTo(AppRoutes.course);
+        break;
+
+      case AppMenu.courses:
+        _goTo(AppRoutes.courses);
+        break;
+
+      case AppMenu.accountPlan:
+        _goTo(AppRoutes.accountPlan);
+        break;
+      case AppMenu.material:
+        _goTo(AppRoutes.material);
+        break;
+      case AppMenu.lastExams:
+        _goTo(AppRoutes.lastExams);
+        break;
+      case AppMenu.examConfig:
+        _goTo(AppRoutes.examConfig);
+        break;
+      case AppMenu.exam:
+        _goTo(AppRoutes.exam);
+        break;
+      case AppMenu.activity:
+        _goTo(AppRoutes.activity);
+        break;
+      case AppMenu.examFinish:
+        _goTo(AppRoutes.examFinish);
+        break;
+      case AppMenu.examResult:
+        _goTo(AppRoutes.examResult);
+        break;
+
       // ==============================================================
       // DASHBOARD
       // ==============================================================
@@ -53,29 +95,17 @@ class AppNavigation {
         _goTo(AppRoutes.dashboard);
         break;
 
-      case AppMenu.users:
+      case AppMenu.usersListage:
         _goTo(AppRoutes.dashboardUsers);
         break;
-      case AppMenu.courses:
+      case AppMenu.coursesListage:
         _goTo(AppRoutes.dashboardCourses);
         break;
-      case AppMenu.questions:
+      case AppMenu.questionsListage:
         _goTo(AppRoutes.dashboardQuestions);
         break;
-      case AppMenu.itens:
+      case AppMenu.itensListage:
         _goTo(AppRoutes.dashboardItems);
-        break;
-
-      // ==============================================================
-      // FUTURAS PÁGINAS
-      // ==============================================================
-
-      case AppMenu.profile:
-        _goTo(AppRoutes.profile);
-        break;
-
-      case AppMenu.settings:
-        _goTo(AppRoutes.settings);
         break;
 
       // ==============================================================
@@ -92,9 +122,20 @@ class AppNavigation {
     NavigationService.pushReplacementNamed(route);
   }
 
-  static void _logout(BuildContext context) {
-    // Futuramente:
-    // limpar sessão/token
-    // redirecionar para login
+  static Future<void> _logout(BuildContext context) async {
+    try {
+      await StorageService.instance.clearCurrentUser();
+      if (context.mounted) {
+        NavigationService.pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+        );
+      }
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível encerrar a sessão: $error')),
+      );
+    }
   }
 }

@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 
-
-
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
 const double _spacingMedium = 24;
@@ -51,9 +49,16 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-mat-1',
               'title': 'Módulo 1: Operações Básicas',
               'status': 'done',
-              'licao': {'title': 'Adição e Subtração', 'xp': 50, 'status': 'done'},
+              'licao': {
+                'title': 'Adição e Subtração',
+                'xp': 50,
+                'status': 'done',
+              },
               'materiais': [
-                {'name': 'Apostila em PDF', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Apostila em PDF',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
                 {'name': 'Slides da aula', 'icon': Icons.slideshow_rounded},
               ],
             },
@@ -61,9 +66,16 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-mat-2',
               'title': 'Módulo 2: Frações',
               'status': 'done',
-              'licao': {'title': 'Frações Equivalentes', 'xp': 60, 'status': 'done'},
+              'licao': {
+                'title': 'Frações Equivalentes',
+                'xp': 60,
+                'status': 'done',
+              },
               'materiais': [
-                {'name': 'Apostila em PDF', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Apostila em PDF',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
               ],
             },
           ],
@@ -78,19 +90,33 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-mat-3',
               'title': 'Módulo 3: Equações do 1º Grau',
               'status': 'current',
-              'licao': {'title': 'Resolvendo Equações', 'xp': 80, 'status': 'current'},
+              'licao': {
+                'title': 'Resolvendo Equações',
+                'xp': 80,
+                'status': 'current',
+              },
               'materiais': [
                 {'name': 'Vídeo-aula', 'icon': Icons.play_circle_rounded},
-                {'name': 'Lista de exercícios', 'icon': Icons.assignment_rounded},
+                {
+                  'name': 'Lista de exercícios',
+                  'icon': Icons.assignment_rounded,
+                },
               ],
             },
             {
               'id': 'mod-mat-4',
               'title': 'Módulo 4: Equações do 2º Grau',
               'status': 'locked',
-              'licao': {'title': 'Fórmula de Bhaskara', 'xp': 100, 'status': 'locked'},
+              'licao': {
+                'title': 'Fórmula de Bhaskara',
+                'xp': 100,
+                'status': 'locked',
+              },
               'materiais': [
-                {'name': 'Apostila em PDF', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Apostila em PDF',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
               ],
             },
           ],
@@ -138,16 +164,27 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-port-1',
               'title': 'Módulo 1: Concordância Verbal',
               'status': 'done',
-              'licao': {'title': 'Sujeito e Predicado', 'xp': 50, 'status': 'done'},
+              'licao': {
+                'title': 'Sujeito e Predicado',
+                'xp': 50,
+                'status': 'done',
+              },
               'materiais': [
-                {'name': 'Apostila em PDF', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Apostila em PDF',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
               ],
             },
             {
               'id': 'mod-port-2',
               'title': 'Módulo 2: Crase',
               'status': 'current',
-              'licao': {'title': 'Quando usar a crase', 'xp': 70, 'status': 'current'},
+              'licao': {
+                'title': 'Quando usar a crase',
+                'xp': 70,
+                'status': 'current',
+              },
               'materiais': [
                 {'name': 'Vídeo-aula', 'icon': Icons.play_circle_rounded},
               ],
@@ -164,9 +201,16 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-port-3',
               'title': 'Módulo 3: Textos Argumentativos',
               'status': 'locked',
-              'licao': {'title': 'Identificando Teses', 'xp': 80, 'status': 'locked'},
+              'licao': {
+                'title': 'Identificando Teses',
+                'xp': 80,
+                'status': 'locked',
+              },
               'materiais': [
-                {'name': 'Coletânea de textos', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Coletânea de textos',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
               ],
             },
           ],
@@ -189,16 +233,27 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-bio-1',
               'title': 'Módulo 1: Membrana Plasmática',
               'status': 'done',
-              'licao': {'title': 'Transporte Celular', 'xp': 50, 'status': 'done'},
+              'licao': {
+                'title': 'Transporte Celular',
+                'xp': 50,
+                'status': 'done',
+              },
               'materiais': [
-                {'name': 'Apostila em PDF', 'icon': Icons.picture_as_pdf_rounded},
+                {
+                  'name': 'Apostila em PDF',
+                  'icon': Icons.picture_as_pdf_rounded,
+                },
               ],
             },
             {
               'id': 'mod-bio-2',
               'title': 'Módulo 2: Organelas',
               'status': 'current',
-              'licao': {'title': 'Mitocôndrias e Ribossomos', 'xp': 60, 'status': 'current'},
+              'licao': {
+                'title': 'Mitocôndrias e Ribossomos',
+                'xp': 60,
+                'status': 'current',
+              },
               'materiais': [
                 {'name': 'Vídeo-aula', 'icon': Icons.play_circle_rounded},
                 {'name': 'Slides da aula', 'icon': Icons.slideshow_rounded},
@@ -224,7 +279,11 @@ class _StudentProgressViewState extends State<StudentProgressView> {
               'id': 'mod-fis-1',
               'title': 'Módulo 1: Dualidade Onda-Partícula',
               'status': 'current',
-              'licao': {'title': 'Experimento da Dupla Fenda', 'xp': 90, 'status': 'current'},
+              'licao': {
+                'title': 'Experimento da Dupla Fenda',
+                'xp': 90,
+                'status': 'current',
+              },
               'materiais': [
                 {'name': 'Vídeo-aula', 'icon': Icons.play_circle_rounded},
               ],
@@ -331,7 +390,10 @@ class _StudentProgressViewState extends State<StudentProgressView> {
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Flexible(child: title), action],
+          children: [
+            Flexible(child: title),
+            action,
+          ],
         );
       },
     );
@@ -343,8 +405,8 @@ class _StudentProgressViewState extends State<StudentProgressView> {
         final columns = constraints.maxWidth < AppBreakpoints.compact
             ? 1
             : constraints.maxWidth < AppBreakpoints.medium
-                ? 2
-                : 3;
+            ? 2
+            : 3;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -376,7 +438,11 @@ class _StudentProgressViewState extends State<StudentProgressView> {
             color: EducanoColors.background,
             borderRadius: BorderRadius.circular(_radius),
             boxShadow: const [
-              BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
             ],
           ),
           child: Row(
@@ -409,7 +475,10 @@ class _StudentProgressViewState extends State<StudentProgressView> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: EducanoColors.textSecondary),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: EducanoColors.textSecondary,
+              ),
             ],
           ),
         ),
@@ -441,7 +510,8 @@ class _StudentProgressViewState extends State<StudentProgressView> {
             )
           else
             ...trilhas.map(
-              (trilha) => _buildTrilhaFolderCard(trilha as Map<String, dynamic>),
+              (trilha) =>
+                  _buildTrilhaFolderCard(trilha as Map<String, dynamic>),
             ),
         ],
       ),
@@ -459,14 +529,19 @@ class _StudentProgressViewState extends State<StudentProgressView> {
         color: EducanoColors.background,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(_radius),
-          onTap: () => setState(() => _selectedTrilhaId = trilha['id'] as String),
+          onTap: () =>
+              setState(() => _selectedTrilhaId = trilha['id'] as String),
           child: Padding(
             padding: const EdgeInsets.all(_spacingSmall),
             child: Row(
@@ -544,7 +619,11 @@ class _StudentProgressViewState extends State<StudentProgressView> {
         color: EducanoColors.background,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Theme(
@@ -591,7 +670,8 @@ class _StudentProgressViewState extends State<StudentProgressView> {
                       ),
                     ),
                     ...materiais.map(
-                      (material) => _buildMaterialRow(material as Map<String, dynamic>),
+                      (material) =>
+                          _buildMaterialRow(material as Map<String, dynamic>),
                     ),
                   ],
                 ),
@@ -675,7 +755,8 @@ class _StudentProgressViewState extends State<StudentProgressView> {
     return FinishSimuladoView(
       totalQuestions: licao['questoes'] as int? ?? 45,
       answeredQuestions: licao['respondidas'] as int? ?? 38,
-      remainingTime: licao['tempoRestante'] as Duration? ??
+      remainingTime:
+          licao['tempoRestante'] as Duration? ??
           const Duration(minutes: 12, seconds: 34),
       onReview: () => setState(() => _openSimulado = null),
       onFinished: () => setState(() => _openSimulado = null),
@@ -696,11 +777,18 @@ class _StudentProgressViewState extends State<StudentProgressView> {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Icon(material['icon'] as IconData, color: EducanoColors.textSecondary, size: 18),
+            Icon(
+              material['icon'] as IconData,
+              color: EducanoColors.textSecondary,
+              size: 18,
+            ),
             const SizedBox(width: _spacingMinimum),
             Text(
               material['name'] as String,
-              style: const TextStyle(color: EducanoColors.textPrimary, fontSize: 13),
+              style: const TextStyle(
+                color: EducanoColors.textPrimary,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -761,16 +849,13 @@ Widget _buildHeader(BuildContext context) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        'Meu Progresso',
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
+      Text('Meu Progresso', style: Theme.of(context).textTheme.headlineMedium),
       const SizedBox(height: _spacingMinimum),
       Text(
         'Acompanhe seu avanço na trilha de aprendizado.',
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: EducanoColors.textSecondary,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(color: EducanoColors.textSecondary),
       ),
     ],
   );
@@ -821,15 +906,13 @@ Widget _buildOverallProgress(BuildContext context) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Visão Geral',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Visão Geral', style: Theme.of(context).textTheme.titleLarge),
         const Divider(),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns =
-                constraints.maxWidth < AppBreakpoints.medium ? 2 : 4;
+            final columns = constraints.maxWidth < AppBreakpoints.medium
+                ? 2
+                : 4;
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),

@@ -35,10 +35,7 @@ class DashboardCoursesRepository {
     _courses.add(course);
   }
 
-  void update(
-    DashboardCourse oldCourse,
-    DashboardCourse updatedCourse,
-  ) {
+  void update(DashboardCourse oldCourse, DashboardCourse updatedCourse) {
     final index = _courses.indexOf(oldCourse);
 
     if (index == -1) return;

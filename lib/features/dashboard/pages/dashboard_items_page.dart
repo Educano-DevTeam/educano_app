@@ -10,7 +10,7 @@ class DashboardItemsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      selectedMenu: AppMenu.itens,
+      selectedMenu: AppMenu.itensListage,
       child: const DashboardItemsContent(),
     );
   }

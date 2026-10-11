@@ -4,10 +4,8 @@ import '../../../core/data/repositories/dashboard_items_repository.dart';
 import '../../../core/models/dashboard_item.dart';
 
 class DashboardItemsController extends ChangeNotifier {
-  DashboardItemsController({
-    DashboardItemsRepository? repository,
-  }) : _repository =
-            repository ?? DashboardItemsRepository.instance {
+  DashboardItemsController({DashboardItemsRepository? repository})
+    : _repository = repository ?? DashboardItemsRepository.instance {
     _items = _repository.getAll();
   }
 
@@ -22,10 +20,7 @@ class DashboardItemsController extends ChangeNotifier {
     _refresh();
   }
 
-  void update(
-    DashboardItem oldItem,
-    DashboardItem updatedItem,
-  ) {
+  void update(DashboardItem oldItem, DashboardItem updatedItem) {
     _repository.update(oldItem, updatedItem);
     _refresh();
   }

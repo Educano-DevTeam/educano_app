@@ -1,6 +1,7 @@
 import 'package:educano_app/core/navigation/app_menu.dart';
 import 'package:educano_app/core/navigation/app_navigation.dart';
 import 'package:flutter/material.dart';
+import '../../models/app_user.dart';
 import '../../theme/theme.dart';
 
 const String _logoAssetPath = 'lib/assets/Educano_Logo.jpeg';
@@ -9,6 +10,7 @@ class AppHeader extends StatelessWidget {
   final VoidCallback? onMenuPressed;
 
   final bool isMobile;
+  final AppUser? user;
 
   /// Controller compartilhado com o DashboardPage.
   /// Tudo que o usuário digitar ficará armazenado aqui.
@@ -19,6 +21,7 @@ class AppHeader extends StatelessWidget {
     required this.onMenuPressed,
     required this.isMobile,
     required this.searchController,
+    required this.user,
   });
 
   @override
@@ -62,12 +65,16 @@ class AppHeader extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              const Text(
+              Text(
                 "Educano",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: EducanoColors.textWhite),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: isMobile ? 20 : 22,
+                  color: EducanoColors.textWhite,
+                ),
               ),
 
-              const SizedBox(width: 32),
+              SizedBox(width: isMobile ? 12 : 32),
 
               // Barra de pesquisa
               if (!isMobile)
@@ -87,10 +94,35 @@ class AppHeader extends StatelessWidget {
               if (isMobile) const Spacer() else const SizedBox(width: 30),
 
               if (isMobile)
-                const CircleAvatar(
-                  radius: 22,
-                  backgroundColor: EducanoColors.surface,
-                  child: Icon(Icons.person, color: EducanoColors.secondaryBlue),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircleAvatar(
+                      radius: 22,
+                      backgroundColor: EducanoColors.surface,
+                      child: Icon(
+                        Icons.person,
+                        color: EducanoColors.secondaryBlue,
+                      ),
+                    ),
+                    if (user != null &&
+                        MediaQuery.sizeOf(context).width >= 430) ...[
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 82),
+                        child: Text(
+                          user!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: EducanoColors.textWhite,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 )
               else
                 Row(
@@ -117,15 +149,15 @@ class AppHeader extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Miguel Soares",
-                          style: TextStyle(
+                        Text(
+                          user?.name ?? 'Conta Educano',
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: EducanoColors.textWhite,
                           ),
                         ),
                         Text(
-                          "Administrador",
+                          user?.role ?? 'Estudante',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: EducanoColors.secondaryBlue,

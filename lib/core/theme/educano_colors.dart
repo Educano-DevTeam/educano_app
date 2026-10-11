@@ -35,6 +35,12 @@ class EducanoColors {
   static const Color warning = accentYellow;
   static const Color info = secondaryBlue;
   static const Color error = Color(0xFFE53935);
+  static const Color errorBackground = Color(0xFFFDE8E7);
+  static const Color successLight = Color(0xFFC0FFB3);
+  static const Color successBright = Color(0xFF30D50E);
+  static const Color successDark = Color(0xFF1B9E00);
+  static const Color warningLight = Color(0xFFFFE18D);
+  static const Color cardBorder = Color(0xFFD9D9D9);
 
   // Cores complementares usadas nos protótipos de perfil, ranking e configurações.
   static const Color legacyPrimary = Color(0xFF4C5FD5);

@@ -127,8 +127,7 @@ class CourseLocalRepository {
 
     final allMaterials = [
       for (final session in sessions)
-        for (final module in session.modules)
-          ...module.materials,
+        for (final module in session.modules) ...module.materials,
     ];
     final completed = allMaterials.where((m) => m.completed).length;
     final total = allMaterials.length;
@@ -163,12 +162,14 @@ Course _seedCourse() {
         id: 'session-1',
         title: 'Linguagens',
         subtitle: 'Do Português Básico ao Inglês Avançado',
-        description: 'Fundamentos de linguagem, interpretação, gramática e produção textual.',
+        description:
+            'Fundamentos de linguagem, interpretação, gramática e produção textual.',
         modules: [
           CourseModule(
             id: 'module-1-1',
             title: 'Módulo 1: Interpretação de Texto',
-            description: 'Leitura, contexto e identificação de ideias principais.',
+            description:
+                'Leitura, contexto e identificação de ideias principais.',
             materials: [
               CourseMaterial(
                 id: 'material-1-1-1',
@@ -185,7 +186,8 @@ Course _seedCourse() {
         id: 'session-2',
         title: 'Exatas',
         subtitle: 'Matemática na Prática',
-        description: 'Matemática aplicada às questões mais recorrentes dos vestibulares.',
+        description:
+            'Matemática aplicada às questões mais recorrentes dos vestibulares.',
         modules: [
           CourseModule(
             id: 'module-2-1',
@@ -205,7 +207,8 @@ Course _seedCourse() {
           CourseModule(
             id: 'module-3-1',
             title: 'Módulo 1: O Tratado de Tordesilhas',
-            description: 'Conteúdo e atividades sobre O Tratado de Tordesilhas.',
+            description:
+                'Conteúdo e atividades sobre O Tratado de Tordesilhas.',
             materials: const [],
           ),
           CourseModule(
@@ -241,7 +244,8 @@ Course _seedCourse() {
           CourseModule(
             id: 'module-3-7',
             title: 'Módulo 7: Ditadura Militar',
-            description: 'Período autoritário brasileiro e seus principais acontecimentos.',
+            description:
+                'Período autoritário brasileiro e seus principais acontecimentos.',
             expanded: true,
             materials: [
               CourseMaterial(
@@ -286,7 +290,8 @@ Course _seedCourse() {
         id: 'session-4',
         title: 'C. Naturais',
         subtitle: 'Elementos, Cálculo e Animais',
-        description: 'Biologia, Química e Física com foco nos assuntos mais cobrados.',
+        description:
+            'Biologia, Química e Física com foco nos assuntos mais cobrados.',
         modules: const [],
       ),
     ],

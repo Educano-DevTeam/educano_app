@@ -25,7 +25,7 @@ class HomeView extends StatelessWidget {
           'frequentes e suporte com professores...',
       progress: 1.0,
       progressLabel: 'Concluído',
-      image: 'assets/home/course_vestibular.png',
+      image: 'lib/assets/courses/vestibular_course_image.jpg',
     ),
     _CourseData(
       id: 'inteligencia-artificial',
@@ -38,7 +38,7 @@ class HomeView extends StatelessWidget {
           'como as ferramentas digitais funcionam...',
       progress: 0.35,
       progressLabel: '35%',
-      image: 'assets/home/course_ia.png',
+      image: 'lib/assets/courses/ai_course_image.jpg',
     ),
     _CourseData(
       id: 'financas-pessoais',
@@ -51,7 +51,7 @@ class HomeView extends StatelessWidget {
           'a controlar gastos do dia a dia, cria...',
       progress: 0.12,
       progressLabel: '12%',
-      image: 'assets/home/course_financas.png',
+      image: 'lib/assets/courses/finances_course_image.jpg',
     ),
     _CourseData(
       id: 'design-profissional',
@@ -64,7 +64,7 @@ class HomeView extends StatelessWidget {
           'aprender desde os conceit...',
       progress: 0.19,
       progressLabel: '19%',
-      image: 'assets/home/course_design.png',
+      image: 'lib/assets/courses/desing_course_image.jpg',
     ),
   ];
 
@@ -341,7 +341,39 @@ class _CoursesCard extends StatelessWidget {
           ),
 
           _SimuladosCard(isMobile: isMobile),
+          const SizedBox(height: 14),
+          _NewCourseButton(),
         ],
+      ),
+    );
+  }
+}
+
+class _NewCourseButton extends StatelessWidget {
+  const _NewCourseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: OutlinedButton.icon(
+        onPressed: () => Navigator.of(context).pushNamed(
+          AppRoutes.courses,
+        ),
+        icon: const Icon(Icons.add_rounded, size: 28),
+        label: const Text('Novo Curso'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF777777),
+          side: const BorderSide(color: Color(0xFFD4D4D4), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(17),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -416,7 +448,11 @@ class _CourseCard extends StatelessWidget {
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(17),
-        onTap: () {},
+        onTap: () {
+          Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.course, arguments: course.id);
+        },
         child: Container(
           height: 123,
           decoration: BoxDecoration(
@@ -573,7 +609,7 @@ class _SimuladosCard extends StatelessWidget {
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(17),
-        onTap: () {},
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.lastExams),
         child: Container(
           height: isMobile ? 123 : 138,
           decoration: BoxDecoration(
@@ -587,7 +623,7 @@ class _SimuladosCard extends StatelessWidget {
                 width: isMobile ? 112 : 315,
                 height: double.infinity,
                 child: Image.asset(
-                  'assets/home/simulados.png',
+                  'lib/assets/courses/exam_image.jpg',
                   fit: BoxFit.cover,
                 ),
               ),

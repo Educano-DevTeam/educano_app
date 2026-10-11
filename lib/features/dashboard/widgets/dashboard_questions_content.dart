@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/navigation/app_menu.dart';
-import '../views/dashboard_users_view.dart';
+import '../views/dashboard_questions_view.dart';
 
-class DashboardUsersContent extends StatelessWidget {
+class DashboardQuestionsContent extends StatelessWidget {
   final AppMenu selectedMenu;
 
-  const DashboardUsersContent({
+  const DashboardQuestionsContent({
     super.key,
     required this.selectedMenu,
   });
@@ -14,8 +14,8 @@ class DashboardUsersContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (selectedMenu) {
-      case AppMenu.users:
-        //return const DashboardUsersView();
+      case AppMenu.questionsListage:
+        return const DashboardQuestionsView();
 
       default:
         return const SizedBox.shrink();

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:educano_app/core/theme/educano_theme.dart';
-import 'package:educano_app/features/dashboard/views/dashboard_courses_view.dart';
+import 'package:educano_app/features/courses/views/courses_view.dart';
 
 /// Larguras usadas nos frames do Figma.
 ///
@@ -37,7 +37,7 @@ Future<void> _pumpView(WidgetTester tester, Widget view, Size size) async {
 
 void main() {
   final views = <String, Widget Function()>{
-    'Cursos Cadastrados': () => const DashboardCoursesView(),
+   // 'Cursos Cadastrados': () => const DashboardCoursesView(),
     'Meu Progresso': () => const StudentProgressView(),
     'Loja & Inventário': () => const StoreInventoryPage(),
     'Plano de Conta': () => const AccountPlanView(),

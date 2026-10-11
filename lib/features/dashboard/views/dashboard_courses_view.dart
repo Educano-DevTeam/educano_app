@@ -1,9 +1,10 @@
-import 'package:educano_app/core/widgets/ui/app_small_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 import 'course_editor_view.dart';
+import 'material_editor_view.dart';
+import '../widgets/dashboard_list_components.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -36,6 +37,72 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 100,
       'status': 'Ativo',
       'createdAt': '01/05/2026',
+      'icon': Icons.calculate_rounded,
+      'color': EducanoColors.primaryBlue,
+      'trilhas': [
+        {
+          'id': 'trilha-mat-fund',
+          'title': 'Fundamentos',
+          'description': 'Introdução aos conceitos básicos',
+          'modulos': [
+            {
+              'id': 'mod-mat-1',
+              'title': 'Módulo 1: Operações Básicas',
+              'licao': {'title': 'Adição e Subtração', 'xp': 50},
+              'materiais': [
+                {
+                  'name': 'Apostila em PDF',
+                  'type': MaterialKind.pdf,
+                  'fileName': 'apostila-operacoes.pdf',
+                  'fileSize': '1,8 MB',
+                },
+                {
+                  'name': 'Vídeo-aula',
+                  'type': MaterialKind.video,
+                  'fileName': 'video-aula-operacoes.mp4',
+                  'fileSize': '52,3 MB',
+                  'duration': '14:20',
+                },
+              ],
+            },
+            {
+              'id': 'mod-mat-2',
+              'title': 'Módulo 2: Frações',
+              'licao': {'title': 'Frações Equivalentes', 'xp': 60},
+              'materiais': [
+                {
+                  'name': 'Podcast: frações no dia a dia',
+                  'type': MaterialKind.audio,
+                  'fileName': 'podcast-fracoes.mp3',
+                  'fileSize': '7,2 MB',
+                  'duration': '09:45',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          'id': 'trilha-mat-inter',
+          'title': 'Módulo Intermediário',
+          'description': 'Aprofundamento nos conteúdos principais',
+          'modulos': [
+            {
+              'id': 'mod-mat-3',
+              'title': 'Módulo 3: Equações do 1º Grau',
+              'licao': {'title': 'Resolvendo Equações', 'xp': 80},
+              'materiais': [
+                {
+                  'name': 'Vídeo-aula',
+                  'type': MaterialKind.video,
+                  'fileName': 'video-aula-equacoes.mp4',
+                  'fileSize': '61,0 MB',
+                  'duration': '18:05',
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
     {
       'name': 'Português Avançado',
@@ -45,6 +112,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 60,
       'status': 'Ativo',
       'createdAt': '05/05/2026',
+      'icon': Icons.menu_book_rounded,
+      'color': EducanoColors.successGreen,
     },
     {
       'name': 'Biologia Celular',
@@ -54,6 +123,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 80,
       'status': 'Ativo',
       'createdAt': '10/05/2026',
+      'icon': Icons.biotech_rounded,
+      'color': EducanoColors.accentYellow,
     },
     {
       'name': 'História do Brasil',
@@ -63,6 +134,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 50,
       'status': 'Inativo',
       'createdAt': '15/05/2026',
+      'icon': Icons.museum_rounded,
+      'color': EducanoColors.darkGreen,
     },
     {
       'name': 'Física Quântica',
@@ -72,6 +145,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 40,
       'status': 'Rascunho',
       'createdAt': '20/05/2026',
+      'icon': Icons.science_rounded,
+      'color': EducanoColors.lightBlue,
     },
     {
       'name': 'Química Orgânica',
@@ -81,6 +156,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'capacity': 60,
       'status': 'Ativo',
       'createdAt': '25/05/2026',
+      'icon': Icons.science_rounded,
+      'color': EducanoColors.error,
     },
   ];
 
@@ -157,6 +234,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                 'Capacidade',
                 '${course['enrolled']}/${course['capacity']} vagas preenchidas',
               ),
+              _buildSummaryRow('Conteúdo', _contentSummary(course)),
               const SizedBox(height: 4),
               _buildStatusBadge(course['status'] as String, statusColor),
             ],
@@ -167,18 +245,13 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar'),
           ),
-          AppSmallButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CourseEditorView(course: course),
-                ),
-              );
+              _openCourseEditor(course: course);
             },
-            icon: Icons.edit_rounded,
-            label: "",
+            icon: const Icon(Icons.edit_rounded),
+            label: const Text('Ver curso completo'),
           ),
         ],
       ),
@@ -216,11 +289,38 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     );
   }
 
-  void _openCourseEditor(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CourseEditorView()),
+  String _contentSummary(Map<String, dynamic> course) {
+    final trilhas = course['trilhas'] as List<dynamic>? ?? const [];
+    final modulos = trilhas
+        .expand((t) => (t as Map<String, dynamic>)['modulos'] as List<dynamic>)
+        .toList();
+    final materiais = modulos.fold<int>(
+      0,
+      (sum, m) => sum + ((m as Map<String, dynamic>)['materiais'] as List).length,
     );
+    return [
+      _plural(trilhas.length, 'trilha', 'trilhas'),
+      _plural(modulos.length, 'módulo', 'módulos'),
+      _plural(materiais, 'material', 'materiais'),
+    ].join('  ·  ');
+  }
+
+  /// Abre a página de criação (sem [course]) ou edição do curso e aplica o
+  /// resultado na listagem quando o adm salva.
+  Future<void> _openCourseEditor({Map<String, dynamic>? course}) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => CourseEditorView(course: course)),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      if (course == null) {
+        _courses.add(result);
+      } else {
+        _courses[_courses.indexOf(course)] = result;
+      }
+    });
   }
 
   Future<void> _showEnrollDialog(BuildContext context, {String? courseName}) async {
@@ -300,10 +400,10 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       spacing: _spacingMinimum,
       runSpacing: _spacingMinimum,
       children: [
-        AppSmallButton(
-          onPressed: () => _openCourseEditor(context),
-          icon: Icons.add_rounded,
-          label: 'Novo Curso',
+        ElevatedButton.icon(
+          onPressed: () => _openCourseEditor(),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Novo Curso'),
         ),
         OutlinedButton.icon(
           onPressed: () => _showEnrollDialog(context),
@@ -355,7 +455,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       },
     ];
 
-    return LayoutBuilder(
+    return DashboardSummaryGrid(items: stats.map((s) => DashboardSummaryData(label: s['label'] as String, value: s['value'] as String, icon: s['icon'] as IconData, color: s['color'] as Color)).toList());
+    /* return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < AppBreakpoints.medium;
         final columns = isCompact ? 2 : 4;
@@ -429,7 +530,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           },
         );
       },
-    );
+    ); */
   }
 
   Widget _buildSearchAndFilters() {
@@ -524,8 +625,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
 
   Widget _buildCoursesList(BuildContext context) {
     final courses = _filteredCourses;
-
-    return Column(
+    return DashboardListCard(title: 'Lista de Cursos', count: courses.length, children: courses.isEmpty ? [const Padding(padding: EdgeInsets.all(_spacingLarge), child: Center(child: Text('Nenhum curso encontrado.')))] : courses.map((course) => _buildCourseItem(context, course)).toList());
+    /* return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -566,7 +667,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
         else
           ...courses.map((course) => _buildCourseItem(context, course)),
       ],
-    );
+    ); */
   }
 
   Widget _buildCourseItem(
@@ -580,6 +681,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     };
     final progress =
         (course['enrolled'] as int) / (course['capacity'] as int);
+    final courseColor = course['color'] as Color? ?? EducanoColors.primaryBlue;
 
     return Container(
       margin: const EdgeInsets.only(bottom: _spacingSmall),
@@ -606,12 +708,23 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                 final isNarrow =
                     constraints.maxWidth < AppBreakpoints.compact;
 
-                final enrollButton = AppSmallButton(
+                final enrollButton = ElevatedButton(
                   onPressed: () => _showEnrollDialog(
                     context,
                     courseName: course['name'] as String,
                   ),
-                  label: 'Inscrever',
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _spacingSmall,
+                      vertical: 10,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Inscrever',
+                    style: TextStyle(fontSize: 13),
+                  ),
                 );
 
                 return Column(
@@ -620,11 +733,11 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor:
-                              EducanoColors.primaryBlue.withValues(alpha: 0.12),
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: EducanoColors.primaryBlue,
+                          backgroundColor: courseColor.withValues(alpha: 0.12),
+                          child: Icon(
+                            course['icon'] as IconData? ??
+                                Icons.menu_book_rounded,
+                            color: courseColor,
                           ),
                         ),
                         const SizedBox(width: _spacingSmall),
@@ -752,6 +865,9 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     );
   }
 }
+
+String _plural(int count, String singular, String plural) =>
+    '$count ${count == 1 ? singular : plural}';
 
 // IBL07 – Formulário de Inscrição de usuário em Curso
 class _EnrollUserDialog extends StatefulWidget {

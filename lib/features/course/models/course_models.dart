@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 enum MaterialKind { video, audio, pdf, activity }
+
 enum ActivityQuestionDifficulty { easy, medium, hard }
 
 class Course {
@@ -122,6 +125,8 @@ class CourseMaterial {
   final String description;
   final String? fileName;
   final String? fileUrl;
+  final Uint8List? fileBytes;
+  final String? filePath;
   final int? fileSizeBytes;
   final int? durationSeconds;
   final Activity? activity;
@@ -134,6 +139,8 @@ class CourseMaterial {
     required this.description,
     this.fileName,
     this.fileUrl,
+    this.fileBytes,
+    this.filePath,
     this.fileSizeBytes,
     this.durationSeconds,
     this.activity,
@@ -158,7 +165,9 @@ class CourseMaterial {
     }
     if (fileSizeBytes != null) {
       final kb = fileSizeBytes! / 1024;
-      return kb < 1024 ? '${kb.round()} KB' : '${(kb / 1024).toStringAsFixed(1)} MB';
+      return kb < 1024
+          ? '${kb.round()} KB'
+          : '${(kb / 1024).toStringAsFixed(1)} MB';
     }
     return kindLabel;
   }
@@ -170,6 +179,8 @@ class CourseMaterial {
     description: description,
     fileName: fileName,
     fileUrl: fileUrl,
+    fileBytes: fileBytes,
+    filePath: filePath,
     fileSizeBytes: fileSizeBytes,
     durationSeconds: durationSeconds,
     activity: activity,

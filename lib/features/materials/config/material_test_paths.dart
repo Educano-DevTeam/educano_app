@@ -9,5 +9,5 @@ class MaterialTestPaths {
 
   static const String video = 'lib/assets/videoplayback.mp4';
   static const String audio = 'lib/assets/videoplayback.m4a';
-  static const String pdf = 'lib/assets/sherlock_holmes.pdf';
+  static const String pdf = 'lib/assets/ditadura.pdf';
 }

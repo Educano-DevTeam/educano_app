@@ -13,6 +13,7 @@ import '../../course/repositories/course_local_repository.dart';
 import '../config/material_test_paths.dart';
 import '../models/material_route_args.dart';
 import '../services/audio_playback_service.dart';
+import '../services/material_video_controller.dart';
 import '../widgets/material_playback_controls.dart';
 
 class MaterialView extends StatefulWidget {
@@ -304,11 +305,17 @@ class _VideoMaterialViewState extends State<_VideoMaterialView> {
       final source = widget.material.fileUrl?.trim().isNotEmpty == true
           ? widget.material.fileUrl!.trim()
           : MaterialTestPaths.video;
-      final isNetwork = source.startsWith('http://') || source.startsWith('https://');
-      if (!isNetwork) await rootBundle.load(source);
-      final controller = isNetwork
-          ? VideoPlayerController.networkUrl(Uri.parse(source))
-          : VideoPlayerController.asset(source);
+      if (widget.material.fileBytes == null &&
+          !source.startsWith('http://') &&
+          !source.startsWith('https://')) {
+        await rootBundle.load(source);
+      }
+      final controller = createMaterialVideoController(
+        source: source,
+        bytes: widget.material.fileBytes,
+        path: widget.material.filePath,
+        fileName: widget.material.fileName,
+      );
       await controller.initialize();
       if (!mounted) {
         await controller.dispose();
@@ -551,7 +558,9 @@ class _AudioMaterialViewState extends State<_AudioMaterialView> {
   Future<void> _prepare() async {
     final source = widget.material.fileUrl?.trim().isNotEmpty == true
         ? widget.material.fileUrl!.trim()
-        : MaterialTestPaths.audio;
+        : widget.material.fileBytes != null
+            ? 'attachment:${widget.material.id}'
+            : MaterialTestPaths.audio;
     if (_service.title == widget.material.title &&
         _service.source == source &&
         !_service.loading) {
@@ -566,6 +575,9 @@ class _AudioMaterialViewState extends State<_AudioMaterialView> {
         duration: widget.material.durationSeconds == null
             ? null
             : Duration(seconds: widget.material.durationSeconds!),
+        bytes: widget.material.fileBytes,
+        filePath: widget.material.filePath,
+        fileName: widget.material.fileName,
       );
       if (mounted) setState(() {});
     } catch (error) {
@@ -791,7 +803,11 @@ class _PdfMaterialViewState extends State<_PdfMaterialView> {
         _failPdfLoad('PDF loading timed out.');
       }
     });
-    if (!_isNetwork) _loadLocalPdf();
+    if (widget.material.fileBytes != null) {
+      _pdfBytes = widget.material.fileBytes;
+    } else if (!_isNetwork) {
+      _loadLocalPdf();
+    }
   }
 
   Future<void> _loadLocalPdf() async {

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -31,6 +33,9 @@ class AudioPlaybackService extends ChangeNotifier {
     required String title,
     String? subtitle,
     Duration? duration,
+    Uint8List? bytes,
+    String? filePath,
+    String? fileName,
   }) async {
     final generation = ++_loadGeneration;
     this.title = title;
@@ -45,7 +50,15 @@ class AudioPlaybackService extends ChangeNotifier {
 
     try {
       await player.stop();
-      if (_isNetwork(source)) {
+      if (bytes != null && !kIsWeb && filePath != null) {
+        await player.setFilePath(filePath);
+      } else if (bytes != null) {
+        await player.setAudioSource(
+          AudioSource.uri(
+            Uri.dataFromBytes(bytes, mimeType: _audioMimeType(fileName)),
+          ),
+        );
+      } else if (_isNetwork(source)) {
         await player.setUrl(source);
       } else {
         await player.setAsset(source);
@@ -121,6 +134,17 @@ class AudioPlaybackService extends ChangeNotifier {
 
   static bool _isNetwork(String source) =>
       source.startsWith('http://') || source.startsWith('https://');
+
+  static String _audioMimeType(String? fileName) {
+    final extension = fileName?.split('.').last.toLowerCase();
+    return switch (extension) {
+      'mp3' => 'audio/mpeg',
+      'wav' => 'audio/wav',
+      'aac' => 'audio/aac',
+      'ogg' => 'audio/ogg',
+      _ => 'audio/mp4',
+    };
+  }
 
   @override
   void dispose() {

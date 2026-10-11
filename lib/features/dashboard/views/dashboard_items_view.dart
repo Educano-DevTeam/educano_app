@@ -1,7 +1,8 @@
-import 'package:educano_app/core/widgets/ui/app_small_button.dart';
+﻿import 'package:educano_app/core/widgets/ui/app_small_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme.dart';
+import '../widgets/dashboard_list_components.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -9,6 +10,185 @@ const double _spacingMedium = 24;
 const double _spacingLarge = 32;
 
 const double _radius = 18;
+
+Future<void> showDashboardItemDialog(BuildContext context) async {
+  final iconOptions = <Map<String, dynamic>>[
+    {'label': 'Raio', 'icon': Icons.bolt_rounded},
+    {'label': 'Escudo', 'icon': Icons.shield_rounded},
+    {'label': 'Lâmpada', 'icon': Icons.lightbulb_rounded},
+    {'label': 'Cronômetro', 'icon': Icons.timer_rounded},
+    {'label': 'Reiniciar', 'icon': Icons.refresh_rounded},
+    {'label': 'Avatar', 'icon': Icons.face_rounded},
+    {'label': 'Estrela', 'icon': Icons.star_rounded},
+  ];
+
+  final colorOptions = <Map<String, dynamic>>[
+    {'label': 'Amarelo', 'color': EducanoColors.accentYellow},
+    {'label': 'Azul', 'color': EducanoColors.primaryBlue},
+    {'label': 'Verde', 'color': EducanoColors.successGreen},
+    {'label': 'Verde Escuro', 'color': EducanoColors.darkGreen},
+    {'label': 'Vermelho', 'color': EducanoColors.error},
+  ];
+
+  final categories = ['Boosts', 'Proteção', 'Estudos', 'Personalização'];
+
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _DashboardItemEditorDialog(
+      iconOptions: iconOptions,
+      colorOptions: colorOptions,
+      categories: categories,
+    ),
+  );
+}
+
+class _DashboardItemEditorDialog extends StatefulWidget {
+  const _DashboardItemEditorDialog({
+    required this.iconOptions,
+    required this.colorOptions,
+    required this.categories,
+  });
+
+  final List<Map<String, dynamic>> iconOptions;
+  final List<Map<String, dynamic>> colorOptions;
+  final List<String> categories;
+
+  @override
+  State<_DashboardItemEditorDialog> createState() =>
+      _DashboardItemEditorDialogState();
+}
+
+class _DashboardItemEditorDialogState extends State<_DashboardItemEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _description = TextEditingController();
+  final _price = TextEditingController();
+
+  late String _category = widget.categories.first;
+  late IconData _icon = widget.iconOptions.first['icon'] as IconData;
+  late Color _color = widget.colorOptions.first['color'] as Color;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_radius),
+      ),
+      title: const Text('Novo Item'),
+      content: SizedBox(
+        width: 360,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(labelText: 'Nome'),
+                  validator: (value) =>
+                      (value ?? '').trim().isEmpty ? 'Informe o nome' : null,
+                ),
+                const SizedBox(height: _spacingSmall),
+                TextFormField(
+                  controller: _description,
+                  decoration: const InputDecoration(labelText: 'Descrição'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: _spacingSmall),
+                TextFormField(
+                  controller: _price,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Preço (moedas)',
+                    prefixIcon: Icon(Icons.monetization_on_rounded),
+                  ),
+                  validator: (value) =>
+                      int.tryParse(value ?? '') == null ? 'Informe um preço válido' : null,
+                ),
+                const SizedBox(height: _spacingSmall),
+                DropdownButtonFormField<String>(
+                  initialValue: _category,
+                  decoration: const InputDecoration(labelText: 'Categoria'),
+                  items: widget.categories
+                      .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _category = value!),
+                ),
+                const SizedBox(height: _spacingSmall),
+                DropdownButtonFormField<IconData>(
+                  initialValue: _icon,
+                  decoration: const InputDecoration(labelText: 'Ícone'),
+                  items: widget.iconOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option['icon'] as IconData,
+                          child: Row(
+                            children: [
+                              Icon(option['icon'] as IconData, size: 18),
+                              const SizedBox(width: 8),
+                              Text(option['label'] as String),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _icon = value!),
+                ),
+                const SizedBox(height: _spacingSmall),
+                DropdownButtonFormField<Color>(
+                  initialValue: _color,
+                  decoration: const InputDecoration(labelText: 'Cor'),
+                  items: widget.colorOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option['color'] as Color,
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 8,
+                                backgroundColor: option['color'] as Color,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(option['label'] as String),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _color = value!),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context);
+            }
+          },
+          icon: const Icon(Icons.save_rounded),
+          label: const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}
 
 /// Gestão administrativa dos itens vendidos na Loja do aluno.
 /// Acessada pelo item "Itens da Loja" da barra lateral (admin/parceiro).
@@ -23,8 +203,8 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
   final List<Map<String, dynamic>> _iconOptions = [
     {'label': 'Raio', 'icon': Icons.bolt_rounded},
     {'label': 'Escudo', 'icon': Icons.shield_rounded},
-    {'label': 'Lâmpada', 'icon': Icons.lightbulb_rounded},
-    {'label': 'Cronômetro', 'icon': Icons.timer_rounded},
+    {'label': 'LÃ¢mpada', 'icon': Icons.lightbulb_rounded},
+    {'label': 'CronÃ´metro', 'icon': Icons.timer_rounded},
     {'label': 'Reiniciar', 'icon': Icons.refresh_rounded},
     {'label': 'Avatar', 'icon': Icons.face_rounded},
     {'label': 'Estrela', 'icon': Icons.star_rounded},
@@ -40,9 +220,9 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
 
   final List<String> _categories = [
     'Boosts',
-    'Proteção',
+    'ProteÃ§Ã£o',
     'Estudos',
-    'Personalização',
+    'PersonalizaÃ§Ã£o',
   ];
 
   final List<Map<String, dynamic>> _items = [
@@ -55,16 +235,16 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
       'category': 'Boosts',
     },
     {
-      'name': 'Escudo de Sequência',
-      'description': 'Protege sua sequência por um dia.',
+      'name': 'Escudo de SequÃªncia',
+      'description': 'Protege sua sequÃªncia por um dia.',
       'price': 150,
       'icon': Icons.shield_rounded,
       'color': EducanoColors.primaryBlue,
-      'category': 'Proteção',
+      'category': 'ProteÃ§Ã£o',
     },
     {
       'name': 'Dica Extra',
-      'description': 'Revela uma dica em qualquer questão.',
+      'description': 'Revela uma dica em qualquer questÃ£o.',
       'price': 80,
       'icon': Icons.lightbulb_rounded,
       'color': EducanoColors.successGreen,
@@ -80,7 +260,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
     },
     {
       'name': 'Reviver Tentativa',
-      'description': 'Refaz uma questão errada.',
+      'description': 'Refaz uma questÃ£o errada.',
       'price': 100,
       'icon': Icons.refresh_rounded,
       'color': EducanoColors.error,
@@ -92,7 +272,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
       'price': 500,
       'icon': Icons.face_rounded,
       'color': EducanoColors.darkGreen,
-      'category': 'Personalização',
+      'category': 'PersonalizaÃ§Ã£o',
     },
   ];
 
@@ -134,7 +314,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                     const SizedBox(height: _spacingSmall),
                     TextFormField(
                       controller: descriptionController,
-                      decoration: const InputDecoration(labelText: 'Descrição'),
+                      decoration: const InputDecoration(labelText: 'DescriÃ§Ã£o'),
                       maxLines: 2,
                     ),
                     const SizedBox(height: _spacingSmall),
@@ -142,11 +322,11 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                       controller: priceController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Preço (moedas)',
+                        labelText: 'PreÃ§o (moedas)',
                         prefixIcon: Icon(Icons.monetization_on_rounded),
                       ),
                       validator: (v) => (int.tryParse(v ?? '') == null)
-                          ? 'Informe um preço válido'
+                          ? 'Informe um preÃ§o vÃ¡lido'
                           : null,
                     ),
                     const SizedBox(height: _spacingSmall),
@@ -161,7 +341,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                     const SizedBox(height: _spacingSmall),
                     DropdownButtonFormField<IconData>(
                       initialValue: icon,
-                      decoration: const InputDecoration(labelText: 'Ícone'),
+                      decoration: const InputDecoration(labelText: 'Ãcone'),
                       items: _iconOptions
                           .map(
                             (option) => DropdownMenuItem(
@@ -277,6 +457,26 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
     );
   }
 
+  void _showItemDetails(Map<String, dynamic> item) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(children: [
+          Expanded(child: Text(item['name'] as String)),
+          IconButton(onPressed: () { Navigator.pop(context); _showItemDialog(item: item); }, icon: const Icon(Icons.edit_rounded)),
+          IconButton(onPressed: () { Navigator.pop(context); _confirmDelete(item); }, icon: const Icon(Icons.delete_outline_rounded, color: EducanoColors.error)),
+        ]),
+        content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Tipo: ${item['category']}'),
+          const SizedBox(height: 8),
+          Text(item['description'] as String),
+          const SizedBox(height: 8),
+          Text('PreÃ§o: ${item['price']} moedas', style: const TextStyle(fontWeight: FontWeight.bold)),
+        ])),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -308,7 +508,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
               ),
               const SizedBox(height: _spacingMinimum),
               Text(
-                'Gerencie os itens disponíveis na loja dos alunos.',
+                'Gerencie os itens disponÃ­veis na loja dos alunos.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: EducanoColors.textSecondary,
                     ),
@@ -325,7 +525,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
     );
   }
 
-  Widget _buildStats() {
+  Widget _buildLegacyStats() {
     final averagePrice = _items.isEmpty
         ? 0
         : _items.fold<int>(0, (sum, i) => sum + (i['price'] as int)) ~/
@@ -344,7 +544,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
         'color': EducanoColors.darkGreen,
       },
       {
-        'label': 'Preço Médio',
+        'label': 'PreÃ§o MÃ©dio',
         'value': '$averagePrice moedas',
         'icon': Icons.monetization_on_rounded,
         'color': EducanoColors.accentYellow,
@@ -418,6 +618,19 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
   }
 
   Widget _buildItemsList(BuildContext context) {
+    return DashboardListCard(title: 'Lista de Itens', count: _items.length, children: _items.map(_buildItemRow).toList());
+  }
+
+  Widget _buildStats() {
+    final averagePrice = _items.isEmpty ? 0 : _items.fold<int>(0, (sum, item) => sum + (item['price'] as int)) ~/ _items.length;
+    return DashboardSummaryGrid(items: [
+      DashboardSummaryData(label: 'Total de Itens', value: '${_items.length}', icon: Icons.shopping_bag_rounded, color: EducanoColors.primaryBlue),
+      DashboardSummaryData(label: 'Categorias', value: '${_items.map((i) => i['category']).toSet().length}', icon: Icons.category_rounded, color: EducanoColors.darkGreen),
+      DashboardSummaryData(label: 'PreÃ§o MÃ©dio', value: '$averagePrice moedas', icon: Icons.monetization_on_rounded, color: EducanoColors.accentYellow),
+    ]);
+  }
+
+  Widget _buildLegacyItemsList(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: EducanoColors.background,
@@ -446,7 +659,10 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
   Widget _buildItemRow(Map<String, dynamic> item) {
     final color = item['color'] as Color;
 
-    return Column(
+    return InkWell(
+      onTap: () => _showItemDetails(item),
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -472,7 +688,7 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
                       ),
                     ),
                     Text(
-                      '${item['category']}  ·  ${item['description']}',
+                      '${item['category']}  Â·  ${item['description']}',
                       style: const TextStyle(
                         color: EducanoColors.textSecondary,
                         fontSize: 12,
@@ -510,6 +726,8 @@ class _DashboardItemsViewState extends State<DashboardItemsView> {
         ),
         const Divider(height: 1, indent: _spacingMedium),
       ],
+      ),
     );
   }
 }
+
