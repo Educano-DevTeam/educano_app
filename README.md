@@ -2,7 +2,7 @@
 
 Aplicativo educacional desenvolvido em Flutter. O Educano reúne recursos de
 estudo para estudantes e telas administrativas em uma interface responsiva para
-celulares e telas maiores. Os dados e a autenticação vêm da
+celulares e telas maiores. Tudo (login, cursos, simulados, loja...) vem da
 [API do Educano](https://github.com/Educano-DevTeam/educano_api).
 
 ## Funcionalidades
@@ -70,20 +70,20 @@ largura disponível.
 
 ### Integração com a API
 
-- `lib/services/api_client.dart` faz as requisições HTTP, envia o token salvo e
-  converte erros em `ApiException`. O endereço da API vem de
-  `--dart-define=API_URL=...` (padrão: `http://localhost:3000/api`).
-- `AuthService` cuida do login, cadastro, validação por código, recuperação de
-  senha e renovação do token (a cada 10 minutos enquanto o app está aberto).
-  Quando a sessão expira, o app volta para o login.
-- Os demais serviços em `lib/services/` (`courses_service`, `exams_service`,
-  `questions_service`, `store_service`, `users_service`, `progress_service`)
-  convertem as respostas da API para os modelos usados pelas telas.
-- O dashboard só aparece para a equipe: admin, professor e parceiro veem Cursos
-  e Questões; Painel, Usuários e Itens são exclusivos do administrador
-  (`RoleGuard` nas rotas e a própria API validam o acesso).
-- Para desenvolver localmente, suba a API e popule o banco com `pnpm seed`; o
-  seed cria contas de teste para cada tipo de usuário (veja o README da API).
+- `lib/services/api_client.dart` faz as chamadas HTTP e manda o token. A URL
+  da API vem de `--dart-define=API_URL=...` (padrão `http://localhost:3000/api`).
+- Os outros arquivos de `lib/services/` cuidam de cada parte (login, cursos,
+  simulados, questões, loja, usuários e progresso) e já entregam os dados no
+  formato das telas.
+- O token é renovado a cada 10 minutos. Se a sessão cair, o app volta para o
+  login.
+- O dashboard só aparece para admin, professor e parceiro. Painel, Usuários e
+  Itens são só do admin.
+- Para rodar local: suba a API e rode `pnpm seed` nela. O seed cria uma conta de
+  teste para cada tipo de usuário (está no README da API).
+- Já ficaram ligados à API, além das tarefas da Marianne: upload dos materiais
+  das aulas (IBL 9), cadastro de questões (IBL 12), cadastro de itens (IBL 22) e
+  criação de flashcards (IBL 28).
 - A estrutura do projeto inclui diretórios de plataforma para Android, iOS, Web,
   Linux, macOS e Windows. Recursos e plugins podem exigir configuração nativa
   adicional conforme a plataforma de destino. A visualização de PDFs na Web
@@ -121,13 +121,13 @@ Baixe as dependências:
 flutter pub get
 ```
 
-Inicie o aplicativo em um dispositivo conectado ou emulador (com a API rodando):
+Com a API rodando, inicie o app:
 
 ```bash
 flutter run
 ```
 
-Para apontar para outra API (por exemplo, a de produção):
+Para usar outra API (a de produção, por exemplo):
 
 ```bash
 flutter run --dart-define=API_URL=https://sua-api.com/api
@@ -175,5 +175,5 @@ flutter analyze
 ```
 
 Os testes em `test/` cobrem os fluxos de autenticação, o comportamento de algumas
-telas em diferentes larguras e interações de simulado. Eles usam uma API falsa em
-memória (`test/support/fake_api.dart`), sem acesso à rede.
+telas em diferentes larguras e interações de simulado. Eles usam uma API falsa
+(`test/support/fake_api.dart`), então não precisam de internet.
