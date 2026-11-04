@@ -6,19 +6,24 @@ import 'package:educano_app/features/auth/pages/login_page.dart';
 import 'package:educano_app/features/auth/pages/signup_page.dart';
 import 'package:educano_app/features/auth/pages/verify_account_page.dart';
 import 'package:educano_app/main.dart';
+import 'package:educano_app/services/auth_service.dart';
 import 'package:educano_app/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/fake_api.dart';
+
 void main() {
   setUpAll(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    FakeApi.install();
   });
 
   setUp(() async {
+    FakeApi.reset();
     await StorageService.instance.clearCurrentUser();
   });
 
@@ -45,8 +50,8 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'Ana Silva');
     await tester.enterText(fields.at(1), 'ana.silva@educano.test');
-    await tester.enterText(fields.at(2), 'senha123');
-    await tester.enterText(fields.at(3), 'senha123');
+    await tester.enterText(fields.at(2), FakeApi.password);
+    await tester.enterText(fields.at(3), FakeApi.password);
     await tester.tap(find.byType(Checkbox));
     await tester.tap(find.text('Criar conta').last);
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
@@ -54,7 +59,7 @@ void main() {
     expect(find.text('Verifique sua conta'), findsOneWidget);
     final codeFields = find.byType(TextField);
     for (var index = 0; index < 6; index++) {
-      await tester.enterText(codeFields.at(index), '${index + 1}');
+      await tester.enterText(codeFields.at(index), FakeApi.validCode[index]);
     }
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
@@ -67,6 +72,9 @@ void main() {
 
     await StorageService.instance.saveSidebarExpanded(false);
     expect(await StorageService.instance.loadSidebarExpanded(), isFalse);
+
+    // Encerra a sessão para parar a renovação periódica do token.
+    await AuthService.instance.logout();
   });
 
   testWidgets('valid login opens home and persists the current user', (
@@ -81,8 +89,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'teste@educano.com');
-    await tester.enterText(fields.at(1), '123456');
+    await tester.enterText(fields.at(0), 'aluno@educano.test');
+    await tester.enterText(fields.at(1), FakeApi.password);
     await tester.tap(find.text('Entrar'));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
@@ -90,8 +98,11 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
     expect(
       (await StorageService.instance.loadCurrentUser())?.name,
-      'Miguel Soares',
+      'Ana Souza',
     );
+    expect(await StorageService.instance.loadToken(), 'token-de-teste');
+
+    await AuthService.instance.logout();
   });
 
   testWidgets('profile shows stored user and opens the account plans', (
@@ -102,6 +113,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    await StorageService.instance.saveToken('token-de-teste');
     await StorageService.instance.saveCurrentUser(
       const AppUser(
         id: 'profile-test-user',
@@ -114,13 +126,16 @@ void main() {
     NavigationService.pushNamed(AppRoutes.profile);
     await tester.pumpAndSettle();
 
-    expect(find.text('Ana Silva'), findsNWidgets(2));
-    expect(find.text('ana.silva@educano.test'), findsOneWidget);
+    // A sessão é confirmada na API, que devolve os dados atuais da conta.
+    expect(find.text('Ana Souza'), findsNWidgets(2));
+    expect(find.text('aluno@educano.test'), findsOneWidget);
 
     await tester.tap(find.text('Ver planos'));
     await tester.pumpAndSettle();
 
     expect(find.text('Plano de Conta'), findsOneWidget);
+
+    await AuthService.instance.logout();
   });
 }
 

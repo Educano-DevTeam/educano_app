@@ -2,18 +2,17 @@
 
 Aplicativo educacional desenvolvido em Flutter. O Educano reúne recursos de
 estudo para estudantes e telas administrativas em uma interface responsiva para
-celulares e telas maiores. O repositório contém uma implementação de demonstração:
-os fluxos de interface estão disponíveis, mas os dados e a autenticação ainda
-não são conectados a um backend.
+celulares e telas maiores. Os dados e a autenticação vêm da
+[API do Educano](https://github.com/Educano-DevTeam/educano_api).
 
 ## Funcionalidades
 
-- **Acesso e conta:** entrada, criação de conta, verificação de código e
-  recuperação de senha, com fluxos simulados localmente.
+- **Acesso e conta:** entrada, criação de conta, verificação do código enviado
+  por e-mail e recuperação de senha por código.
 - **Cursos e materiais:** catálogo, conteúdo organizado em sessões e módulos,
   progresso de estudo e visualização de materiais em vídeo, áudio ou PDF.
-- **Estudo:** flashcards com registro local de revisões e simulados com
-  configuração, resolução, finalização e resultado.
+- **Estudo:** flashcards com revisões agendadas e simulados com configuração,
+  resolução com salvamento automático, gabarito comentado e resultado.
 - **Área do estudante:** perfil, plano de conta, ranking, loja e inventário,
   configurações e navegação adaptada ao tamanho da tela.
 - **Área administrativa:** telas para visão geral, cursos, usuários, questões e
@@ -69,19 +68,22 @@ encapsulam operações locais e regras de domínio. `main.dart` configura o
 fornece a estrutura comum e escolhe a disposição móvel ou desktop conforme a
 largura disponível.
 
-### Estado dos dados e limitações atuais
+### Integração com a API
 
-- A autenticação é um mock em memória, com atrasos simulados; não envia e-mails
-  nem valida contas em um servidor. O código de demonstração `123456` é aceito
-  na verificação de cadastro.
-- Para testar o login de demonstração, use `teste@educano.com` e qualquer senha
-  com pelo menos seis caracteres. Essa conta também é mockada.
-- O usuário da sessão, preferências da sidebar e flashcards são guardados com
-  `shared_preferences` no dispositivo/navegador. Cursos, simulados e parte dos
-  dados administrativos usam listas ou registros em memória, sem sincronização
-  entre dispositivos e sem garantia de persistência após reiniciar o app.
-- Não há API/backend configurado. Os dados de demonstração não devem ser usados
-  como autenticação ou armazenamento de produção.
+- `lib/services/api_client.dart` faz as requisições HTTP, envia o token salvo e
+  converte erros em `ApiException`. O endereço da API vem de
+  `--dart-define=API_URL=...` (padrão: `http://localhost:3000/api`).
+- `AuthService` cuida do login, cadastro, validação por código, recuperação de
+  senha e renovação do token (a cada 10 minutos enquanto o app está aberto).
+  Quando a sessão expira, o app volta para o login.
+- Os demais serviços em `lib/services/` (`courses_service`, `exams_service`,
+  `questions_service`, `store_service`, `users_service`, `progress_service`)
+  convertem as respostas da API para os modelos usados pelas telas.
+- O dashboard só aparece para a equipe: admin, professor e parceiro veem Cursos
+  e Questões; Painel, Usuários e Itens são exclusivos do administrador
+  (`RoleGuard` nas rotas e a própria API validam o acesso).
+- Para desenvolver localmente, suba a API e popule o banco com `pnpm seed`; o
+  seed cria contas de teste para cada tipo de usuário (veja o README da API).
 - A estrutura do projeto inclui diretórios de plataforma para Android, iOS, Web,
   Linux, macOS e Windows. Recursos e plugins podem exigir configuração nativa
   adicional conforme a plataforma de destino. A visualização de PDFs na Web
@@ -119,10 +121,17 @@ Baixe as dependências:
 flutter pub get
 ```
 
-Inicie o aplicativo em um dispositivo conectado ou emulador:
+Inicie o aplicativo em um dispositivo conectado ou emulador (com a API rodando):
 
 ```bash
 flutter run
+```
+
+Para apontar para outra API (por exemplo, a de produção):
+
+```bash
+flutter run --dart-define=API_URL=https://sua-api.com/api
+flutter build web --dart-define=API_URL=https://sua-api.com/api
 ```
 
 Para escolher um destino específico, consulte primeiro o identificador exibido
@@ -166,4 +175,5 @@ flutter analyze
 ```
 
 Os testes em `test/` cobrem os fluxos de autenticação, o comportamento de algumas
-telas em diferentes larguras e interações de simulado.
+telas em diferentes larguras e interações de simulado. Eles usam uma API falsa em
+memória (`test/support/fake_api.dart`), sem acesso à rede.

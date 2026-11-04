@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:educano_app/core/theme/educano_theme.dart';
-import 'package:educano_app/features/courses/views/courses_view.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/fake_api.dart';
 
 /// Larguras usadas nos frames do Figma.
 ///
@@ -36,6 +39,12 @@ Future<void> _pumpView(WidgetTester tester, Widget view, Size size) async {
 }
 
 void main() {
+  setUpAll(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    FakeApi.install();
+  });
+
   final views = <String, Widget Function()>{
    // 'Cursos Cadastrados': () => const DashboardCoursesView(),
     'Meu Progresso': () => const StudentProgressView(),
