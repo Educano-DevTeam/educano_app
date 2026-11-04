@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
+import 'dart:async';
+
 import '../../../core/theme/theme.dart';
+import '../../../services/api_client.dart';
+import '../../../services/store_service.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -20,88 +24,110 @@ class StoreInventoryView extends StatefulWidget {
 class _StoreInventoryViewState extends State<StoreInventoryView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _playerCoins = 850;
+  int _playerCoins = 0;
 
-  final List<Map<String, dynamic>> _storeItems = [
-    {
-      'name': 'Boost de XP',
-      'description': 'Dobra o XP ganho por 24 horas.',
-      'price': 200,
-      'icon': Icons.bolt_rounded,
-      'color': EducanoColors.accentYellow,
-      'category': 'Boosts',
-    },
-    {
-      'name': 'Escudo de Sequência',
-      'description': 'Protege sua sequência por um dia.',
-      'price': 150,
-      'icon': Icons.shield_rounded,
-      'color': EducanoColors.primaryBlue,
-      'category': 'Proteção',
-    },
-    {
-      'name': 'Dica Extra',
-      'description': 'Revela uma dica em qualquer questão.',
-      'price': 80,
-      'icon': Icons.lightbulb_rounded,
-      'color': EducanoColors.successGreen,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Tempo Extra',
-      'description': 'Adiciona 5 minutos em simulados.',
-      'price': 120,
-      'icon': Icons.timer_rounded,
-      'color': EducanoColors.softGreen,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Reviver Tentativa',
-      'description': 'Refaz uma questão errada.',
-      'price': 100,
-      'icon': Icons.refresh_rounded,
-      'color': EducanoColors.error,
-      'category': 'Estudos',
-    },
-    {
-      'name': 'Avatar Especial',
-      'description': 'Desbloqueie um avatar exclusivo.',
-      'price': 500,
-      'icon': Icons.face_rounded,
-      'color': EducanoColors.darkGreen,
-      'category': 'Personalização',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _inventoryItems = [
-    {
-      'name': 'Dica Extra',
-      'description': 'Revela uma dica em qualquer questão.',
-      'quantity': 3,
-      'icon': Icons.lightbulb_rounded,
-      'color': EducanoColors.successGreen,
-      'active': false,
-    },
-    {
-      'name': 'Escudo de Sequência',
-      'description': 'Protege sua sequência por um dia.',
-      'quantity': 1,
-      'icon': Icons.shield_rounded,
-      'color': EducanoColors.primaryBlue,
-      'active': true,
-    },
-  ];
+  List<Map<String, dynamic>> _storeItems = [];
+  List<Map<String, dynamic>> _inventoryItems = [];
+  bool _loading = true;
+  String? _error;
+  Timer? _ticker;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _load();
+    // Atualiza o tempo restante dos itens ativos e recarrega ao expirar.
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final expired = _inventoryItems.any((item) {
+        final expiresAt = item['expiresAt'] as DateTime?;
+        return item['active'] == true && expiresAt != null && expiresAt.isBefore(DateTime.now());
+      });
+      expired ? _load() : setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        StoreService.instance.items(),
+        StoreService.instance.inventory(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _storeItems = results[0].items;
+        _inventoryItems = results[1].items;
+        _playerCoins = results[1].balance;
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.message;
+      });
+    }
+  }
+
+  void _snack(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _purchase(Map<String, dynamic> item) async {
+    try {
+      final balance = await StoreService.instance.purchase(item['id'] as String);
+      if (!mounted) return;
+      setState(() => _playerCoins = balance);
+      _snack('${item['name']} adquirido!');
+      await _load();
+    } on ApiException catch (error) {
+      _snack(error.message, error: true);
+    }
+  }
+
+  Future<void> _activate(Map<String, dynamic> item) async {
+    try {
+      final snapshot = await StoreService.instance.activate(item['id'] as String);
+      if (!mounted) return;
+      setState(() {
+        _inventoryItems = snapshot.items;
+        _playerCoins = snapshot.balance;
+      });
+      _snack(item['effect'] == 'TEMPO_EXTRA'
+          ? 'Tempo Extra pronto! Ele será aplicado no próximo simulado.'
+          : '${item['name']} ativado!');
+    } on ApiException catch (error) {
+      _snack(error.message, error: true);
+    }
+  }
+
+  /// Texto do estado do item no inventário (tempo restante, uso etc.).
+  String? _statusLabel(Map<String, dynamic> item) {
+    if (item['effect'] == 'DICA_EXTRA') return 'Use durante um simulado';
+    if (item['active'] != true) return null;
+    if (item['effect'] == 'TEMPO_EXTRA') return 'Aguardando o próximo simulado';
+    final expiresAt = item['expiresAt'] as DateTime?;
+    if (expiresAt == null) return 'Em uso';
+    final left = expiresAt.difference(DateTime.now());
+    if (left.isNegative) return 'Expirado';
+    final hours = left.inHours;
+    final minutes = left.inMinutes % 60;
+    return hours > 0 ? 'Restam ${hours}h ${minutes}min' : 'Restam ${left.inMinutes + 1} min';
   }
 
   void _buyItem(Map<String, dynamic> item) {
@@ -175,32 +201,7 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(() {
-                _playerCoins -= price;
-                final existingIndex = _inventoryItems.indexWhere(
-                  (i) => i['name'] == item['name'],
-                );
-                if (existingIndex >= 0) {
-                  _inventoryItems[existingIndex]['quantity'] =
-                      (_inventoryItems[existingIndex]['quantity'] as int) + 1;
-                } else {
-                  _inventoryItems.add({
-                    'name': item['name'],
-                    'description': item['description'],
-                    'quantity': 1,
-                    'icon': item['icon'],
-                    'color': item['color'],
-                    'active': false,
-                  });
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${item['name']} adquirido!'),
-                  backgroundColor: EducanoColors.successGreen,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              _purchase(item);
             },
             child: const Text('Comprar'),
           ),
@@ -375,6 +376,8 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
   }
 
   Widget _buildStoreTab() {
+    final status = _loadingOrError();
+    if (status != null) return status;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Mobile: itens em lista compacta (frame mobile do Figma).
@@ -612,7 +615,24 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
     );
   }
 
+  /// Indicador de carregamento ou erro, comum às duas abas.
+  Widget? _loadingOrError() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error == null) return null;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_error!, textAlign: TextAlign.center),
+          TextButton(onPressed: _load, child: const Text('Tentar novamente')),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInventoryTab() {
+    final status = _loadingOrError();
+    if (status != null) return status;
     if (_inventoryItems.isEmpty) {
       return const Center(
         child: Column(
@@ -761,25 +781,25 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
                     fontSize: 12,
                   ),
                 ),
+                if (_statusLabel(item) != null)
+                  Text(
+                    _statusLabel(item)!,
+                    style: TextStyle(
+                      color: isActive ? EducanoColors.successGreen : EducanoColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),
           const SizedBox(width: _spacingMinimum),
           ElevatedButton(
-            onPressed: isActive
+            onPressed: isActive ||
+                    item['effect'] == 'DICA_EXTRA' ||
+                    (item['quantity'] as int) <= 0
                 ? null
-                : () {
-                    setState(() {
-                      item['active'] = true;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${item['name']} ativado!'),
-                        backgroundColor: EducanoColors.successGreen,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                : () => _activate(item),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(
                 horizontal: _spacingSmall,
