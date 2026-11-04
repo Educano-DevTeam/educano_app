@@ -1,4 +1,10 @@
+import 'dart:async';
+
 import '../core/models/app_user.dart';
+import '../core/navigation/app_routes.dart';
+import '../core/navigation/navigation_service.dart';
+import 'api_client.dart';
+import 'storage_service.dart';
 
 /// Resultado padrão de uma operação de autenticação.
 class AuthResult {
@@ -6,53 +12,63 @@ class AuthResult {
   final String? message;
   final AppUser? user;
 
-  const AuthResult({required this.success, this.message, this.user});
+  /// Código de erro da API (ex.: SENHA_EXPIRADA), quando houver.
+  final String? code;
+
+  const AuthResult({
+    required this.success,
+    this.message,
+    this.user,
+    this.code,
+  });
 
   factory AuthResult.ok([String? message, AppUser? user]) =>
       AuthResult(success: true, message: message, user: user);
 
-  factory AuthResult.fail(String message) =>
-      AuthResult(success: false, message: message);
+  factory AuthResult.fail(String message, {String? code}) =>
+      AuthResult(success: false, message: message, code: code);
 }
 
-/// Camada de serviço responsável por toda a lógica de autenticação.
+/// Camada de serviço responsável pela autenticação na API do Educano.
 ///
-/// Está mockada (usa `Future.delayed` para simular latência de rede) para
-/// que as telas fiquem 100% funcionais sem backend. Basta trocar a
-/// implementação de cada método por chamadas HTTP reais (ex.: usando
-/// `http` ou `dio`) mantendo a mesma assinatura.
+/// O token JWT expira em 15 minutos; enquanto o app estiver aberto ele é
+/// renovado a cada 10 minutos. Se a sessão expirar, o usuário volta ao login.
 class AuthService {
-  AuthService._internal();
+  AuthService._internal() {
+    ApiClient.instance.onSessionExpired = _handleSessionExpired;
+  }
+
   static final AuthService instance = AuthService._internal();
 
-  final Map<String, _RegisteredUser> _registeredUsers = {
-    'teste@educano.com': _RegisteredUser(
-      user: const AppUser(
-        id: 'demo-user',
-        name: 'Miguel Soares',
-        email: 'teste@educano.com',
-        role: 'Administrador',
-      ),
-    ),
-  };
-  final Map<String, _PendingRegistration> _pendingRegistrations = {};
+  static const _refreshInterval = Duration(minutes: 10);
+
+  Timer? _refreshTimer;
+  bool _expiring = false;
+
+  // Credenciais do cadastro em andamento, mantidas só em memória para
+  // entrar automaticamente depois que o e-mail for validado.
+  String? _pendingEmail;
+  String? _pendingPassword;
 
   Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 900));
+    try {
+      final data = await ApiClient.instance.post('/auth/login', {
+        'email': email.trim(),
+        'senha': password,
+      });
 
-    // TODO: substituir pela chamada real à API de autenticação.
-    final normalizedEmail = email.trim().toLowerCase();
-    final registered = _registeredUsers[normalizedEmail];
-    if (password.length < 6 ||
-        registered == null ||
-        (registered.password != null && registered.password != password)) {
-      return AuthResult.fail('E-mail ou senha inválidos.');
+      final user = AppUser.fromApi(data['usuario'] as Map<String, dynamic>);
+      await StorageService.instance.saveToken(data['token'] as String);
+      await StorageService.instance.saveCurrentUser(user);
+      _startRefresh();
+
+      return AuthResult.ok(data['message'] as String?, user);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
     }
-
-    return AuthResult.ok('Login realizado com sucesso!', registered.user);
   }
 
   Future<AuthResult> register({
@@ -60,114 +76,165 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 1100));
+    try {
+      final data = await ApiClient.instance.post('/auth/register', {
+        'nome': name.trim(),
+        'email': email.trim(),
+        'senha': password,
+      });
 
-    final normalizedEmail = email.trim().toLowerCase();
+      _pendingEmail = email.trim().toLowerCase();
+      _pendingPassword = password;
 
-    // TODO: substituir pela chamada real à API de cadastro.
-    if (_registeredUsers.containsKey(normalizedEmail) ||
-        _pendingRegistrations.containsKey(normalizedEmail)) {
-      return AuthResult.fail('Este e-mail já está cadastrado.');
+      return AuthResult.ok(data['message'] as String?);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
     }
+  }
 
-    final code = _generateCode();
-    final user = AppUser(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: name.trim(),
-      email: normalizedEmail,
-    );
-    _pendingRegistrations[normalizedEmail] = _PendingRegistration(
-      user: user,
-      password: password,
-      code: code,
-    );
+  /// Cadastro feito pelo administrador no dashboard (qualquer tipo de conta).
+  Future<AuthResult> registerByAdmin({
+    required String name,
+    required String email,
+    required String password,
+    required String type,
+  }) async {
+    try {
+      final data = await ApiClient.instance.post('/auth/register', {
+        'nome': name.trim(),
+        'email': email.trim(),
+        'senha': password,
+        'tipo': type,
+      });
 
-    // Em produção o backend envia o e-mail; aqui só simulamos o log.
-    // ignore: avoid_print
-    print('[MOCK] Código de verificação para $normalizedEmail: $code');
-
-    return AuthResult.ok('Conta criada! Enviamos um código de verificação.');
+      return AuthResult.ok(
+        data['message'] as String?,
+        AppUser.fromApi(data['usuario'] as Map<String, dynamic>),
+      );
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
+    }
   }
 
   Future<AuthResult> verifyCode({
     required String email,
     required String code,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      final data = await ApiClient.instance.post('/auth/verify-code', {
+        'email': email.trim(),
+        'codigo': code.trim().toUpperCase(),
+      });
 
-    final normalizedEmail = email.trim().toLowerCase();
-    final pending = _pendingRegistrations[normalizedEmail];
+      final message = data['message'] as String?;
 
-    // TODO: substituir pela validação real do código no backend.
-    // Para fins de demonstração, qualquer código de 6 dígitos "123456"
-    // ou o código gerado no mock são aceitos.
-    if (pending != null && (code == pending.code || code == '123456')) {
-      _pendingRegistrations.remove(normalizedEmail);
-      _registeredUsers[normalizedEmail] = _RegisteredUser(
-        user: pending.user,
-        password: pending.password,
-      );
-      return AuthResult.ok('Conta verificada com sucesso!', pending.user);
+      // Com a senha do cadastro em memória, já entra na conta.
+      if (_pendingEmail == email.trim().toLowerCase() &&
+          _pendingPassword != null) {
+        final login = await this.login(email: email, password: _pendingPassword!);
+        _pendingEmail = null;
+        _pendingPassword = null;
+        if (login.success) return AuthResult.ok(message, login.user);
+      }
+
+      // Sem a senha (ex.: a página foi recarregada), o usuário faz login.
+      return AuthResult.ok(message);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
     }
-
-    return AuthResult.fail('Código inválido. Tente novamente.');
   }
 
   Future<AuthResult> resendCode({required String email}) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-
-    final normalizedEmail = email.trim().toLowerCase();
-    final pending = _pendingRegistrations[normalizedEmail];
-    if (pending == null) {
-      return AuthResult.fail('Não há uma verificação pendente para este e-mail.');
+    try {
+      final data = await ApiClient.instance.post('/auth/resend-code', {
+        'email': email.trim(),
+      });
+      return AuthResult.ok(data['message'] as String?);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
     }
-    final code = _generateCode();
-    pending.code = code;
-
-    // ignore: avoid_print
-    print('[MOCK] Novo código de verificação para $normalizedEmail: $code');
-
-    return AuthResult.ok('Um novo código foi enviado para o seu e-mail.');
   }
 
-  Future<AuthResult> sendPasswordResetLink({required String email}) async {
-    await Future.delayed(const Duration(milliseconds: 900));
+  /// Envia um código de redefinição de senha para o e-mail.
+  Future<AuthResult> sendPasswordResetCode({required String email}) async {
+    try {
+      final data = await ApiClient.instance.post('/auth/forgot-password', {
+        'email': email.trim(),
+      });
+      return AuthResult.ok(data['message'] as String?);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
+    }
+  }
 
-    final normalizedEmail = email.trim().toLowerCase();
+  Future<AuthResult> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      final data = await ApiClient.instance.post('/auth/reset-password', {
+        'email': email.trim(),
+        'codigo': code.trim().toUpperCase(),
+        'novaSenha': newPassword,
+      });
+      return AuthResult.ok(data['message'] as String?);
+    } on ApiException catch (error) {
+      return AuthResult.fail(error.message, code: error.code);
+    }
+  }
 
-    // TODO: substituir pela chamada real à API de recuperação de senha.
-    if (!_registeredUsers.containsKey(normalizedEmail)) {
-      // Por segurança, muitos apps não revelam se o e-mail existe ou não.
-      // Aqui mantemos a mensagem genérica de sucesso.
-      return AuthResult.ok(
-        'Se o e-mail estiver cadastrado, você receberá um link de recuperação.',
-      );
+  /// Confere no servidor se a sessão salva ainda é válida.
+  Future<AppUser?> restoreSession() async {
+    final token = await StorageService.instance.loadToken();
+    if (token == null) {
+      await StorageService.instance.clearCurrentUser();
+      return null;
     }
 
-    return AuthResult.ok('Link de recuperação enviado para o seu e-mail.');
+    try {
+      final data = await ApiClient.instance.post('/auth/refresh');
+      await StorageService.instance.saveToken(data['token'] as String);
+
+      final me = await ApiClient.instance.get('/auth/me');
+      final user = AppUser.fromApi(me['usuario'] as Map<String, dynamic>);
+      await StorageService.instance.saveCurrentUser(user);
+      _startRefresh();
+      return user;
+    } on ApiException catch (error) {
+      if (error.isNetworkError) rethrow;
+      await StorageService.instance.clearCurrentUser();
+      return null;
+    }
   }
 
-  String _generateCode() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return (now % 900000 + 100000).toString();
+  Future<void> logout() async {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    await StorageService.instance.clearCurrentUser();
   }
-}
 
-class _RegisteredUser {
-  final AppUser user;
-  final String? password;
+  void _startRefresh() {
+    _expiring = false;
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) async {
+      try {
+        final data = await ApiClient.instance.post('/auth/refresh');
+        await StorageService.instance.saveToken(data['token'] as String);
+      } on ApiException catch (error) {
+        // Falhas de rede são ignoradas; a próxima tentativa renova o token.
+        if (!error.isNetworkError) _refreshTimer?.cancel();
+      }
+    });
+  }
 
-  const _RegisteredUser({required this.user, this.password});
-}
-
-class _PendingRegistration {
-  final AppUser user;
-  final String password;
-  String code;
-
-  _PendingRegistration({
-    required this.user,
-    required this.password,
-    required this.code,
-  });
+  Future<void> _handleSessionExpired() async {
+    if (_expiring) return;
+    _expiring = true;
+    await logout();
+    NavigationService.pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (route) => false,
+    );
+  }
 }
