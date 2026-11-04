@@ -6,7 +6,8 @@ import '../widgets/app_card.dart';
 import '../widgets/dashboard_scaffold.dart';
 import 'exam_result_view.dart';
 import '../models/exam_session.dart';
-import '../models/exam_history_store.dart';
+import '../../../services/api_client.dart';
+import '../../../services/exams_service.dart';
 
 class ExamFinishScreen extends StatefulWidget {
   const ExamFinishScreen({super.key, this.session});
@@ -23,15 +24,23 @@ class _ExamFinishScreenState extends State<ExamFinishScreen> {
   int get answeredQuestions => widget.session?.answeredCount ?? 0;
   int get pendingQuestions => totalQuestions - answeredQuestions;
 
-  void _finish() {
+  /// Envia o simulado para correção e abre o resultado calculado pela API.
+  Future<void> _finish() async {
     if (_loading) return;
-    setState(() => _loading = true);
     final session = widget.session;
-    if (session != null) ExamHistoryStore.add(session);
-    Future<void>.delayed(const Duration(milliseconds: 700), () {
+    if (session?.id == null) return;
+    setState(() => _loading = true);
+    try {
+      final result = await ExamsService.instance.finish(session!.id!);
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(ExamResultScreen.routeName, arguments: session);
-    });
+      Navigator.of(context).pushReplacementNamed(ExamResultScreen.routeName, arguments: result);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
+      );
+    }
   }
 
   @override

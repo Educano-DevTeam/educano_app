@@ -6,7 +6,9 @@ import '../widgets/app_card.dart';
 import '../widgets/app_buttons.dart';
 import '../widgets/dashboard_scaffold.dart';
 import 'exam_result_view.dart';
-import '../models/exam_history_store.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/exams_service.dart';
 import '../../../core/navigation/app_routes.dart';
 
 class ExamHistoryItem {
@@ -29,10 +31,46 @@ class ExamHistoryItem {
 /// O botão "+ Novo Simulado" fica no canto superior direito, alinhado
 /// com o título, seguindo o padrão definido para as telas que precisam
 /// de uma ação de criação (em vez de um floating action button).
-class UltimosSimuladosScreen extends StatelessWidget {
+class UltimosSimuladosScreen extends StatefulWidget {
   const UltimosSimuladosScreen({super.key});
 
   static const routeName = '/simulados';
+
+  @override
+  State<UltimosSimuladosScreen> createState() => _UltimosSimuladosScreenState();
+}
+
+class _UltimosSimuladosScreenState extends State<UltimosSimuladosScreen> {
+  late Future<List<Map<String, dynamic>>> _history = ExamsService.instance.history();
+
+  void _reload() => setState(() => _history = ExamsService.instance.history());
+
+  /// Abre o resultado de um simulado finalizado ou retoma um em andamento.
+  Future<void> _open(Map<String, dynamic> record) async {
+    try {
+      final session = await ExamsService.instance.get(record['id'] as String);
+      if (!mounted) return;
+      final inProgress = !session.isFinished;
+      final expired = inProgress && (session.remainingSeconds ?? 0) <= 0;
+      if (expired) {
+        // O tempo acabou: finaliza para calcular a nota.
+        final finished = await ExamsService.instance.finish(session.id!);
+        if (!mounted) return;
+        await Navigator.of(context).pushNamed(ExamResultScreen.routeName, arguments: finished);
+      } else {
+        await Navigator.of(context).pushNamed(
+          inProgress ? AppRoutes.exam : ExamResultScreen.routeName,
+          arguments: session,
+        );
+      }
+      if (mounted) _reload();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,43 +84,72 @@ class UltimosSimuladosScreen extends StatelessWidget {
           label: compact ? '+ Novo' : '+ Novo Simulado',
           expand: false,
           height: 44,
-          onPressed: () {
-            Navigator.of(context).pushNamed(AppRoutes.examConfig);
+          onPressed: () async {
+            await Navigator.of(context).pushNamed(AppRoutes.examConfig);
+            if (mounted) _reload();
           },
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final mobile = constraints.maxWidth < 700;
-              if (ExamHistoryStore.records.isEmpty) {
-                return const Center(
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _history,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text('Você ainda não concluiu simulados.'),
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Text('${snapshot.error}'),
+                        TextButton(onPressed: _reload, child: const Text('Tentar novamente')),
+                      ],
+                    ),
                   ),
                 );
               }
-              final rows = ExamHistoryStore.records
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+              return LayoutBuilder(
+            builder: (context, constraints) {
+              final mobile = constraints.maxWidth < 700;
+              final records = snapshot.data!;
+              if (records.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text('Você ainda não fez simulados.'),
+                  ),
+                );
+              }
+              final rows = records
                   .map(
-                    (record) => _ExamHistoryCard(
+                    (record) {
+                      final finished = record['status'] == 'FINALIZADO';
+                      final materias = (record['materias'] as List).cast<String>();
+                      return _ExamHistoryCard(
                       compact: mobile,
                       item: ExamHistoryItem(
-                        title: record.session.title,
-                        subject: 'Simulado',
-                        date:
-                            '${record.finishedAt.day.toString().padLeft(2, '0')} ago',
-                        status: SimuladoStatus.concluido,
-                        score:
-                            '${record.session.correctCount}/${record.session.questions.length} acertos',
+                        title: record['titulo'] as String,
+                        subject: materias.isEmpty ? 'Simulado' : materias.join(', '),
+                        date: ApiMappers.formatDate(record['finalizadoEm'] ?? record['iniciadoEm']),
+                        status: finished ? SimuladoStatus.concluido : SimuladoStatus.emAndamento,
+                        score: finished
+                            ? '${record['acertos']}/${record['total']} acertos'
+                            : record['expirado'] == true
+                                ? 'Tempo esgotado'
+                                : null,
                       ),
-                      onTap: () => Navigator.of(context).pushNamed(
-                        ExamResultScreen.routeName,
-                        arguments: record.session,
-                      ),
-                    ),
+                      onTap: () => _open(record),
+                    );
+                    },
                   )
                   .toList();
               if (mobile)
@@ -128,6 +195,8 @@ class UltimosSimuladosScreen extends StatelessWidget {
                   ],
                 ),
               );
+            },
+          );
             },
           ),
         ],

@@ -9,7 +9,8 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/educano_colors.dart';
 import '../../course/models/course_models.dart';
-import '../../course/repositories/course_local_repository.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
 import '../config/material_test_paths.dart';
 import '../models/material_route_args.dart';
 import '../services/audio_playback_service.dart';
@@ -35,11 +36,12 @@ class MaterialView extends StatefulWidget {
 }
 
 class _MaterialViewState extends State<MaterialView> {
-  final CourseLocalRepository _repository = CourseLocalRepository.instance;
+  final CoursesService _service = CoursesService.instance;
 
   CourseMaterial? _material;
   bool _loading = true;
   bool _completedOnExit = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -48,22 +50,38 @@ class _MaterialViewState extends State<MaterialView> {
   }
 
   Future<void> _loadMaterial() async {
-    final course = await _repository.getCourse(widget.courseId);
     CourseMaterial? found;
 
-    if (course != null) {
+    try {
+      final course = await _service.course(widget.courseId);
       for (final session in course.sessions) {
         if (session.id != widget.sessionId) continue;
         for (final module in session.modules) {
           if (module.id != widget.moduleId) continue;
           for (final material in module.materials) {
-            if (material.id == widget.materialId) {
-              found = material;
-              break;
-            }
+            if (material.id == widget.materialId) found = material;
           }
         }
       }
+
+      // O arquivo é aberto por um link temporário, liberado pela inscrição.
+      if (found != null && found.kind != MaterialKind.activity) {
+        final access = await _service.materialAccess(found.id);
+        found = CourseMaterial(
+          id: found.id,
+          kind: found.kind,
+          title: found.title,
+          description: found.description,
+          fileName: access.fileName,
+          fileUrl: access.url,
+          fileSizeBytes: found.fileSizeBytes,
+          durationSeconds: found.durationSeconds,
+          completed: found.completed,
+        );
+      }
+    } on ApiException catch (error) {
+      _loadError = error.message;
+      found = null;
     }
 
     if (!mounted) return;
@@ -114,15 +132,30 @@ class _MaterialViewState extends State<MaterialView> {
   }
 
   Future<void> _markMaterialCompleted() async {
+    if (_material == null || _material!.completed) return;
+    // O messenger do app continua disponível depois que a tela fecha.
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
-      await _repository.markMaterialCompleted(
-        courseId: widget.courseId,
-        sessionId: widget.sessionId,
-        moduleId: widget.moduleId,
-        materialId: widget.materialId,
-      );
-    } catch (error) {
-      debugPrint('Failed to mark material as completed: $error');
+      final result = await _service.completeMaterial(widget.materialId);
+      final reward = result['recompensa'] as Map<String, dynamic>?;
+      final xp = reward?['xp'] as int? ?? 0;
+      if (xp > 0) {
+        final coins = reward?['moedas'] as int? ?? 0;
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              result['moduloConcluido'] == true
+                  ? 'Módulo concluído! +$xp XP · +$coins moedas'
+                  : 'Material concluído! +$xp XP · +$coins moedas',
+            ),
+            backgroundColor: EducanoColors.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on ApiException catch (error) {
+      // Quem gerencia o curso sem estar inscrito apenas visualiza.
+      debugPrint('Progresso não registrado: ${error.message}');
     }
   }
 
@@ -134,7 +167,7 @@ class _MaterialViewState extends State<MaterialView> {
 
     if (_material == null) {
       return _ErrorView(
-          message: 'Não foi possível encontrar este material.',
+          message: _loadError ?? 'Não foi possível encontrar este material.',
           onBack: () => Navigator.of(context).pop(),
         );
     }
@@ -561,8 +594,9 @@ class _AudioMaterialViewState extends State<_AudioMaterialView> {
         : widget.material.fileBytes != null
             ? 'attachment:${widget.material.id}'
             : MaterialTestPaths.audio;
+    // O link do arquivo muda a cada acesso (token); compara sem a query.
     if (_service.title == widget.material.title &&
-        _service.source == source &&
+        _service.source?.split('?').first == source.split('?').first &&
         !_service.loading) {
       _service.restore();
       return;

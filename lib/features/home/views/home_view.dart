@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/progress_service.dart';
 
 const double _spacingSmall = 16;
 const double _spacingMedium = 24;
@@ -10,63 +13,45 @@ const double _spacingLarge = 32;
 
 const double _radius = 18;
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
-  static const List<_CourseData> _courses = [
-    _CourseData(
-      id: 'vestibular-2026',
-      title: 'Vestibular 2026 - Curso Preparatório',
-      category: 'Multidisciplinar',
-      hours: '75 Horas',
-      description:
-          'Prepare-se para o vestibular com o nosso curso completo. '
-          'Oferecemos aulas focadas, material atualizado, simulados '
-          'frequentes e suporte com professores...',
-      progress: 1.0,
-      progressLabel: 'Concluído',
-      image: 'lib/assets/courses/vestibular_course_image.jpg',
-    ),
-    _CourseData(
-      id: 'inteligencia-artificial',
-      title: 'Introdução à Inteligência Artificial',
-      category: 'Tecnologia',
-      hours: '12 Horas',
-      description:
-          'Este curso apresenta os conceitos básicos de inteligência '
-          'artificial de forma simples e direta. Você vai aprender '
-          'como as ferramentas digitais funcionam...',
-      progress: 0.35,
-      progressLabel: '35%',
-      image: 'lib/assets/courses/ai_course_image.jpg',
-    ),
-    _CourseData(
-      id: 'financas-pessoais',
-      title: 'Finanças Pessoais para Iniciantes',
-      category: 'Educação Financeira',
-      hours: '32 Horas',
-      description:
-          'Este curso prático ensina você a organizar seu orçamento, '
-          'sair das dívidas e investir com segurança. Você vai aprender '
-          'a controlar gastos do dia a dia, cria...',
-      progress: 0.12,
-      progressLabel: '12%',
-      image: 'lib/assets/courses/finances_course_image.jpg',
-    ),
-    _CourseData(
-      id: 'design-profissional',
-      title: 'Design Profissional',
-      category: 'Design',
-      hours: '48 Horas',
-      description:
-          'Transforme sua carreira e domine as ferramentas mais buscadas '
-          'do mercado com o curso de Design Profissional. Você vai '
-          'aprender desde os conceit...',
-      progress: 0.19,
-      progressLabel: '19%',
-      image: 'lib/assets/courses/desing_course_image.jpg',
-    ),
-  ];
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  List<_CourseData> _courses = const [];
+  _LevelData? _level;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final progress = await ProgressService.instance.me();
+      final perfil = progress['perfil'] as Map<String, dynamic>;
+      final cursos = (progress['cursos'] as Map<String, dynamic>)['lista'] as List;
+      if (!mounted) return;
+      setState(() {
+        _level = _LevelData.fromApi(perfil);
+        _courses = cursos.cast<Map<String, dynamic>>().map(_CourseData.fromApi).toList();
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.message;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,11 +75,22 @@ class HomeView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _OverviewCard(isMobile: isMobile),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: _spacingMedium),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(_error!, style: const TextStyle(color: EducanoColors.error))),
+                      TextButton(onPressed: _load, child: const Text('Tentar novamente')),
+                    ],
+                  ),
+                ),
+
+              _OverviewCard(isMobile: isMobile, level: _level),
 
               const SizedBox(height: _spacingMedium),
 
-              _CoursesCard(courses: _courses, isMobile: isMobile),
+              _CoursesCard(courses: _courses, isMobile: isMobile, loading: _loading),
             ],
           ),
         );
@@ -109,8 +105,9 @@ class HomeView extends StatelessWidget {
 
 class _OverviewCard extends StatelessWidget {
   final bool isMobile;
+  final _LevelData? level;
 
-  const _OverviewCard({required this.isMobile});
+  const _OverviewCard({required this.isMobile, this.level});
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +132,7 @@ class _OverviewCard extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          _LevelCard(isMobile: isMobile),
+          _LevelCard(isMobile: isMobile, level: level ?? const _LevelData.empty()),
         ],
       ),
     );
@@ -148,8 +145,9 @@ class _OverviewCard extends StatelessWidget {
 
 class _LevelCard extends StatelessWidget {
   final bool isMobile;
+  final _LevelData level;
 
-  const _LevelCard({required this.isMobile});
+  const _LevelCard({required this.isMobile, required this.level});
 
   @override
   Widget build(BuildContext context) {
@@ -191,11 +189,11 @@ class _LevelCard extends StatelessWidget {
 
         const SizedBox(width: 18),
 
-        const SizedBox(
+        SizedBox(
           width: 145,
           child: Text(
-            'LEVEL 5',
-            style: TextStyle(
+            'LEVEL ${level.level}',
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: EducanoColors.primaryBlue,
@@ -205,16 +203,16 @@ class _LevelCard extends StatelessWidget {
 
         Expanded(
           child: _ProgressArea(
-            progress: 0.625,
-            label: '1250/2000 XP para o Level 6',
+            progress: level.progress,
+            label: level.label,
           ),
         ),
 
         const SizedBox(width: 14),
 
-        const Text(
-          '62%',
-          style: TextStyle(
+        Text(
+          level.percentLabel,
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: EducanoColors.primaryBlue,
@@ -236,18 +234,18 @@ class _LevelCard extends StatelessWidget {
               color: EducanoColors.accentYellow,
             ),
             const SizedBox(width: 14),
-            const Text(
-              'LEVEL 5',
-              style: TextStyle(
+            Text(
+              'LEVEL ${level.level}',
+              style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
                 color: EducanoColors.primaryBlue,
               ),
             ),
             const Spacer(),
-            const Text(
-              '62%',
-              style: TextStyle(
+            Text(
+              level.percentLabel,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: EducanoColors.primaryBlue,
@@ -258,7 +256,7 @@ class _LevelCard extends StatelessWidget {
 
         const SizedBox(height: 10),
 
-        _ProgressArea(progress: 0.625, label: '1250/2000 XP para o Level 6'),
+        _ProgressArea(progress: level.progress, label: level.label),
       ],
     );
   }
@@ -307,8 +305,13 @@ class _ProgressArea extends StatelessWidget {
 class _CoursesCard extends StatelessWidget {
   final List<_CourseData> courses;
   final bool isMobile;
+  final bool loading;
 
-  const _CoursesCard({required this.courses, required this.isMobile});
+  const _CoursesCard({
+    required this.courses,
+    required this.isMobile,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -332,6 +335,21 @@ class _CoursesCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 14),
+
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (courses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: Text(
+                'Você ainda não está inscrito em nenhum curso. '
+                'Toque em "Novo Curso" para conhecer o catálogo.',
+                style: TextStyle(color: Color(0xFF777777)),
+              ),
+            ),
 
           ...courses.map(
             (course) => Padding(
@@ -420,7 +438,7 @@ class _CourseCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 315,
-                  child: Image.asset(course.image, fit: BoxFit.cover),
+                  child: _CourseImage(course: course),
                 ),
 
                 const SizedBox(width: 18),
@@ -465,7 +483,7 @@ class _CourseCard extends StatelessWidget {
               SizedBox(
                 width: 112,
                 height: double.infinity,
-                child: Image.asset(course.image, fit: BoxFit.cover),
+                child: _CourseImage(course: course),
               ),
 
               const SizedBox(width: 8),
@@ -661,6 +679,8 @@ class _CourseData {
   final double progress;
   final String progressLabel;
   final String image;
+  final IconData icon;
+  final Color color;
 
   const _CourseData({
     required this.id,
@@ -671,5 +691,77 @@ class _CourseData {
     required this.progress,
     required this.progressLabel,
     required this.image,
+    required this.icon,
+    required this.color,
   });
+
+  /// Curso inscrito retornado em /progress/me.
+  factory _CourseData.fromApi(Map<String, dynamic> json) {
+    final progress = (json['progresso'] as num).toDouble();
+    final minutes = json['cargaHorariaMinutos'] as int? ?? 0;
+    final hours = (minutes / 60).round();
+    return _CourseData(
+      id: json['id'] as String,
+      title: json['nome'] as String,
+      category: ApiMappers.categoryLabel(json['categoria'] as String?),
+      hours: minutes <= 0
+          ? '${json['totalConteudos']} ${json['totalConteudos'] == 1 ? 'conteúdo' : 'conteúdos'}'
+          : (hours > 0 ? '$hours ${hours == 1 ? 'Hora' : 'Horas'}' : '$minutes min'),
+      description: json['descricao'] as String? ?? '',
+      progress: progress,
+      progressLabel: progress >= 1 ? 'Concluído' : '${(progress * 100).round()}%',
+      image: ApiMappers.mediaUrl(json['idCapa'] as String?) ?? '',
+      icon: ApiMappers.coverIcon(json['iconeCapa'] as String?),
+      color: ApiMappers.color(json['cor'] as String?),
+    );
+  }
+}
+
+class _LevelData {
+  final int level;
+  final int xpInLevel;
+  final int xpPerLevel;
+  final int totalXp;
+
+  const _LevelData({
+    required this.level,
+    required this.xpInLevel,
+    required this.xpPerLevel,
+    required this.totalXp,
+  });
+
+  const _LevelData.empty() : level = 0, xpInLevel = 0, xpPerLevel = 250, totalXp = 0;
+
+  factory _LevelData.fromApi(Map<String, dynamic> perfil) => _LevelData(
+    level: perfil['nivel'] as int,
+    xpInLevel: perfil['xpNoNivel'] as int,
+    xpPerLevel: perfil['xpParaProximoNivel'] as int,
+    totalXp: perfil['xp'] as int,
+  );
+
+  double get progress => xpPerLevel == 0 ? 0 : xpInLevel / xpPerLevel;
+  String get percentLabel => '${(progress * 100).round()}%';
+  String get label =>
+      '$xpInLevel/$xpPerLevel XP para o Level ${level + 1} · $totalXp XP no total';
+}
+
+/// Imagem do curso (URL da API) ou o ícone e a cor dele.
+class _CourseImage extends StatelessWidget {
+  final _CourseData course;
+
+  const _CourseImage({required this.course});
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      color: course.color.withValues(alpha: .15),
+      child: Icon(course.icon, color: course.color, size: 48),
+    );
+    if (course.image.isEmpty) return fallback;
+    return Image.network(
+      course.image,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => fallback,
+    );
+  }
 }
