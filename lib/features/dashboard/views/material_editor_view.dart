@@ -1,7 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -19,6 +23,7 @@ enum MaterialKind {
     icon: Icons.picture_as_pdf_rounded,
     color: EducanoColors.error,
     formats: '.pdf',
+    extensions: ['pdf'],
     maxSize: '50 MB',
     example: 'Apostila em PDF',
   ),
@@ -26,7 +31,8 @@ enum MaterialKind {
     label: 'Vídeo',
     icon: Icons.play_circle_rounded,
     color: EducanoColors.primaryBlue,
-    formats: '.mp4, .mov',
+    formats: '.mp4, .mov, .m4v, .webm',
+    extensions: ['mp4', 'mov', 'm4v', 'webm'],
     maxSize: '500 MB',
     example: 'Vídeo-aula',
   ),
@@ -34,7 +40,8 @@ enum MaterialKind {
     label: 'Áudio',
     icon: Icons.headphones_rounded,
     color: EducanoColors.accentYellow,
-    formats: '.mp3, .wav',
+    formats: '.mp3, .m4a, .wav, .aac, .ogg',
+    extensions: ['mp3', 'm4a', 'wav', 'aac', 'ogg'],
     maxSize: '100 MB',
     example: 'Podcast da aula',
   );
@@ -43,6 +50,7 @@ enum MaterialKind {
   final IconData icon;
   final Color color;
   final String formats;
+  final List<String> extensions;
   final String maxSize;
   final String example;
 
@@ -51,6 +59,7 @@ enum MaterialKind {
     required this.icon,
     required this.color,
     required this.formats,
+    required this.extensions,
     required this.maxSize,
     required this.example,
   });
@@ -86,7 +95,11 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
   String? _fileName;
   String? _fileSize;
   String? _duration;
+  // Arquivo novo enviado ao storage da API (ainda não vinculado).
+  String? _fileId;
+  bool _uploading = false;
   bool _showFileError = false;
+  late final TextEditingController _durationController;
 
   bool get _isEditing => widget.material != null;
 
@@ -103,12 +116,14 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
     _fileName = material?['fileName'] as String?;
     _fileSize = material?['fileSize'] as String?;
     _duration = material?['duration'] as String?;
+    _durationController = TextEditingController(text: _duration ?? '');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
@@ -120,24 +135,53 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       _fileName = null;
       _fileSize = null;
       _duration = null;
+      _fileId = null;
+      _durationController.clear();
     });
   }
 
-  /// Upload simulado: ainda não há backend para receber o arquivo, então
-  /// só preenche um arquivo de exemplo do tipo escolhido.
-  void _selectFile() {
-    final (fileName, fileSize, duration) = switch (_kind) {
-      MaterialKind.pdf => ('apostila.pdf', '2,4 MB', null),
-      MaterialKind.video => ('video-aula.mp4', '48,7 MB', '12:34'),
-      MaterialKind.audio => ('podcast.mp3', '6,1 MB', '08:15'),
-    };
+  /// Seleciona o arquivo e já envia para o storage da API, que valida
+  /// formato e tamanho. O material é vinculado ao salvar o curso.
+  Future<void> _selectFile() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: _kind.extensions,
+    );
+    if (!mounted || files.isEmpty) return;
 
-    setState(() {
-      _fileName = fileName;
-      _fileSize = fileSize;
-      _duration = duration;
-      _showFileError = false;
-    });
+    final file = files.first;
+    setState(() => _uploading = true);
+
+    try {
+      final bytes = await file.readAsBytes();
+      final type = switch (_kind) {
+        MaterialKind.pdf => 'PDF',
+        MaterialKind.video => 'VIDEO',
+        MaterialKind.audio => 'AUDIO',
+      };
+      final id = await CoursesService.instance.uploadFile(type, bytes, file.name);
+      if (!mounted) return;
+      setState(() {
+        _fileId = id;
+        _fileName = file.name;
+        _fileSize = ApiMappers.fileSize(bytes.lengthInBytes);
+        _showFileError = false;
+      });
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível ler o arquivo: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   void _removeFile() {
@@ -145,6 +189,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       _fileName = null;
       _fileSize = null;
       _duration = null;
+      _fileId = null;
     });
   }
 
@@ -154,7 +199,11 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
     if (!hasFile) setState(() => _showFileError = true);
     if (!isFormValid || !hasFile) return;
 
+    final duration = _durationController.text.trim();
+
     Navigator.pop(context, <String, dynamic>{
+      // Mantém o id do material já salvo na API.
+      if (widget.material?['id'] != null) 'id': widget.material!['id'],
       'name': _nameController.text.trim(),
       'description': _descriptionController.text.trim(),
       'type': _kind,
@@ -162,7 +211,8 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       'icon': _kind.icon,
       'fileName': _fileName,
       'fileSize': _fileSize,
-      if (_duration != null) 'duration': _duration,
+      if (_fileId != null) 'idArquivo': _fileId,
+      if (duration.isNotEmpty) 'duration': duration,
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -422,9 +472,15 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
               ),
               const SizedBox(height: _spacingSmall),
               OutlinedButton.icon(
-                onPressed: _selectFile,
-                icon: const Icon(Icons.upload_file_rounded),
-                label: const Text('Selecionar arquivo'),
+                onPressed: _uploading ? null : _selectFile,
+                icon: _uploading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload_file_rounded),
+                label: Text(_uploading ? 'Enviando...' : 'Selecionar arquivo'),
               ),
             ],
           ),
@@ -444,7 +500,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
   Widget _buildSelectedFile() {
     final details = [_fileSize, _duration].whereType<String>().join('  ·  ');
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _kind.color.withValues(alpha: 0.08),
@@ -483,13 +539,38 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
             ),
           ),
           IconButton(
-            tooltip: 'Remover arquivo',
+            tooltip: 'Trocar arquivo',
             onPressed: _removeFile,
             icon: const Icon(Icons.close_rounded),
             color: EducanoColors.error,
           ),
         ],
       ),
+    );
+
+    if (_kind == MaterialKind.pdf) return card;
+
+    // Vídeos e áudios mostram a duração para o aluno.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        card,
+        const SizedBox(height: _spacingSmall),
+        TextFormField(
+          controller: _durationController,
+          decoration: const InputDecoration(
+            labelText: 'Duração (mm:ss)',
+            hintText: 'Ex.: 12:34',
+          ),
+          validator: (value) {
+            final text = value?.trim() ?? '';
+            if (text.isEmpty) return null;
+            return ApiMappers.parseDuration(text) == null
+                ? 'Use o formato mm:ss'
+                : null;
+          },
+        ),
+      ],
     );
   }
 

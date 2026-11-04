@@ -3,7 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/utils/api_mappers.dart';
 import 'material_editor_view.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
+import '../../../services/storage_service.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -40,7 +44,14 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   /// Trilha criada por último, que já aparece aberta na lista.
   String? _newTrilhaId;
 
-  final List<String> _categories = ['Exatas', 'Humanas', 'Biológicas'];
+  final List<String> _categories = ApiMappers.courseCategories.values.toList();
+  bool _saving = false;
+
+  /// Somente administradores ativam ou desativam cursos.
+  bool _isAdmin = false;
+
+  /// Capa em imagem é mantida enquanto nenhum ícone for escolhido.
+  bool _iconChanged = false;
   final List<String> _statuses = ['Ativo', 'Inativo', 'Rascunho'];
 
   // Mesmos ícones e cores dos cards de curso do aluno.
@@ -66,6 +77,10 @@ class _CourseEditorViewState extends State<CourseEditorView> {
 
   bool get _isEditing => widget.course != null;
 
+  String get _imageUrl => widget.course?['imageUrl'] as String? ?? '';
+
+  bool get _showsImage => _imageUrl.isNotEmpty && !_iconChanged;
+
   int get _enrolled => widget.course?['enrolled'] as int? ?? 0;
 
   String get _courseName {
@@ -86,10 +101,18 @@ class _CourseEditorViewState extends State<CourseEditorView> {
       text: course?['capacity']?.toString() ?? '',
     );
     _category = course?['category'] as String? ?? _categories.first;
+    // Categorias cadastradas antes ficam disponíveis no seletor.
+    if (!_categories.contains(_category)) _categories.add(_category);
     _status = course?['status'] as String? ?? 'Rascunho';
     _icon = course?['icon'] as IconData? ?? Icons.menu_book_rounded;
     _color = course?['color'] as Color? ?? EducanoColors.primaryBlue;
     _trilhas = _copyTrilhas(course?['trilhas']);
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await StorageService.instance.loadCurrentUser();
+    if (mounted) setState(() => _isAdmin = user?.isAdmin ?? false);
   }
 
   @override
@@ -100,28 +123,49 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Navigator.pop(context, <String, dynamic>{
+    final course = <String, dynamic>{
+      'id': widget.course?['id'],
       'name': _nameController.text.trim(),
       'category': _category,
       'status': _status,
+      'originalStatus': widget.course?['status'],
       'description': _descriptionController.text.trim(),
       'enrolled': _enrolled,
-      'capacity': int.parse(_capacityController.text.trim()),
+      'capacity': int.tryParse(_capacityController.text.trim()),
+      'idCapa': widget.course?['idCapa'],
+      'iconChanged': _iconChanged,
       'createdAt': widget.course?['createdAt'] ?? _formatDate(DateTime.now()),
       'icon': _icon,
       'color': _color,
       'trilhas': _trilhas,
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isEditing ? 'Curso atualizado!' : 'Curso criado!'),
-        backgroundColor: EducanoColors.successGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    };
+
+    setState(() => _saving = true);
+    try {
+      final saved = await CoursesService.instance.saveFromEditor(course);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEditing ? 'Curso atualizado!' : 'Curso criado!'),
+          backgroundColor: EducanoColors.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pop(context, saved);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: EducanoColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -328,8 +372,14 @@ class _CourseEditorViewState extends State<CourseEditorView> {
             final saveButton = SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_rounded),
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
                 label: const Text('Salvar curso'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: _spacingSmall),
@@ -414,11 +464,18 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         const SizedBox(height: _spacingSmall),
         DropdownButtonFormField<String>(
           initialValue: _status,
-          decoration: const InputDecoration(labelText: 'Status'),
+          decoration: InputDecoration(
+            labelText: 'Status',
+            helperText: _isAdmin
+                ? null
+                : 'O curso fica como rascunho até ter nome, categoria, '
+                    'descrição e capa. Um administrador faz a ativação.',
+            helperMaxLines: 2,
+          ),
           items: _statuses
               .map((s) => DropdownMenuItem(value: s, child: Text(s)))
               .toList(),
-          onChanged: (value) => setState(() => _status = value!),
+          onChanged: _isAdmin ? (value) => setState(() => _status = value!) : null,
         ),
         const SizedBox(height: _spacingSmall),
         TextFormField(
@@ -428,10 +485,13 @@ class _CourseEditorViewState extends State<CourseEditorView> {
           decoration: InputDecoration(
             labelText: 'Capacidade (vagas)',
             prefixIcon: const Icon(Icons.people_alt_rounded),
-            helperText: _isEditing ? '$_enrolled alunos já inscritos' : null,
+            helperText: _isEditing
+                ? '$_enrolled alunos já inscritos · vazio = sem limite'
+                : 'Deixe vazio para não limitar as vagas',
           ),
           validator: (value) {
-            final capacity = int.tryParse(value?.trim() ?? '');
+            if (value == null || value.trim().isEmpty) return null;
+            final capacity = int.tryParse(value.trim());
             if (capacity == null || capacity <= 0) {
               return 'Informe um número de vagas válido';
             }
@@ -503,6 +563,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
           CircleAvatar(
             radius: 24,
             backgroundColor: _color.withValues(alpha: 0.15),
+            foregroundImage: _showsImage ? NetworkImage(_imageUrl) : null,
             child: Icon(_icon, color: _color, size: 24),
           ),
           const SizedBox(width: _spacingSmall),
@@ -539,7 +600,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
 
   Widget _buildIconOption(Map<String, dynamic> option) {
     final icon = option['icon'] as IconData;
-    final selected = icon == _icon;
+    final selected = !_showsImage && icon == _icon;
 
     return Tooltip(
       message: option['label'] as String,
@@ -547,7 +608,10 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         selected: selected,
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: () => setState(() => _icon = icon),
+          onTap: () => setState(() {
+            _icon = icon;
+            _iconChanged = true;
+          }),
           child: Ink(
             width: 44,
             height: 44,
@@ -898,13 +962,22 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     Map<String, dynamic> modulo,
     Map<String, dynamic> material,
   ) {
+    // Atividades são editadas na página do curso; aqui só aparecem na lista.
+    final isActivity = material['tipo'] == 'ATIVIDADE';
     final kind = material['type'] as MaterialKind? ?? MaterialKind.pdf;
-    final details = [
-      kind.label,
-      material['fileName'],
-      material['fileSize'],
-      material['duration'],
-    ].whereType<String>().join('  ·  ');
+    final details = (isActivity
+            ? ['Atividade', '${material['totalQuestoes'] ?? 0} questões']
+            : [
+                kind.label,
+                material['fileName'],
+                material['fileSize'],
+                material['duration'],
+              ])
+        .whereType<String>()
+        .where((text) => text.isNotEmpty)
+        .join('  ·  ');
+    final color = isActivity ? EducanoColors.successGreen : kind.color;
+    final icon = isActivity ? Icons.assignment_rounded : kind.icon;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -912,8 +985,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: kind.color.withValues(alpha: 0.15),
-            child: Icon(kind.icon, color: kind.color, size: 16),
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Icon(icon, color: color, size: 16),
           ),
           const SizedBox(width: _spacingMinimum),
           Expanded(
@@ -942,13 +1015,14 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Editar material',
-            visualDensity: VisualDensity.compact,
-            onPressed: () =>
-                _openMaterialEditor(trilha, modulo, material: material),
-            icon: const Icon(Icons.edit_rounded, size: 18),
-          ),
+          if (!isActivity)
+            IconButton(
+              tooltip: 'Editar material',
+              visualDensity: VisualDensity.compact,
+              onPressed: () =>
+                  _openMaterialEditor(trilha, modulo, material: material),
+              icon: const Icon(Icons.edit_rounded, size: 18),
+            ),
           IconButton(
             tooltip: 'Remover material',
             visualDensity: VisualDensity.compact,
