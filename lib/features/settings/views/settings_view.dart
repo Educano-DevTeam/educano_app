@@ -4,6 +4,14 @@ import '../../../core/constants/app_breakpoints.dart';
 
 import '../../../core/widgets/ui/app_card.dart';
 import '../../../core/widgets/ui/app_button.dart';
+import '../../../core/models/app_user.dart';
+import '../../../core/navigation/app_routes.dart';
+import '../../../services/api_client.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/progress_service.dart';
+import '../../../services/storage_service.dart';
+import '../../../services/users_service.dart';
+import '../../auth/widgets/validators.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -128,9 +136,20 @@ class _SettingsViewState extends State<SettingsView> {
     );
 
     if (confirmar == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Conta encerrada (simulação).')),
-      );
+      try {
+        await UsersService.instance.deleteMyAccount();
+        await AuthService.instance.logout();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sua conta foi encerrada.')),
+        );
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+      } on ApiException catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.legacyRed),
+        );
+      }
     }
   }
 
@@ -245,8 +264,63 @@ class _SettingsViewState extends State<SettingsView> {
 // Dados da conta
 // ----------------------------------------------------------------------
 
-class _DadosContaCard extends StatelessWidget {
+class _DadosContaCard extends StatefulWidget {
   const _DadosContaCard();
+
+  @override
+  State<_DadosContaCard> createState() => _DadosContaCardState();
+}
+
+class _DadosContaCardState extends State<_DadosContaCard> {
+  final _name = TextEditingController();
+  AppUser? _user;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    StorageService.instance.loadCurrentUser().then((user) {
+      if (!mounted || user == null) return;
+      setState(() {
+        _user = user;
+        _name.text = user.name;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final user = _user;
+    if (user == null) return;
+    if (_name.text.trim().length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe um nome válido.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final updated = await UsersService.instance.updateMyName(user, _name.text);
+      if (!mounted) return;
+      setState(() => _user = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dados atualizados.'), backgroundColor: EducanoColors.successGreen),
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.legacyRed),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -257,23 +331,22 @@ class _DadosContaCard extends StatelessWidget {
           const Text('Dados da conta',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
           const SizedBox(height: 16),
-          const _FieldsRow(
+          _ControlledFieldsRow(
             fields: [
-              _FieldData('Nome Completo', 'Daniel Lima'),
-              _FieldData('E-mail', 'daniel.lima@gmail.com'),
+              _ControlledField('Nome Completo', _name),
+              _ControlledField('E-mail', TextEditingController(text: _user?.email ?? ''), readOnly: true),
             ],
           ),
           const SizedBox(height: 14),
-          const _FieldsRow(
+          _ControlledFieldsRow(
             fields: [
-              _FieldData('Telefone', '(11) 99999-9999'),
-              _FieldData('Perfil de acesso', 'Administrador'),
+              _ControlledField('Perfil de acesso', TextEditingController(text: _user?.role ?? ''), readOnly: true),
             ],
           ),
           const SizedBox(height: 18),
           HoverButton(
-            label: 'Salvar alterações',
-            onPressed: () {},
+            label: _saving ? 'Salvando...' : 'Salvar alterações',
+            onPressed: _saving ? () {} : _save,
             padding: const EdgeInsets.symmetric(vertical: 14),
             fontSize: 13.5,
             borderRadius: 8,
@@ -284,25 +357,44 @@ class _DadosContaCard extends StatelessWidget {
   }
 }
 
-class _FieldData {
+/// Campo com controller, usado nos cards que salvam dados na API.
+class _ControlledField {
   final String label;
-  final String value;
+  final TextEditingController controller;
   final bool obscure;
-  const _FieldData(this.label, this.value, {this.obscure = false});
+  final bool readOnly;
+  const _ControlledField(this.label, this.controller, {this.obscure = false, this.readOnly = false});
 }
 
-class _FieldsRow extends StatelessWidget {
-  final List<_FieldData> fields;
-  const _FieldsRow({required this.fields});
+class _ControlledFieldsRow extends StatelessWidget {
+  final List<_ControlledField> fields;
+  const _ControlledFieldsRow({required this.fields});
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool narrow = constraints.maxWidth < 380;
-        final List<Widget> widgets =
-            fields.map((f) => _LabeledField(label: f.label, value: f.value, obscureText: f.obscure)).toList();
-
+        final narrow = constraints.maxWidth < 380;
+        final widgets = [
+          for (final f in fields)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(f.label, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: f.controller,
+                  obscureText: f.obscure,
+                  readOnly: f.readOnly,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: f.readOnly ? EducanoColors.legacyTextSecondary : null,
+                  ),
+                  decoration: const InputDecoration(isDense: true),
+                ),
+              ],
+            ),
+        ];
         if (narrow) {
           return Column(
             children: [
@@ -323,30 +415,6 @@ class _FieldsRow extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool obscureText;
-  const _LabeledField({required this.label, required this.value, this.obscureText = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
-        const SizedBox(height: 6),
-        TextFormField(
-          initialValue: value,
-          obscureText: obscureText,
-          style: const TextStyle(fontSize: 13),
-          decoration: const InputDecoration(isDense: true),
-        ),
-      ],
     );
   }
 }
@@ -449,8 +517,55 @@ class _ToggleRow extends StatelessWidget {
 // Segurança
 // ----------------------------------------------------------------------
 
-class _SegurancaCard extends StatelessWidget {
+class _SegurancaCard extends StatefulWidget {
   const _SegurancaCard();
+
+  @override
+  State<_SegurancaCard> createState() => _SegurancaCardState();
+}
+
+class _SegurancaCardState extends State<_SegurancaCard> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    super.dispose();
+  }
+
+  void _message(String text, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor: error ? EducanoColors.legacyRed : EducanoColors.successGreen,
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final problem = _current.text.isEmpty
+        ? 'Digite sua senha atual'
+        : Validators.password(_next.text);
+    if (problem != null) {
+      _message(problem, error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final message = await UsersService.instance.changePassword(_current.text, _next.text);
+      if (!mounted) return;
+      _current.clear();
+      _next.clear();
+      _message(message);
+    } on ApiException catch (error) {
+      if (mounted) _message(error.message, error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -461,16 +576,22 @@ class _SegurancaCard extends StatelessWidget {
           const Text('Segurança',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
           const SizedBox(height: 16),
-          const _FieldsRow(
+          _ControlledFieldsRow(
             fields: [
-              _FieldData('Senha atual', 'senha123456', obscure: true),
-              _FieldData('Nova senha', '', obscure: true),
+              _ControlledField('Senha atual', _current, obscure: true),
+              _ControlledField('Nova senha', _next, obscure: true),
             ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'A nova senha precisa ter 8+ caracteres, letra maiúscula, número e símbolo. '
+            'Senhas valem por 90 dias.',
+            style: TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary),
           ),
           const SizedBox(height: 18),
           HoverButton(
-            label: 'Alterar Senha',
-            onPressed: () {},
+            label: _saving ? 'Alterando...' : 'Alterar Senha',
+            onPressed: _saving ? () {} : _save,
             padding: const EdgeInsets.symmetric(vertical: 14),
             fontSize: 13.5,
             borderRadius: 8,
@@ -485,8 +606,35 @@ class _SegurancaCard extends StatelessWidget {
 // Plano atual
 // ----------------------------------------------------------------------
 
-class _PlanoAtualCard extends StatelessWidget {
+class _PlanoAtualCard extends StatefulWidget {
   const _PlanoAtualCard();
+
+  @override
+  State<_PlanoAtualCard> createState() => _PlanoAtualCardState();
+}
+
+class _PlanoAtualCardState extends State<_PlanoAtualCard> {
+  String _name = 'Básico';
+  String _price = 'Grátis';
+
+  @override
+  void initState() {
+    super.initState();
+    ProgressService.instance.plans().then((data) {
+      final current = (data['dados'] as List)
+          .cast<Map<String, dynamic>>()
+          .where((p) => p['atual'] == true)
+          .firstOrNull;
+      if (!mounted || current == null) return;
+      final cents = current['precoCentavos'] as int;
+      setState(() {
+        _name = current['nome'] as String;
+        _price = cents == 0
+            ? 'Grátis'
+            : 'R\$ ${(cents / 100).toStringAsFixed(2).replaceAll('.', ',')}/mês';
+      });
+    }).catchError((_) {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -503,20 +651,20 @@ class _PlanoAtualCard extends StatelessWidget {
                 BoxDecoration(color: EducanoColors.legacyLavender, borderRadius: BorderRadius.circular(10)),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Básico',
-                          style: TextStyle(
+                      Text(_name,
+                          style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14, color: EducanoColors.legacyTextPrimary)),
-                      Text('Grátis', style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                      Text(_price, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
                     ],
                   ),
                 ),
                 HoverButton(
-                  label: 'Fazer Upgrade',
-                  onPressed: () {},
+                  label: _name == 'Premium' ? 'Ver planos' : 'Fazer Upgrade',
+                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.accountPlan),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
               ],
@@ -529,7 +677,7 @@ class _PlanoAtualCard extends StatelessWidget {
               children: [
                 TextSpan(text: 'Veja todos os planos em '),
                 TextSpan(
-                    text: 'Loja > Planos.',
+                    text: 'Perfil > Planos.',
                     style: TextStyle(color: EducanoColors.legacyPrimary, fontWeight: FontWeight.w600)),
               ],
             ),

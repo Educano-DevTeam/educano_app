@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_menu.dart';
 import 'app_routes.dart';
 import 'navigation_service.dart';
-import '../../services/storage_service.dart';
+import '../../services/auth_service.dart';
 
 class AppNavigation {
   AppNavigation._();
@@ -124,7 +124,7 @@ class AppNavigation {
 
   static Future<void> _logout(BuildContext context) async {
     try {
-      await StorageService.instance.clearCurrentUser();
+      await AuthService.instance.logout();
       if (context.mounted) {
         NavigationService.pushNamedAndRemoveUntil(
           AppRoutes.login,

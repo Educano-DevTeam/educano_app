@@ -7,7 +7,6 @@ import '../widgets/validators.dart';
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../services/auth_service.dart';
-import '../../../services/storage_service.dart';
 import '../widgets/app_buttons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/auth_card.dart';
@@ -24,7 +23,7 @@ class VerifyAccountView extends StatefulWidget {
 
 class _VerifyAccountViewState extends State<VerifyAccountView> {
   static const int _codeLength = 6;
-  static const int _resendCooldownSeconds = 30;
+  static const int _resendCooldownSeconds = 60;
 
   final List<TextEditingController> _controllers =
       List.generate(_codeLength, (_) => TextEditingController());
@@ -74,7 +73,7 @@ class _VerifyAccountViewState extends State<VerifyAccountView> {
     if (_code.length != _codeLength) {
       setState(() {
         _hasError = true;
-        _statusMessage = 'Digite o código completo de 6 dígitos.';
+        _statusMessage = 'Digite o código completo de 6 caracteres.';
       });
       return;
     }
@@ -91,29 +90,18 @@ class _VerifyAccountViewState extends State<VerifyAccountView> {
 
     if (!mounted) return;
     if (result.success) {
-      final user = result.user;
-      if (user == null) {
-        setState(() {
-          _isVerifying = false;
-          _hasError = true;
-          _statusMessage = 'Não foi possível carregar os dados da conta.';
-        });
-        return;
+      // Sem login automático (ex.: página recarregada), segue para o login.
+      if (result.user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${result.message ?? 'Conta validada.'} Entre com seu e-mail e senha.',
+            ),
+          ),
+        );
       }
-      try {
-        await StorageService.instance.saveCurrentUser(user);
-      } catch (error) {
-        if (!mounted) return;
-        setState(() {
-          _isVerifying = false;
-          _hasError = true;
-          _statusMessage = 'Não foi possível salvar a sessão: $error';
-        });
-        return;
-      }
-      if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.home,
+        result.user == null ? AppRoutes.login : AppRoutes.home,
         (route) => false,
       );
     } else {
@@ -164,7 +152,7 @@ class _VerifyAccountViewState extends State<VerifyAccountView> {
   }
 
   void _editEmail() {
-    Navigator.of(context).pop();
+    Navigator.of(context).pushReplacementNamed(AppRoutes.signup);
   }
 
   @override
@@ -224,8 +212,8 @@ class _VerifyAccountViewState extends State<VerifyAccountView> {
         const SizedBox(height: 8),
         Text(
           isWeb
-              ? 'Enviamos um código de 6 dígitos para o e-mail ${Validators.maskEmail(widget.email)}. Digite o código abaixo para confirmar sua conta.'
-              : 'Enviamos um código de 6 dígitos para ${Validators.maskEmail(widget.email)}.',
+              ? 'Enviamos um código de 6 caracteres (letras e números) para o e-mail ${Validators.maskEmail(widget.email)}. Digite o código abaixo para confirmar sua conta.'
+              : 'Enviamos um código de 6 caracteres para ${Validators.maskEmail(widget.email)}.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: isWeb ? 15 : 13,
@@ -315,9 +303,13 @@ class _OtpDigitBox extends StatelessWidget {
         focusNode: focusNode,
         onChanged: onChanged,
         textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.visiblePassword,
+        textCapitalization: TextCapitalization.characters,
         maxLength: 1,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
+          const _UpperCaseFormatter(),
+        ],
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
@@ -344,4 +336,15 @@ class _OtpDigitBox extends StatelessWidget {
       ),
     );
   }
+}
+
+/// O código da API usa letras maiúsculas e números.
+class _UpperCaseFormatter extends TextInputFormatter {
+  const _UpperCaseFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) => newValue.copyWith(text: newValue.text.toUpperCase());
 }

@@ -9,7 +9,6 @@ import '../widgets/brand_panel.dart';
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/navigation/navigation_service.dart';
-import '../../../services/storage_service.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -48,26 +47,20 @@ class _LoginViewState extends State<LoginView> {
     if (!mounted) return;
 
     if (result.success) {
-      final user = result.user;
-      if (user == null) {
+      if (result.user == null) {
         setState(() {
           _isLoading = false;
           _errorMessage = 'Não foi possível carregar os dados da conta.';
         });
         return;
       }
-      try {
-        await StorageService.instance.saveCurrentUser(user);
-      } catch (error) {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Não foi possível salvar a sessão: $error';
-        });
-        return;
-      }
-      if (!mounted) return;
       NavigationService.pushReplacementNamed(AppRoutes.home);
+    } else if (result.code == 'SENHA_EXPIRADA') {
+      setState(() => _isLoading = false);
+      NavigationService.pushNamed(
+        AppRoutes.forgotPassword,
+        arguments: _emailController.text.trim(),
+      );
     } else {
       setState(() {
         _isLoading = false;
