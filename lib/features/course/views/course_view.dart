@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/educano_colors.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
+import '../../../services/exams_service.dart';
 import '../models/course_models.dart';
-import '../repositories/course_local_repository.dart';
 import '../widgets/course_editor_dialogs.dart';
 
 import 'package:educano_app/core/navigation/app_routes.dart';
 import 'package:educano_app/features/materials/models/material_route_args.dart';
-import 'package:educano_app/features/exam/models/exam_session.dart';
-import 'package:educano_app/features/exam/models/exam_mock_questions.dart';
 
 const _green = Color(0xFF20D500);
 
@@ -22,9 +23,14 @@ class CourseView extends StatefulWidget {
 }
 
 class _CourseViewState extends State<CourseView> {
-  final _repository = CourseLocalRepository.instance;
+  final _service = CoursesService.instance;
   Course? _course;
-  int _selectedSession = 2;
+  String? _error;
+  int _selectedSession = 0;
+  bool _sessionChosen = false;
+
+  // Módulos abertos na tela (estado só visual).
+  final Set<String> _expandedModules = {};
 
   @override
   void initState() {
@@ -33,31 +39,108 @@ class _CourseViewState extends State<CourseView> {
   }
 
   Future<void> _loadCourse() async {
-    final course = await _repository.getCourse(widget.courseId);
-    if (!mounted) return;
-    setState(() {
-      _course = course;
-      if (course != null && course.sessions.isNotEmpty) {
-        _selectedSession = _selectedSession
-            .clamp(0, course.sessions.length - 1)
-            .toInt();
-      }
-    });
+    try {
+      final course = await _service.course(widget.courseId);
+      if (!mounted) return;
+      setState(() {
+        _error = null;
+        _course = _withExpanded(course);
+        if (!_sessionChosen) _selectedSession = _firstPendingSession(course);
+        if (course.sessions.isNotEmpty) {
+          _selectedSession = _selectedSession
+              .clamp(0, course.sessions.length - 1)
+              .toInt();
+        }
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    }
+  }
+
+  /// Abre a sessão do primeiro material ainda não concluído.
+  int _firstPendingSession(Course course) {
+    for (var i = 0; i < course.sessions.length; i++) {
+      final pending = course.sessions[i].modules.any(
+        (m) => m.materials.any((material) => !material.completed),
+      );
+      if (pending) return i;
+    }
+    return 0;
+  }
+
+  Course _withExpanded(Course course) => course.copyWith(
+    sessions: [
+      for (final session in course.sessions)
+        session.copyWith(
+          modules: [
+            for (final module in session.modules)
+              module.copyWith(expanded: _expandedModules.contains(module.id)),
+          ],
+        ),
+    ],
+  );
+
+  void _showMessage(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Executa uma alteração na API e recarrega o curso.
+  Future<void> _run(Future<void> Function() action, String success) async {
+    try {
+      await action();
+      await _loadCourse();
+      if (mounted) _showMessage(success);
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message, error: true);
+    }
+  }
+
+  Future<void> _enroll() async {
+    final turma = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Escolha a turma'),
+        children: [
+          for (final label in ApiMappers.turmas.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, label),
+              child: Text(label),
+            ),
+        ],
+      ),
+    );
+    if (turma == null) return;
+    await _run(
+      () => _service.enroll(widget.courseId, turma: turma),
+      'Inscrição realizada! Bons estudos.',
+    );
   }
 
   Future<void> _addSession() async {
     final data = await showSessionEditor(context);
     if (data == null) return;
 
-    await _repository.addSession(
-      courseId: widget.courseId,
-      title: data['title']!,
-      subtitle: data['subtitle']!,
-      description: data['description']!,
+    await _run(
+      () => _service.addSession(
+        widget.courseId,
+        title: data['title']!,
+        subtitle: data['subtitle']!,
+        description: data['description']!,
+      ),
+      'Sessão cadastrada.',
     );
-    await _loadCourse();
     if (mounted && _course != null) {
-      setState(() => _selectedSession = _course!.sessions.length - 1);
+      setState(() {
+        _sessionChosen = true;
+        _selectedSession = _course!.sessions.length - 1;
+      });
     }
   }
 
@@ -65,35 +148,33 @@ class _CourseViewState extends State<CourseView> {
     final data = await showModuleEditor(context);
     if (data == null) return;
 
-    await _repository.addModule(
-      courseId: widget.courseId,
-      sessionId: session.id,
-      title: data['title']!,
-      description: data['description']!,
+    await _run(
+      () => _service.addModule(
+        widget.courseId,
+        session.id,
+        title: data['title']!,
+        description: data['description']!,
+      ),
+      'Módulo cadastrado.',
     );
-    await _loadCourse();
   }
 
   Future<void> _addMaterial(CourseSession session, CourseModule module) async {
     final material = await showMaterialEditor(context);
     if (material == null) return;
 
-    await _repository.addMaterial(
-      courseId: widget.courseId,
-      sessionId: session.id,
-      moduleId: module.id,
-      material: material,
+    _expandedModules.add(module.id);
+    await _run(
+      () => _service.addMaterial(widget.courseId, module.id, material),
+      'Material cadastrado.',
     );
-    await _loadCourse();
   }
 
-  Future<void> _toggleModule(CourseSession session, CourseModule module) async {
-    await _repository.toggleModule(
-      courseId: widget.courseId,
-      sessionId: session.id,
-      moduleId: module.id,
-    );
-    await _loadCourse();
+  void _toggleModule(CourseSession session, CourseModule module) {
+    setState(() {
+      if (!_expandedModules.remove(module.id)) _expandedModules.add(module.id);
+      _course = _withExpanded(_course!);
+    });
   }
 
   Future<void> _openMaterial(
@@ -101,21 +182,15 @@ class _CourseViewState extends State<CourseView> {
     CourseModule module,
     CourseMaterial material,
   ) async {
-    if (material.kind == MaterialKind.activity && material.activity != null) {
-      final activity = material.activity!;
-      await Navigator.of(context).pushNamed(
-        AppRoutes.activity,
-        arguments: ExamSession(
-          title: activity.theme,
-          questions: activity.questions.isEmpty
-              ? ExamMockQuestions.all
-              : activity.questions,
-          durationMinutes: activity.durationMinutes > 0
-              ? activity.durationMinutes
-              : ExamMockQuestions.all.length * 2,
-          isActivity: true,
-        ),
-      );
+    if (material.kind == MaterialKind.activity) {
+      try {
+        final exam = await ExamsService.instance.startActivity(material.id);
+        if (!mounted) return;
+        await Navigator.of(context).pushNamed(AppRoutes.activity, arguments: exam);
+        await _loadCourse();
+      } on ApiException catch (error) {
+        if (mounted) _showMessage(error.message, error: true);
+      }
       return;
     }
     final result = await Navigator.of(context).pushNamed(
@@ -129,76 +204,23 @@ class _CourseViewState extends State<CourseView> {
     );
 
     if (!mounted || result != true) return;
-
-    final refreshed = await CourseLocalRepository.instance.getCourse(
-      widget.courseId,
-    );
-
-    if (refreshed != null) {
-      setState(() {
-        _course = refreshed;
-      });
-    }
-  }
-
-  Future<void> _showFilePreview(CourseMaterial material) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(material.title),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                material.kind.icon,
-                size: 54,
-                color: EducanoColors.primaryBlue,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Aqui será aberta a tela do ${material.kindLabel.toLowerCase()}.',
-                textAlign: TextAlign.center,
-              ),
-              if (material.fileUrl != null) ...[
-                const SizedBox(height: 12),
-                SelectableText(material.fileUrl!),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showActivityPreview(Activity activity) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(activity.theme),
-        content: Text(
-          'Aqui será aberta a tela do simulado com '
-          '${activity.questions.length} questões e ${activity.durationMinutes} min.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
-    );
+    await _loadCourse();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null && _course == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _loadCourse, child: const Text('Tentar novamente')),
+          ],
+        ),
+      );
+    }
     return _course == null
         ? const Center(child: CircularProgressIndicator())
         : _buildCourse(context, _course!);
@@ -220,7 +242,10 @@ class _CourseViewState extends State<CourseView> {
             children: [
               _CourseHero(course: course, mobile: mobile),
               SizedBox(height: mobile ? 10 : 0),
-              _ProgressCard(course: course, mobile: mobile),
+              if (!course.enrolled && !course.canEdit)
+                _EnrollCard(mobile: mobile, onEnroll: _enroll)
+              else
+                _ProgressCard(course: course, mobile: mobile),
               const SizedBox(height: 10),
               _AboutCourse(course: course, mobile: mobile),
               const SizedBox(height: 12),
@@ -237,11 +262,14 @@ class _CourseViewState extends State<CourseView> {
                 course: course,
                 mobile: mobile,
                 selectedSession: _selectedSession,
-                onSessionChanged: (value) =>
-                    setState(() => _selectedSession = value),
-                onAddSession: _addSession,
-                onAddModule: _addModule,
-                onAddMaterial: _addMaterial,
+                onSessionChanged: (value) => setState(() {
+                  _sessionChosen = true;
+                  _selectedSession = value;
+                }),
+                // Só quem gerencia o curso vê as ações de cadastro.
+                onAddSession: course.canEdit ? _addSession : null,
+                onAddModule: course.canEdit ? _addModule : null,
+                onAddMaterial: course.canEdit ? _addMaterial : null,
                 onToggleModule: _toggleModule,
                 onOpenMaterial: _openMaterial,
               ),
@@ -261,8 +289,18 @@ class _CourseHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = Image.asset(
-      course.imageAsset,
+    final fallback = Container(
+      color: EducanoColors.secondaryBlue,
+      child: const Icon(
+        Icons.menu_book_rounded,
+        color: Colors.white,
+        size: 72,
+      ),
+    );
+    final image = course.imageUrl == null
+        ? fallback
+        : Image.network(
+      course.imageUrl!,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Container(
         color: EducanoColors.secondaryBlue,
@@ -292,8 +330,10 @@ class _CourseHero extends StatelessWidget {
           spacing: 14,
           runSpacing: 8,
           children: [
-            _HeroMetric(icon: Icons.star_rounded, label: '4.7/5'),
-            _HeroMetric(icon: Icons.people_alt_rounded, label: '52.732'),
+            _HeroMetric(
+              icon: Icons.people_alt_rounded,
+              label: '${course.enrolledCount} inscritos',
+            ),
             _HeroMetric(
               icon: Icons.access_time_filled_rounded,
               label: course.duration,
@@ -305,11 +345,11 @@ class _CourseHero extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Prepare-se para o vestibular com aulas focadas, material atualizado, '
-          'simulados frequentes e suporte com professores experientes para '
-          'garantir a sua aprovação na universidade dos sonhos.',
-          style: TextStyle(color: Colors.white, fontSize: 12.5, height: 1.25),
+        Text(
+          course.description,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white, fontSize: 12.5, height: 1.25),
         ),
         const SizedBox(height: 10),
         Container(
@@ -318,10 +358,10 @@ class _CourseHero extends StatelessWidget {
             color: const Color(0xFF627CF0),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 15,
                 backgroundColor: Colors.white,
                 child: Icon(
@@ -330,18 +370,18 @@ class _CourseHero extends StatelessWidget {
                   size: 19,
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Educano',
-                    style: TextStyle(
+                    course.creatorName ?? 'Educano',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Responsável pelo Curso',
                     style: TextStyle(color: Colors.white70, fontSize: 9),
                   ),
@@ -496,19 +536,7 @@ class _AboutCourse extends StatelessWidget {
             course.description,
             style: const TextStyle(color: Colors.black54, height: 1.25),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'O Que o Curso Oferece:',
-            style: TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            '• Aulas focadas: explicações diretas e resolução de exercícios das matérias que mais caem nas provas.\n'
-            '• Redação nota 1000: treinamento prático com regras e correções detalhadas para o seu texto.\n'
-            '• Simulados reais: provas de teste no mesmo estilo e tempo dos exames oficiais.\n'
-            '• Apoio para os estudos: plantões de dúvidas e orientação para organizar sua rotina.',
-            style: TextStyle(color: Colors.black54, height: 1.22),
-          ),
+
         ],
       ),
     );
@@ -520,10 +548,10 @@ class _ContentCard extends StatelessWidget {
   final bool mobile;
   final int selectedSession;
   final ValueChanged<int> onSessionChanged;
-  final VoidCallback onAddSession;
-  final Future<void> Function(CourseSession) onAddModule;
-  final Future<void> Function(CourseSession, CourseModule) onAddMaterial;
-  final Future<void> Function(CourseSession, CourseModule) onToggleModule;
+  final VoidCallback? onAddSession;
+  final Future<void> Function(CourseSession)? onAddModule;
+  final Future<void> Function(CourseSession, CourseModule)? onAddMaterial;
+  final void Function(CourseSession, CourseModule) onToggleModule;
   final Future<void> Function(CourseSession, CourseModule, CourseMaterial)
   onOpenMaterial;
 
@@ -532,9 +560,9 @@ class _ContentCard extends StatelessWidget {
     required this.mobile,
     required this.selectedSession,
     required this.onSessionChanged,
-    required this.onAddSession,
-    required this.onAddModule,
-    required this.onAddMaterial,
+    this.onAddSession,
+    this.onAddModule,
+    this.onAddMaterial,
     required this.onToggleModule,
     required this.onOpenMaterial,
   });
@@ -585,7 +613,7 @@ class _ContentCard extends StatelessWidget {
               const SizedBox(width: 8),
               _AddButton(
                 label: 'Adicionar módulo',
-                onPressed: () => onAddModule(session),
+                onPressed: onAddModule == null ? null : () => onAddModule!(session),
               ),
             ],
           ),
@@ -603,7 +631,7 @@ class _ContentCard extends StatelessWidget {
               compact: true,
               text: 'Nenhum módulo cadastrado nesta sessão.',
               buttonText: 'Adicionar módulo',
-              onPressed: () => onAddModule(session),
+              onPressed: onAddModule == null ? null : () => onAddModule!(session),
             )
           else
             ...session.modules.map(
@@ -614,7 +642,9 @@ class _ContentCard extends StatelessWidget {
                   module: module,
                   mobile: mobile,
                   onToggle: () => onToggleModule(session, module),
-                  onAddMaterial: () => onAddMaterial(session, module),
+                  onAddMaterial: onAddMaterial == null
+                      ? null
+                      : () => onAddMaterial!(session, module),
                   onOpenMaterial: onOpenMaterial,
                 ),
               ),
@@ -738,7 +768,7 @@ class _ModuleCard extends StatelessWidget {
   final CourseModule module;
   final bool mobile;
   final VoidCallback onToggle;
-  final VoidCallback onAddMaterial;
+  final VoidCallback? onAddMaterial;
   final Future<void> Function(CourseSession, CourseModule, CourseMaterial)
   onOpenMaterial;
 
@@ -747,7 +777,7 @@ class _ModuleCard extends StatelessWidget {
     required this.module,
     required this.mobile,
     required this.onToggle,
-    required this.onAddMaterial,
+    this.onAddMaterial,
     required this.onOpenMaterial,
   });
 
@@ -933,12 +963,14 @@ class _MaterialRow extends StatelessWidget {
 
 class _AddButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const _AddButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
+    // Sem ação (usuário sem permissão de edição), o botão não aparece.
+    if (onPressed == null) return const SizedBox.shrink();
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.add_rounded, size: 17),
@@ -956,7 +988,7 @@ class _AddButton extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   final String text;
   final String buttonText;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool compact;
 
   const _EmptyState({
@@ -1001,14 +1033,53 @@ class _EmptyState extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.black54),
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: onPressed,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(buttonText),
-                ),
+                if (onPressed != null) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: onPressed,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(buttonText),
+                  ),
+                ],
               ],
             ),
+    );
+  }
+}
+
+/// Convite para alunos que ainda não estão inscritos no curso.
+class _EnrollCard extends StatelessWidget {
+  final bool mobile;
+  final VoidCallback onEnroll;
+
+  const _EnrollCard({required this.mobile, required this.onEnroll});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: mobile ? 0 : 24),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD4D4D4), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Inscreva-se para acessar os materiais e registrar seu progresso.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: onEnroll,
+            icon: const Icon(Icons.how_to_reg_rounded),
+            label: const Text('Inscrever-se'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:educano_app/features/courses/pages/courses_page.dart';
 import 'package:flutter/material.dart';
 
+import 'core/auth/role_guard.dart';
 import 'core/navigation/app_routes.dart';
 import 'core/navigation/navigation_service.dart';
 import 'core/theme/educano_theme.dart';
@@ -96,19 +97,19 @@ class EducanoApp extends StatelessWidget {
             return _buildRoute(const CoursesPage(), settings);
 
           case AppRoutes.dashboard:
-            return _buildRoute(DashboardPage(), settings);
+            return _buildRoute(RoleGuard.admin(DashboardPage()), settings);
 
           case AppRoutes.dashboardCourses:
-            return _buildRoute(const DashboardCoursesPage(), settings);
+            return _buildRoute(RoleGuard.staff(const DashboardCoursesPage()), settings);
 
           case AppRoutes.dashboardUsers:
-            return _buildRoute(const DashboardUsersPage(), settings);
+            return _buildRoute(RoleGuard.admin(const DashboardUsersPage()), settings);
 
           case AppRoutes.dashboardQuestions:
-            return _buildRoute(const DashboardQuestionsPage(), settings);
+            return _buildRoute(RoleGuard.staff(const DashboardQuestionsPage()), settings);
 
           case AppRoutes.dashboardItems:
-            return _buildRoute(DashboardItemsPage(), settings);
+            return _buildRoute(RoleGuard.admin(DashboardItemsPage()), settings);
 
           case AppRoutes.course:
             final args = settings.arguments;

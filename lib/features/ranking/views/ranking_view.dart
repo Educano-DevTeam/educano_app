@@ -5,6 +5,9 @@ import '../../../core/models/app_ranking_entry.dart';
 import '../../../core/widgets/ui/stat_card.dart';
 
 import '../../../core/widgets/ui/app_card.dart';
+import '../../../services/api_client.dart';
+import '../../../services/progress_service.dart';
+import '../../../services/storage_service.dart';
 
 
 class RankingView extends StatefulWidget {
@@ -15,18 +18,71 @@ class RankingView extends StatefulWidget {
 }
 
 class _RankingViewState extends State<RankingView> {
-  static const List<RankingEntry> _entries = [
-    RankingEntry(position: 1, name: 'Manuela Souza', xp: 4820),
-    RankingEntry(position: 2, name: 'Rafael Cristiano', xp: 4510),
-    RankingEntry(position: 3, name: 'Luana Castanho', xp: 4290),
-    RankingEntry(position: 4, name: 'Daniel de Oliveira', xp: 3980, isCurrentUser: true),
-    RankingEntry(position: 5, name: 'Mateus Lima', xp: 3760),
-    RankingEntry(position: 6, name: 'Beatriz Ramos', xp: 3410),
-    RankingEntry(position: 7, name: 'João Pedro Alves', xp: 3105),
-    RankingEntry(position: 8, name: 'Sofia Marques', xp: 2960),
-  ];
+  final List<RankingEntry> _entries = [];
+  final _search = TextEditingController();
+  Map<String, dynamic>? _me;
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loading = true;
+  String? _error;
+  String? _userId;
 
   int? _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool more = false}) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      _userId ??= (await StorageService.instance.loadCurrentUser())?.id;
+      final page = more ? _page + 1 : 1;
+      final results = await Future.wait([
+        ProgressService.instance.ranking(page: page),
+        if (!more) ProgressService.instance.me(),
+      ]);
+      final ranking = results[0];
+      if (!mounted) return;
+      setState(() {
+        if (!more) {
+          _entries.clear();
+          _me = results[1]['perfil'] as Map<String, dynamic>;
+        }
+        _entries.addAll(
+          (ranking['dados'] as List)
+              .cast<Map<String, dynamic>>()
+              .map((e) => RankingEntry.fromApi(e, currentUserId: _userId)),
+        );
+        _page = page;
+        _hasMore = (ranking['paginacao'] as Map)['temMais'] == true;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.message;
+      });
+    }
+  }
+
+  List<RankingEntry> get _visible {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return _entries;
+    return _entries.where((e) => e.name.toLowerCase().contains(query)).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +92,7 @@ class _RankingViewState extends State<RankingView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Ranking Semanal',
+              'Ranking Global',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: EducanoColors.legacyTextPrimary),
             ),
             const SizedBox(height: 4),
@@ -45,9 +101,9 @@ class _RankingViewState extends State<RankingView> {
               style: TextStyle(fontSize: 13, color: EducanoColors.legacyTextSecondary),
             ),
             const SizedBox(height: 16),
-            const _SearchField(),
+            _SearchField(controller: _search, onChanged: (_) => setState(() {})),
             const SizedBox(height: 16),
-            const _StatsRow(),
+            _StatsRow(me: _me, entries: _entries),
             const SizedBox(height: 20),
             AppSectionCard(
               padding: EdgeInsets.zero,
@@ -61,26 +117,51 @@ class _RankingViewState extends State<RankingView> {
                         Icon(Icons.emoji_events, color: EducanoColors.legacyGold, size: 20),
                         SizedBox(width: 8),
                         Text(
-                          'Ranking Semanal',
+                          'Ranking por XP',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: EducanoColors.legacyTextPrimary),
                         ),
                       ],
                     ),
                   ),
                   const Divider(height: 1),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(children: [
+                        Expanded(child: Text(_error!)),
+                        TextButton(onPressed: _load, child: const Text('Tentar novamente')),
+                      ]),
+                    ),
+                  if (!_loading && _error == null && _visible.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text('Nenhum aluno encontrado.'),
+                    ),
                   ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _entries.length,
+                    itemCount: _visible.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) => _RankingRow(
-                      entry: _entries[index],
+                      entry: _visible[index],
                       selected: _selectedIndex == index,
                       onTap: () => setState(
                         () => _selectedIndex = _selectedIndex == index ? null : index,
                       ),
                     ),
                   ),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_hasMore)
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _load(more: true),
+                        child: const Text('Ver mais posições'),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -93,7 +174,10 @@ class _RankingViewState extends State<RankingView> {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField();
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _SearchField({required this.controller, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -103,8 +187,10 @@ class _SearchField extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: EducanoColors.legacyCardBorder),
       ),
-      child: const TextField(
-        decoration: InputDecoration(
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        decoration: const InputDecoration(
           hintText: 'Pesquisar aluno...',
           hintStyle: TextStyle(color: EducanoColors.legacyTextSecondary, fontSize: 13),
           prefixIcon: Icon(Icons.search, size: 20, color: EducanoColors.legacyTextSecondary),
@@ -117,15 +203,28 @@ class _SearchField extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  final Map<String, dynamic>? me;
+  final List<RankingEntry> entries;
+
+  const _StatsRow({required this.me, required this.entries});
 
   @override
   Widget build(BuildContext context) {
     final bool mobile = (MediaQuery.sizeOf(context).width < AppBreakpoints.medium);
-    const List<Widget> cards = [
-      StatCard(label: 'Sua posição', value: '#4', valueColor: EducanoColors.legacyPrimary),
-      StatCard(label: 'Seu XP semanal', value: '3.980 XP'),
-      StatCard(label: 'Faltam p/ 3º lugar', value: '310 XP', valueColor: EducanoColors.legacyAmber),
+    final position = me?['posicaoRanking'] as int?;
+    final xp = me?['xp'] as int? ?? 0;
+    final third = entries.where((e) => e.position == 3).firstOrNull;
+    final missing = third == null ? null : third.xp - xp + 1;
+    final List<Widget> cards = [
+      StatCard(label: 'Sua posição', value: position == null ? '—' : '#$position', valueColor: EducanoColors.legacyPrimary),
+      StatCard(label: 'Seu XP total', value: '$xp XP'),
+      StatCard(
+        label: 'Faltam p/ 3º lugar',
+        value: position != null && position <= 3
+            ? 'No pódio!'
+            : missing == null ? '—' : '$missing XP',
+        valueColor: EducanoColors.legacyAmber,
+      ),
     ];
 
     if (mobile) {
@@ -243,11 +342,21 @@ class _RankingRowState extends State<_RankingRow> {
                 ),
               ),
               const SizedBox(width: 12),
-              const CircleAvatar(radius: 15, backgroundColor: Color(0xFFC9D6F5)),
+              CircleAvatar(
+                radius: 15,
+                backgroundColor: const Color(0xFFC9D6F5),
+                backgroundImage: entry.photoUrl.isNotEmpty ? NetworkImage(entry.photoUrl) : null,
+                child: entry.photoUrl.isEmpty
+                    ? Text(
+                        entry.name.isEmpty ? '?' : entry.name[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 12, color: EducanoColors.legacyPrimary),
+                      )
+                    : null,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  entry.name,
+                  entry.isCurrentUser ? '${entry.name} (você)' : entry.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13.5,

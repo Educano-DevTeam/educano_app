@@ -18,6 +18,14 @@ class Course {
   final int totalMaterials;
   final List<CourseSession> sessions;
 
+  // Dados vindos da API.
+  final String? imageUrl;
+  final bool canEdit;
+  final bool enrolled;
+  final int enrolledCount;
+  final String? creatorName;
+  final String status;
+
   const Course({
     required this.id,
     required this.title,
@@ -29,6 +37,12 @@ class Course {
     required this.completedMaterials,
     required this.totalMaterials,
     required this.sessions,
+    this.imageUrl,
+    this.canEdit = false,
+    this.enrolled = false,
+    this.enrolledCount = 0,
+    this.creatorName,
+    this.status = 'ATIVO',
   });
 
   Course copyWith({
@@ -52,6 +66,12 @@ class Course {
     completedMaterials: completedMaterials ?? this.completedMaterials,
     totalMaterials: totalMaterials ?? this.totalMaterials,
     sessions: sessions ?? this.sessions,
+    imageUrl: imageUrl,
+    canEdit: canEdit,
+    enrolled: enrolled,
+    enrolledCount: enrolledCount,
+    creatorName: creatorName,
+    status: status,
   );
 }
 
@@ -156,7 +176,7 @@ class CourseMaterial {
 
   String get metadataLabel {
     if (kind == MaterialKind.activity && activity != null) {
-      return '${activity!.questions.length} questões';
+      return '${activity!.totalQuestions} questões';
     }
     if (durationSeconds != null) {
       final m = durationSeconds! ~/ 60;
@@ -193,11 +213,21 @@ class Activity {
   final int durationMinutes;
   final List<ActivityQuestion> questions;
 
+  /// Total de questões quando elas não vêm junto (detalhe do curso na API).
+  final int? questionCount;
+
+  /// IDs das questões do banco vinculadas (usado na edição).
+  final List<String> questionIds;
+
   const Activity({
     required this.theme,
     required this.durationMinutes,
     required this.questions,
+    this.questionCount,
+    this.questionIds = const [],
   });
+
+  int get totalQuestions => questionCount ?? questions.length;
 }
 
 class ActivityQuestion {
@@ -206,7 +236,17 @@ class ActivityQuestion {
   final String statement;
   final ActivityQuestionDifficulty difficulty;
   final List<String> options;
+
+  /// Índice da alternativa correta; -1 enquanto o gabarito não é revelado.
   final int correctOptionIndex;
+
+  // Dados do banco de questões da API.
+  final String subject;
+  final String topic;
+  final String explanation;
+  final List<String> optionIds;
+  final String? authorId;
+  final String? authorName;
 
   const ActivityQuestion({
     required this.id,
@@ -215,6 +255,12 @@ class ActivityQuestion {
     required this.difficulty,
     required this.options,
     required this.correctOptionIndex,
+    this.subject = '',
+    this.topic = '',
+    this.explanation = '',
+    this.optionIds = const [],
+    this.authorId,
+    this.authorName,
   });
 }
 

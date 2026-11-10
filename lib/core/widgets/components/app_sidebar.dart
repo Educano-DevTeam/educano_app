@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/theme.dart';
 import '../../navigation/app_menu.dart';
+import '../../models/app_user.dart';
 import 'sidebar_item.dart';
 import 'sidebar_section.dart';
 
@@ -14,6 +15,9 @@ class AppSidebar extends StatelessWidget {
   
   final bool isMobile;
 
+  /// Usuário logado; define quais seções do dashboard aparecem.
+  final AppUser? user;
+
   const AppSidebar({
     super.key,
     required this.isMobile,
@@ -21,6 +25,7 @@ class AppSidebar extends StatelessWidget {
     required this.sidebarExpanded,
     required this.onMenuSelected,
     this.onToggleSidebar,
+    this.user,
   });
 
   @override
@@ -95,10 +100,14 @@ class AppSidebar extends StatelessWidget {
                     ],
                   ),
 
+                // Dashboard: equipe (admin, professor e parceiro). Usuários e
+                // itens da loja são exclusivos do administrador.
+                if (user?.isStaff ?? false)
                 SidebarSection(
                   title: "Dashboard",
                   expanded: sidebarExpanded,
                   children: [
+                    if (user!.isAdmin)
                     SidebarItem(
                       icon: Icons.dashboard_rounded,
                       title: "Painel",
@@ -107,6 +116,7 @@ class AppSidebar extends StatelessWidget {
                       expanded: sidebarExpanded,
                       onTap: () => onMenuSelected(AppMenu.dashboard),
                     ),
+                    if (user!.isAdmin)
                     SidebarItem(
                       icon: Icons.group_rounded,
                       title: "Usuários",
@@ -131,6 +141,7 @@ class AppSidebar extends StatelessWidget {
                       expanded: sidebarExpanded,
                       onTap: () => onMenuSelected(AppMenu.questionsListage),
                     ),
+                    if (user!.isAdmin)
                     SidebarItem(
                       icon: Icons.star,
                       title: "Itens",

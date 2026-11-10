@@ -8,7 +8,8 @@ import '../widgets/app_card.dart';
 import '../widgets/chip_selector.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../models/exam_session.dart';
-import '../models/exam_mock_questions.dart';
+import '../../../services/api_client.dart';
+import '../../../services/exams_service.dart';
 
 /// Tela "Configurar/Iniciar" — o aluno escolhe matéria(s), dificuldade e
 /// quantidade de questões antes de iniciar um novo simulado.
@@ -57,6 +58,72 @@ class _ExamConfigViewState extends State<ExamConfigView> {
   }
 
   bool get _canStart => _subjects.isNotEmpty && _difficulty.isNotEmpty;
+
+  bool _creating = false;
+
+  /// Confirma e pede à API um simulado com as configurações escolhidas.
+  Future<void> _createAndStart() async {
+    final confirmed = await _confirm();
+    if (!confirmed || !mounted) return;
+
+    setState(() => _creating = true);
+    try {
+      final session = await ExamsService.instance.create(
+        subjects: _subjects.toList(),
+        difficulty: _difficulty.first,
+        count: _questionCount,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(AppRoutes.exam, arguments: session);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _creating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: EducanoColors.error,
+          action: error.code == 'LIMITE_DO_PLANO'
+              ? SnackBarAction(
+                  label: 'Ver planos',
+                  textColor: Colors.white,
+                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.accountPlan),
+                )
+              : null,
+        ),
+      );
+    }
+  }
+
+  Future<bool> _confirm() async {
+    final start = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Antes de come\u00e7ar'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Responda com calma.'),
+            SizedBox(height: 12),
+            Text('Fique em um lugar silencioso.'),
+            SizedBox(height: 12),
+            Text('Boa sorte!'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Iniciar Simulado'),
+          ),
+        ],
+      ),
+    );
+    return start == true;
+  }
 
   Future<void> _confirmStart(ExamSession session) async {
     final start = await showDialog<bool>(
@@ -141,19 +208,11 @@ class _ExamConfigViewState extends State<ExamConfigView> {
           PrimaryButton(
             label: 'Iniciar Simulado',
             icon: Icons.play_arrow_rounded,
-            onPressed: _canStart
-                ? () {
-                    final session =
-                        activity ??
-                        ExamSession(
-                          title: 'Simulado de ${_subjects.join(', ')}',
-                          questions: ExamMockQuestions.all
-                              .take(_questionCount)
-                              .toList(growable: false),
-                          durationMinutes: (_questionCount * 2.5).round(),
-                        );
-                    unawaited(_confirmStart(session));
-                  }
+            isLoading: _creating,
+            onPressed: _canStart && !_creating
+                ? () => activity != null
+                    ? unawaited(_confirmStart(activity))
+                    : unawaited(_createAndStart())
                 : null,
           ),
         ],

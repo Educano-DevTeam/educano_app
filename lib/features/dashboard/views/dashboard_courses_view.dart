@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
+import '../../../core/data/dashboard_events.dart';
+import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
 import 'course_editor_view.dart';
-import 'material_editor_view.dart';
 import '../widgets/dashboard_list_components.dart';
 
 const double _spacingMinimum = 8;
@@ -28,138 +32,37 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
   String _selectedStatus = 'Todos';
   String _selectedCategory = 'Todas';
 
-  final List<Map<String, dynamic>> _courses = [
-    {
-      'name': 'Matemática Básica',
-      'category': 'Exatas',
-      'description': 'Fundamentos de matemática para o ensino médio.',
-      'enrolled': 45,
-      'capacity': 100,
-      'status': 'Ativo',
-      'createdAt': '01/05/2026',
-      'icon': Icons.calculate_rounded,
-      'color': EducanoColors.primaryBlue,
-      'trilhas': [
-        {
-          'id': 'trilha-mat-fund',
-          'title': 'Fundamentos',
-          'description': 'Introdução aos conceitos básicos',
-          'modulos': [
-            {
-              'id': 'mod-mat-1',
-              'title': 'Módulo 1: Operações Básicas',
-              'licao': {'title': 'Adição e Subtração', 'xp': 50},
-              'materiais': [
-                {
-                  'name': 'Apostila em PDF',
-                  'type': MaterialKind.pdf,
-                  'fileName': 'apostila-operacoes.pdf',
-                  'fileSize': '1,8 MB',
-                },
-                {
-                  'name': 'Vídeo-aula',
-                  'type': MaterialKind.video,
-                  'fileName': 'video-aula-operacoes.mp4',
-                  'fileSize': '52,3 MB',
-                  'duration': '14:20',
-                },
-              ],
-            },
-            {
-              'id': 'mod-mat-2',
-              'title': 'Módulo 2: Frações',
-              'licao': {'title': 'Frações Equivalentes', 'xp': 60},
-              'materiais': [
-                {
-                  'name': 'Podcast: frações no dia a dia',
-                  'type': MaterialKind.audio,
-                  'fileName': 'podcast-fracoes.mp3',
-                  'fileSize': '7,2 MB',
-                  'duration': '09:45',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          'id': 'trilha-mat-inter',
-          'title': 'Módulo Intermediário',
-          'description': 'Aprofundamento nos conteúdos principais',
-          'modulos': [
-            {
-              'id': 'mod-mat-3',
-              'title': 'Módulo 3: Equações do 1º Grau',
-              'licao': {'title': 'Resolvendo Equações', 'xp': 80},
-              'materiais': [
-                {
-                  'name': 'Vídeo-aula',
-                  'type': MaterialKind.video,
-                  'fileName': 'video-aula-equacoes.mp4',
-                  'fileSize': '61,0 MB',
-                  'duration': '18:05',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      'name': 'Português Avançado',
-      'category': 'Humanas',
-      'description': 'Gramática, interpretação de texto e redação.',
-      'enrolled': 28,
-      'capacity': 60,
-      'status': 'Ativo',
-      'createdAt': '05/05/2026',
-      'icon': Icons.menu_book_rounded,
-      'color': EducanoColors.successGreen,
-    },
-    {
-      'name': 'Biologia Celular',
-      'category': 'Biológicas',
-      'description': 'Estrutura e funcionamento das células.',
-      'enrolled': 62,
-      'capacity': 80,
-      'status': 'Ativo',
-      'createdAt': '10/05/2026',
-      'icon': Icons.biotech_rounded,
-      'color': EducanoColors.accentYellow,
-    },
-    {
-      'name': 'História do Brasil',
-      'category': 'Humanas',
-      'description': 'Da colonização à república.',
-      'enrolled': 15,
-      'capacity': 50,
-      'status': 'Inativo',
-      'createdAt': '15/05/2026',
-      'icon': Icons.museum_rounded,
-      'color': EducanoColors.darkGreen,
-    },
-    {
-      'name': 'Física Quântica',
-      'category': 'Exatas',
-      'description': 'Introdução aos conceitos da física quântica.',
-      'enrolled': 8,
-      'capacity': 40,
-      'status': 'Rascunho',
-      'createdAt': '20/05/2026',
-      'icon': Icons.science_rounded,
-      'color': EducanoColors.lightBlue,
-    },
-    {
-      'name': 'Química Orgânica',
-      'category': 'Exatas',
-      'description': 'Compostos orgânicos e suas reações.',
-      'enrolled': 33,
-      'capacity': 60,
-      'status': 'Ativo',
-      'createdAt': '25/05/2026',
-      'icon': Icons.science_rounded,
-      'color': EducanoColors.error,
-    },
-  ];
+  List<Map<String, dynamic>> _courses = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    DashboardEvents.changes.addListener(_loadCourses);
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await CoursesService.instance.list();
+      if (!mounted) return;
+      setState(() {
+        _courses = result.courses;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.message;
+      });
+    }
+  }
 
   List<String> get _categoryOptions => [
         'Todas',
@@ -168,6 +71,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
 
   @override
   void dispose() {
+    DashboardEvents.changes.removeListener(_loadCourses);
     _searchController.dispose();
     super.dispose();
   }
@@ -232,7 +136,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
               _buildSummaryRow('Criado em', course['createdAt'] as String),
               _buildSummaryRow(
                 'Capacidade',
-                '${course['enrolled']}/${course['capacity']} vagas preenchidas',
+                '${course['enrolled']}/${course['capacity'] ?? '∞'} vagas preenchidas',
               ),
               _buildSummaryRow('Conteúdo', _contentSummary(course)),
               const SizedBox(height: 4),
@@ -245,14 +149,32 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar'),
           ),
-          ElevatedButton.icon(
+          if (course['canEdit'] == true)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteCourse(course);
+              },
+              icon: const Icon(Icons.delete_outline_rounded, color: EducanoColors.error),
+              label: const Text('Excluir', style: TextStyle(color: EducanoColors.error)),
+            ),
+          TextButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              _openCourseEditor(course: course);
+              Navigator.pushNamed(context, AppRoutes.course, arguments: course['id']);
             },
-            icon: const Icon(Icons.edit_rounded),
-            label: const Text('Ver curso completo'),
+            icon: const Icon(Icons.visibility_outlined),
+            label: const Text('Abrir curso'),
           ),
+          if (course['canEdit'] == true)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _openCourseEditor(course: course);
+              },
+              icon: const Icon(Icons.edit_rounded),
+              label: const Text('Editar curso'),
+            ),
         ],
       ),
     );
@@ -290,6 +212,14 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
   }
 
   String _contentSummary(Map<String, dynamic> course) {
+    final summary = course['contentSummary'] as Map<String, dynamic>?;
+    if (summary != null && course['trilhas'] == null) {
+      return [
+        _plural(summary['trilhas'] as int, 'trilha', 'trilhas'),
+        _plural(summary['modulos'] as int, 'módulo', 'módulos'),
+        _plural(summary['materiais'] as int, 'material', 'materiais'),
+      ].join('  ·  ');
+    }
     final trilhas = course['trilhas'] as List<dynamic>? ?? const [];
     final modulos = trilhas
         .expand((t) => (t as Map<String, dynamic>)['modulos'] as List<dynamic>)
@@ -305,51 +235,102 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     ].join('  ·  ');
   }
 
-  /// Abre a página de criação (sem [course]) ou edição do curso e aplica o
-  /// resultado na listagem quando o adm salva.
-  Future<void> _openCourseEditor({Map<String, dynamic>? course}) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(builder: (_) => CourseEditorView(course: course)),
-    );
-    if (result == null || !mounted) return;
+  /// Abre a página de criação (sem [course]) ou edição do curso. O editor
+  /// salva na API; a listagem é recarregada depois.
+  Future<void> _openCourseEditor({Map<String, dynamic>? course}) =>
+      openDashboardCourseEditor(context, courseId: course?['id'] as String?);
 
-    setState(() {
-      if (course == null) {
-        _courses.add(result);
-      } else {
-        _courses[_courses.indexOf(course)] = result;
-      }
-    });
-  }
-
-  Future<void> _showEnrollDialog(BuildContext context, {String? courseName}) async {
-    final result = await showDialog<Map<String, dynamic>>(
+  Future<void> _deleteCourse(Map<String, dynamic> course) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => _EnrollUserDialog(
-        courses: _courses,
-        initialCourseName: courseName,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir curso'),
+        content: Text(
+          'Excluir "${course['name']}"? Trilhas, materiais, inscrições e o '
+          'progresso dos alunos também serão removidos.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: EducanoColors.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    try {
+      await CoursesService.instance.delete(course['id'] as String);
+      if (!mounted) return;
+      _snack('Curso excluído.');
+      await _loadCourses();
+    } on ApiException catch (error) {
+      _snack(error.message, error: true);
+    }
+  }
 
-    if (result == null || !context.mounted) return;
-
-    setState(() {
-      final course =
-          _courses.firstWhere((c) => c['name'] == result['courseName']);
-      course['enrolled'] = (course['enrolled'] as int) + 1;
-    });
-
+  void _snack(String message, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '${result['studentName']} inscrito(a) em ${result['courseName']} '
-          '(turma ${result['turma']}).',
-        ),
-        backgroundColor: EducanoColors.successGreen,
+        content: Text(message),
+        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// Relatório dos cursos filtrados em CSV, para copiar e colar numa planilha.
+  void _exportCourses() {
+    String cell(Object? value) => '"${'${value ?? ''}'.replaceAll('"', '""')}"';
+    final rows = [
+      ['Nome', 'Categoria', 'Status', 'Inscritos', 'Capacidade', 'Criado em', 'Conteúdo'],
+      for (final c in _filteredCourses)
+        [c['name'], c['category'], c['status'], c['enrolled'], c['capacity'] ?? 'Sem limite', c['createdAt'], _contentSummary(c)],
+    ];
+    final csv = rows.map((row) => row.map(cell).join(';')).join('\n');
+
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Relatório de cursos (${rows.length - 1})'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontSize: 12))),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: csv));
+              if (context.mounted) Navigator.pop(context);
+              _snack('CSV copiado para a área de transferência.');
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: const Text('Copiar CSV'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEnrollDialog(BuildContext context, {String? courseName}) async {
+    final activeCourses = _courses.where((c) => c['status'] == 'Ativo').toList();
+    if (activeCourses.isEmpty) {
+      _snack('Não há cursos ativos para inscrição.', error: true);
+      return;
+    }
+    final message = await showDialog<String>(
+      context: context,
+      builder: (_) => EnrollUserDialog(
+        courses: activeCourses,
+        initialCourseName: activeCourses.any((c) => c['name'] == courseName) ? courseName : null,
+      ),
+    );
+
+    if (message == null || !context.mounted) return;
+    _snack(message);
+    await _loadCourses();
   }
 
   @override
@@ -411,7 +392,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           label: const Text('Inscrever Usuário'),
         ),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: _courses.isEmpty ? null : _exportCourses,
           icon: const Icon(Icons.download_rounded),
           label: const Text('Exportar'),
         ),
@@ -625,6 +606,12 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
 
   Widget _buildCoursesList(BuildContext context) {
     final courses = _filteredCourses;
+    if (_loading) {
+      return const DashboardListCard(title: 'Lista de Cursos', children: [Padding(padding: EdgeInsets.all(_spacingLarge), child: Center(child: CircularProgressIndicator()))]);
+    }
+    if (_error != null) {
+      return DashboardListCard(title: 'Lista de Cursos', children: [Padding(padding: const EdgeInsets.all(_spacingLarge), child: Row(children: [Expanded(child: Text(_error!, style: const TextStyle(color: EducanoColors.error))), TextButton(onPressed: _loadCourses, child: const Text('Tentar novamente'))]))]);
+    }
     return DashboardListCard(title: 'Lista de Cursos', count: courses.length, children: courses.isEmpty ? [const Padding(padding: EdgeInsets.all(_spacingLarge), child: Center(child: Text('Nenhum curso encontrado.')))] : courses.map((course) => _buildCourseItem(context, course)).toList());
     /* return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,8 +666,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
       'Inativo' => EducanoColors.error,
       _ => EducanoColors.accentYellow,
     };
-    final progress =
-        (course['enrolled'] as int) / (course['capacity'] as int);
+    final capacity = course['capacity'] as int? ?? 0;
+    final progress = capacity == 0 ? 0.0 : (course['enrolled'] as int) / capacity;
     final courseColor = course['color'] as Color? ?? EducanoColors.primaryBlue;
 
     return Container(
@@ -709,7 +696,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                     constraints.maxWidth < AppBreakpoints.compact;
 
                 final enrollButton = ElevatedButton(
-                  onPressed: () => _showEnrollDialog(
+                  onPressed: course['status'] != 'Ativo' ? null : () => _showEnrollDialog(
                     context,
                     courseName: course['name'] as String,
                   ),
@@ -734,6 +721,9 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                       children: [
                         CircleAvatar(
                           backgroundColor: courseColor.withValues(alpha: 0.12),
+                          foregroundImage: (course['imageUrl'] as String? ?? '').isEmpty
+                              ? null
+                              : NetworkImage(course['imageUrl'] as String),
                           child: Icon(
                             course['icon'] as IconData? ??
                                 Icons.menu_book_rounded,
@@ -775,7 +765,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                           ),
                           const SizedBox(width: _spacingSmall),
                           Text(
-                            '${course['enrolled']}/${course['capacity']}',
+                            '${course['enrolled']}/${course['capacity'] ?? '∞'}',
                             style: const TextStyle(
                               color: EducanoColors.textSecondary,
                             ),
@@ -823,7 +813,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                           const SizedBox(width: _spacingMinimum),
                           Expanded(
                             child: Text(
-                              '${course['enrolled']}/${course['capacity']} '
+                              '${course['enrolled']}/${course['capacity'] ?? '∞'} '
                               'vagas',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -870,29 +860,33 @@ String _plural(int count, String singular, String plural) =>
     '$count ${count == 1 ? singular : plural}';
 
 // IBL07 – Formulário de Inscrição de usuário em Curso
-class _EnrollUserDialog extends StatefulWidget {
+/// Inscrição de um aluno (pelo e-mail) em um curso. Retorna a mensagem de
+/// sucesso ou null se cancelado.
+class EnrollUserDialog extends StatefulWidget {
   final List<Map<String, dynamic>> courses;
   final String? initialCourseName;
 
-  const _EnrollUserDialog({
+  const EnrollUserDialog({
+    super.key,
     required this.courses,
     this.initialCourseName,
   });
 
   @override
-  State<_EnrollUserDialog> createState() => _EnrollUserDialogState();
+  State<EnrollUserDialog> createState() => _EnrollUserDialogState();
 }
 
-class _EnrollUserDialogState extends State<_EnrollUserDialog> {
+class _EnrollUserDialogState extends State<EnrollUserDialog> {
   static final RegExp _emailRegex =
       RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
 
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
 
   late String _selectedCourse;
-  String _selectedTurma = 'Manhã';
+  String _selectedTurma = 'EAD';
+  bool _saving = false;
+  String? _error;
 
   final List<String> _turmas = ['Manhã', 'Tarde', 'Noite', 'EAD'];
 
@@ -905,33 +899,39 @@ class _EnrollUserDialogState extends State<_EnrollUserDialog> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final course =
         widget.courses.firstWhere((c) => c['name'] == _selectedCourse);
-    if ((course['enrolled'] as int) >= (course['capacity'] as int)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Este curso já atingiu a capacidade máxima de vagas.'),
-          backgroundColor: EducanoColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
 
-    Navigator.pop(context, {
-      'courseName': _selectedCourse,
-      'studentName': _nameController.text.trim(),
-      'email': _emailController.text.trim(),
-      'turma': _selectedTurma,
+    setState(() {
+      _saving = true;
+      _error = null;
     });
+
+    try {
+      final studentName = await CoursesService.instance.enrollUser(
+        course['id'] as String,
+        email: _emailController.text,
+        turma: _selectedTurma,
+      );
+      if (!mounted) return;
+      Navigator.pop(
+        context,
+        '$studentName inscrito(a) em $_selectedCourse (turma $_selectedTurma).',
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = error.message;
+      });
+    }
   }
 
   @override
@@ -975,21 +975,18 @@ class _EnrollUserDialogState extends State<_EnrollUserDialog> {
                 onChanged: (value) =>
                     setState(() => _selectedCourse = value!),
               ),
-              const SizedBox(height: _spacingSmall),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome completo do aluno',
-                ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Informe o nome do aluno'
-                    : null,
-              ),
+              if (_error != null) ...[
+                const SizedBox(height: _spacingSmall),
+                Text(_error!, style: const TextStyle(color: EducanoColors.error)),
+              ],
               const SizedBox(height: _spacingSmall),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'E-mail'),
+                decoration: const InputDecoration(
+                  labelText: 'E-mail do aluno',
+                  helperText: 'O aluno precisa ter uma conta ativa.',
+                ),
                 validator: (value) {
                   final trimmed = value?.trim() ?? '';
                   if (trimmed.isEmpty) return 'Informe o e-mail do aluno';
@@ -1018,11 +1015,40 @@ class _EnrollUserDialogState extends State<_EnrollUserDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.check_rounded),
+          onPressed: _saving ? null : _submit,
+          icon: _saving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.check_rounded),
           label: const Text('Inscrever aluno'),
         ),
       ],
     );
   }
+}
+
+/// Abre o editor de curso (novo ou existente, pelo [courseId]) e retorna
+/// true quando o curso foi salvo na API.
+Future<bool> openDashboardCourseEditor(BuildContext context, {String? courseId}) async {
+  Map<String, dynamic>? course;
+
+  if (courseId != null) {
+    try {
+      course = CoursesService.editorMap(await CoursesService.instance.detail(courseId));
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
+        );
+      }
+      return false;
+    }
+  }
+
+  if (!context.mounted) return false;
+  final saved = await Navigator.push<Map<String, dynamic>>(
+    context,
+    MaterialPageRoute(builder: (_) => CourseEditorView(course: course)),
+  );
+  if (saved != null) DashboardEvents.notifyChanged();
+  return saved != null;
 }

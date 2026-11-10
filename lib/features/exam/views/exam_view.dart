@@ -6,6 +6,8 @@ import '../../../core/layout/app_scaffold.dart';
 import '../../../core/navigation/app_menu.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/educano_colors.dart';
+import '../../../services/api_client.dart';
+import '../../../services/exams_service.dart';
 import '../models/exam_session.dart';
 
 class ExamView extends StatefulWidget {
@@ -22,12 +24,16 @@ class _ExamViewState extends State<ExamView> {
   Timer? _timer;
   bool _allowExit = false;
   bool _exitDialogOpen = false;
+  bool _usingHint = false;
 
   @override
   void initState() {
     super.initState();
     _index = 0;
-    _remaining = Duration(minutes: widget.session.durationMinutes);
+    // O tempo restante vem do servidor (o simulado pode ter sido retomado).
+    _remaining = Duration(
+      seconds: widget.session.remainingSeconds ?? widget.session.durationMinutes * 60,
+    );
     if (!widget.session.isReview) {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (_remaining.inSeconds <= 1) {
@@ -55,6 +61,55 @@ class _ExamViewState extends State<ExamView> {
     );
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: EducanoColors.error),
+    );
+  }
+
+  /// Marca a alternativa e salva a resposta na API (salvamento automático).
+  Future<void> _answer(int option) async {
+    final index = _index;
+    final previous = widget.session.answers[index];
+    setState(() => widget.session.answers[index] = option);
+    if (widget.session.id == null) return;
+
+    try {
+      await ExamsService.instance.answer(widget.session, index, option);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.code == 'TEMPO_ESGOTADO') {
+        _goToFinish();
+        return;
+      }
+      setState(() {
+        if (previous == null) {
+          widget.session.answers.remove(index);
+        } else {
+          widget.session.answers[index] = previous;
+        }
+      });
+      _showError(error.message);
+    }
+  }
+
+  /// Usa uma Dica Extra do inventário para eliminar uma alternativa errada.
+  Future<void> _useHint() async {
+    if (widget.session.id == null || _usingHint) return;
+    setState(() => _usingHint = true);
+    try {
+      final eliminated = await ExamsService.instance.useHint(widget.session, _index);
+      if (!mounted) return;
+      setState(() {
+        if (eliminated != null) widget.session.eliminated[_index] = eliminated;
+      });
+    } on ApiException catch (error) {
+      if (mounted) _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _usingHint = false);
+    }
+  }
+
   Future<void> _requestExit() async {
     if (widget.session.isReview || _allowExit || _exitDialogOpen) return;
     _exitDialogOpen = true;
@@ -62,7 +117,9 @@ class _ExamViewState extends State<ExamView> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sair do simulado?'),
-        content: const Text('Se voc\u00ea sair agora, todas as suas respostas ser\u00e3o perdidas.'),
+        content: Text(widget.session.id == null
+            ? 'Se voc\u00ea sair agora, todas as suas respostas ser\u00e3o perdidas.'
+            : 'Suas respostas ficam salvas. Voc\u00ea pode continuar em \u00daltimos Simulados enquanto o tempo n\u00e3o acabar.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -170,16 +227,41 @@ class _ExamViewState extends State<ExamView> {
                   SizedBox(height: mobile ? 26 : 32),
                   Text(question.statement, style: TextStyle(fontSize: mobile ? 19 : 22, height: 1.25, color: const Color(0xFF4B4B4B))),
                   SizedBox(height: mobile ? 26 : 32),
+                  if (!widget.session.isReview && widget.session.id != null && !widget.session.eliminated.containsKey(_index))
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _usingHint ? null : _useHint,
+                        icon: const Icon(Icons.lightbulb_outline_rounded),
+                        label: const Text('Usar Dica Extra'),
+                      ),
+                    ),
                   for (var i = 0; i < question.options.length; i++)
                     _AnswerOption(
                       label: '${String.fromCharCode(65 + i)}) ${question.options[i]}',
                       selected: selected == i,
                       correct: widget.session.isReview && question.correctOptionIndex == i,
                       incorrect: widget.session.isReview && selected == i && selected != question.correctOptionIndex,
-                      enabled: !widget.session.isReview,
-                      onTap: () => setState(() => widget.session.answers[_index] = i),
+                      eliminated: widget.session.eliminated[_index] == i,
+                      enabled: !widget.session.isReview && widget.session.eliminated[_index] != i,
+                      onTap: () => _answer(i),
                       mobile: mobile,
                     ),
+                  // Gabarito comentado.
+                  if (widget.session.isReview && question.explanation.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: EducanoColors.successLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Comentário: ${question.explanation}',
+                        style: TextStyle(fontSize: mobile ? 14 : 16, height: 1.3),
+                      ),
+                    ),
+                  ],
                   SizedBox(height: mobile ? 18 : 22),
                   Row(children: [
                     Expanded(child: _NavigationButton(
@@ -215,9 +297,9 @@ class _ExamViewState extends State<ExamView> {
 }
 
 class _AnswerOption extends StatelessWidget {
-  const _AnswerOption({required this.label, required this.selected, required this.correct, required this.incorrect, required this.enabled, required this.onTap, required this.mobile});
+  const _AnswerOption({required this.label, required this.selected, required this.correct, required this.incorrect, required this.enabled, required this.onTap, required this.mobile, this.eliminated = false});
   final String label;
-  final bool selected, correct, incorrect, enabled, mobile;
+  final bool selected, correct, incorrect, enabled, mobile, eliminated;
   final VoidCallback onTap;
 
   @override
@@ -240,7 +322,9 @@ class _AnswerOption extends StatelessWidget {
             ),
             child: Text(label, style: TextStyle(fontSize: mobile ? 19 : 21, height: 1.2,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected && !correct ? Colors.white : const Color(0xFF4B4B4B))),
+              // Alternativa eliminada pela Dica Extra aparece riscada.
+              decoration: eliminated ? TextDecoration.lineThrough : null,
+              color: selected && !correct ? Colors.white : eliminated ? Colors.black38 : const Color(0xFF4B4B4B))),
           ),
         ),
       ),

@@ -7,12 +7,12 @@ celulares e telas maiores. Tudo (login, cursos, simulados, loja...) vem da
 
 ## Funcionalidades
 
-- **Acesso e conta:** entrada, criação de conta, verificação de código e
-  recuperação de senha, com fluxos simulados localmente.
+- **Acesso e conta:** entrada, criação de conta, verificação do código enviado
+  por e-mail e recuperação de senha por código.
 - **Cursos e materiais:** catálogo, conteúdo organizado em sessões e módulos,
   progresso de estudo e visualização de materiais em vídeo, áudio ou PDF.
-- **Estudo:** flashcards com registro local de revisões e simulados com
-  configuração, resolução, finalização e resultado.
+- **Estudo:** flashcards com revisões agendadas e simulados com configuração,
+  resolução com salvamento automático, gabarito comentado e resultado.
 - **Área do estudante:** perfil, plano de conta, ranking, loja e inventário,
   configurações e navegação adaptada ao tamanho da tela.
 - **Área administrativa:** telas para visão geral, cursos, usuários, questões e
@@ -68,7 +68,7 @@ encapsulam operações locais e regras de domínio. `main.dart` configura o
 fornece a estrutura comum e escolhe a disposição móvel ou desktop conforme a
 largura disponível.
 
-### Estado dos dados e limitações atuais
+### Integração com a API
 
 - `lib/services/api_client.dart` faz as chamadas HTTP e manda o token. A URL
   da API vem de `--dart-define=API_URL=...` (padrão `http://localhost:3000/api`).

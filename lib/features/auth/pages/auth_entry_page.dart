@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/app_user.dart';
 import '../../../core/theme/educano_colors.dart';
-import '../../../services/storage_service.dart';
+import '../../../services/auth_service.dart';
 import '../../home/pages/home_page.dart';
 import 'login_page.dart';
 
@@ -19,7 +19,7 @@ class _AuthEntryPageState extends State<AuthEntryPage> {
   @override
   void initState() {
     super.initState();
-    _userFuture = StorageService.instance.loadCurrentUser();
+    _userFuture = AuthService.instance.restoreSession();
   }
 
   @override
@@ -27,20 +27,23 @@ class _AuthEntryPageState extends State<AuthEntryPage> {
     future: _userFuture,
     builder: (context, snapshot) {
       if (snapshot.hasError) {
-        return Center(
+        return Material(
+          color: EducanoColors.background,
+          child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Não foi possível carregar sua sessão local.'),
+              const Text('Não foi possível conectar ao servidor do Educano.'),
               TextButton(
                 onPressed: () {
                   setState(() {
-                    _userFuture = StorageService.instance.loadCurrentUser();
+                    _userFuture = AuthService.instance.restoreSession();
                   });
                 },
                 child: const Text('Tentar novamente'),
               ),
             ],
+          ),
           ),
         );
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/data/repositories/flashcard_local_repository.dart';
+import '../../../core/data/repositories/flashcard_repository.dart';
+import '../../../services/api_client.dart';
 import '../../../core/layout/app_scaffold.dart';
 import '../../../core/navigation/app_menu.dart';
 import '../../../core/theme/educano_colors.dart';
@@ -14,7 +15,7 @@ class FlashcardsPage extends StatefulWidget {
 }
 
 class _FlashcardsPageState extends State<FlashcardsPage> {
-  final LocalFlashcardRepository _repository = LocalFlashcardRepository();
+  final FlashcardRepository _repository = FlashcardRepository();
   List<Flashcard> _cards = [];
   bool _loading = true;
 
@@ -25,53 +26,79 @@ class _FlashcardsPageState extends State<FlashcardsPage> {
   }
 
   Future<void> _loadCards() async {
-    final cards = await _repository.getAll();
-    if (!mounted) return;
-    setState(() {
-      _cards = cards;
-      _loading = false;
-    });
+    try {
+      final cards = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _cards = cards;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showError(error);
+    }
+  }
+
+  void _showError(ApiException error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
+    );
+  }
+
+  /// Executa a operação e recarrega a lista, mostrando erros da API.
+  Future<void> _run(Future<void> Function() action) async {
+    try {
+      await action();
+      await _loadCards();
+    } on ApiException catch (error) {
+      if (mounted) _showError(error);
+    }
   }
 
   Future<void> _createCard() async {
     final draft = await _showEditor();
     if (draft == null) return;
-    await _repository.create(Flashcard(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      userId: _repository.userId,
+    await _run(() => _repository.create(Flashcard(
+      id: '',
+      userId: '',
       title: draft.title.trim().isEmpty ? 'Novo Flashcard' : draft.title.trim(),
       question: draft.question.trim(),
       answer: draft.answer.trim(),
       monthlyRepetitions: draft.monthlyRepetitions,
-    ));
-    await _loadCards();
+    )));
   }
 
   Future<void> _editCard(Flashcard card) async {
     final draft = await _showEditor(card: card);
     if (draft == null) return;
-    await _repository.update(card.copyWith(
+    await _run(() => _repository.update(card.copyWith(
       title: draft.title.trim().isEmpty ? card.title : draft.title.trim(),
       question: draft.question.trim(),
       answer: draft.answer.trim(),
       monthlyRepetitions: draft.monthlyRepetitions,
-    ));
-    await _loadCards();
+    )));
   }
 
   Future<void> _deleteCard(Flashcard card) async {
     if (!await _showDeleteConfirmation(card)) return;
-    await _repository.delete(card.id);
-    await _loadCards();
+    await _run(() => _repository.delete(card.id));
   }
 
   Future<void> _openCard(Flashcard card) async {
-    final reviewed = await _repository.review(card.id);
+    Flashcard? reviewed;
+    try {
+      reviewed = await _repository.review(card.id);
+    } on ApiException catch (error) {
+      if (mounted) _showError(error);
+      return;
+    }
     if (reviewed == null || !mounted) return;
+    final updated = reviewed;
     setState(() {
-      _cards = _cards.map((item) => item.id == reviewed.id ? reviewed : item).toList();
+      _cards = _cards.map((item) => item.id == updated.id ? updated : item).toList();
     });
-    await _showExpandedCard(reviewed);
+    await _showExpandedCard(updated);
   }
 
   Future<_FlashcardDraft?> _showEditor({Flashcard? card}) {

@@ -65,6 +65,25 @@ class Flashcard {
     );
   }
 
+  /// Converte o flashcard retornado pela API.
+  factory Flashcard.fromApi(Map<String, dynamic> json) => Flashcard(
+    id: json['id'] as String,
+    userId: '',
+    title: json['titulo'] as String? ?? 'Flashcard',
+    question: json['pergunta'] as String,
+    answer: json['resposta'] as String,
+    monthlyRepetitions: (json['repeticoesMensais'] as num?)?.toInt() ?? 4,
+    lastReviewedAt: _date(json['ultimaRevisaoEm'])?.toLocal(),
+    nextReviewAt: _date(json['proximaRevisaoEm'])?.toLocal(),
+  );
+
+  Map<String, dynamic> toApi() => {
+    'titulo': title,
+    'pergunta': question,
+    'resposta': answer,
+    'repeticoesMensais': monthlyRepetitions,
+  };
+
   static DateTime? _date(dynamic value) {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value);

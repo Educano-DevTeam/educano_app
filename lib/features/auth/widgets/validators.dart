@@ -21,11 +21,19 @@ class Validators {
     return null;
   }
 
-  static String? password(String? value, {int minLength = 6}) {
+  /// Mesma regra da API: 8+ caracteres, maiúscula, número e caractere especial.
+  static String? password(String? value, {int minLength = 8}) {
     final v = value ?? '';
     if (v.isEmpty) return 'Digite sua senha';
     if (v.length < minLength) {
       return 'A senha deve ter no mínimo $minLength caracteres';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(v)) {
+      return 'Inclua ao menos uma letra maiúscula';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(v)) return 'Inclua ao menos um número';
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(v)) {
+      return 'Inclua ao menos um caractere especial';
     }
     return null;
   }

@@ -1,5 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/educano_colors.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/progress_service.dart';
+import '../../../services/users_service.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/profile_course.dart';
 import '../../../core/widgets/charts/mini_bar_chart.dart';
@@ -19,42 +25,10 @@ class ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  static const List<ProfileCourse> _courses = [
-    ProfileCourse(
-      initials: 'MB',
-      color: EducanoColors.legacyNavy,
-      name: 'Matemática Básica',
-      progressLabel: '3 trilhas • 45% concluído',
-    ),
-    ProfileCourse(
-      initials: 'PA',
-      color: EducanoColors.legacyGreen,
-      name: 'Português Avançado',
-      progressLabel: '2 trilhas • 62% concluído',
-    ),
-    ProfileCourse(
-      initials: 'FQ',
-      color: EducanoColors.legacyOrange,
-      name: 'Física Quântica',
-      progressLabel: '1 trilha • 20% concluído',
-    ),
-    ProfileCourse(
-      initials: 'BC',
-      color: EducanoColors.legacyRed,
-      name: 'Biologia Celular',
-      progressLabel: '1 trilha • 80% concluído',
-    ),
-  ];
-
-  static const List<ChartPoint> _chartData = [
-    ChartPoint('Fev', 320, 260),
-    ChartPoint('Mar', 480, 210),
-    ChartPoint('Abr', 610, 520),
-    ChartPoint('Mai', 300, 250),
-    ChartPoint('Jun', 540, 470),
-    ChartPoint('Jul', 700, 640),
-    ChartPoint('Ago', 860, 760),
-  ];
+  List<ProfileCourse> _courses = const [];
+  List<ChartPoint> _chartData = const [];
+  Map<String, dynamic>? _stats;
+  Map<String, dynamic>? _profile;
 
   int? _selectedCourse;
   late final Future<AppUser?> _userFuture;
@@ -63,6 +37,69 @@ class _ProfileViewState extends State<ProfileView> {
   void initState() {
     super.initState();
     _userFuture = StorageService.instance.loadCurrentUser();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        ProgressService.instance.me(),
+        UsersService.instance.myProfile(),
+      ]);
+      final progress = results[0];
+      final courses = ((progress['cursos'] as Map)['lista'] as List).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _stats = progress;
+        _profile = results[1];
+        _chartData = [
+          for (final month in (progress['evolucao'] as List).cast<Map<String, dynamic>>())
+            ChartPoint(
+              month['mes'] as String,
+              (month['atividades'] as num).toDouble(),
+              (month['simulados'] as num).toDouble(),
+            ),
+        ];
+        _courses = [
+          for (final course in courses)
+            ProfileCourse(
+              id: course['id'] as String,
+              initials: _initials(course['nome'] as String),
+              color: ApiMappers.color(course['cor'] as String?),
+              name: course['nome'] as String,
+              progressLabel: '${course['sessoes']} ${course['sessoes'] == 1 ? 'trilha' : 'trilhas'} • '
+                  '${((course['progresso'] as num) * 100).round()}% concluído',
+            ),
+        ];
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  static String _initials(String name) {
+    final words = name.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+    if (words.isEmpty) return name.substring(0, 1).toUpperCase();
+    return words.take(2).map((w) => w[0].toUpperCase()).join();
+  }
+
+  Future<void> _editProfile() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _EditProfileDialog(profile: _profile ?? const {}),
+    );
+    if (changed == true) await _load();
+  }
+
+  void _share() {
+    final perfil = _stats?['perfil'] as Map<String, dynamic>?;
+    final text = 'Estou no nível ${perfil?['nivel'] ?? 0} do Educano, com '
+        '${perfil?['xp'] ?? 0} XP e ${perfil?['sequenciaDias'] ?? 0} dias de sequência!';
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Resumo do perfil copiado para compartilhar.')),
+    );
   }
 
   @override
@@ -95,17 +132,25 @@ class _ProfileViewState extends State<ProfileView> {
               if (snapshot.hasError) {
                 return const _ProfileDataError();
               }
-              return _ProfileHeaderCard(user: snapshot.data);
+              return _ProfileHeaderCard(
+                user: snapshot.data,
+                photoUrl: _profile?['urlFotoPerfil'] as String?,
+                stats: _stats,
+                onEdit: _editProfile,
+                onShare: _share,
+              );
             },
           ),
           const SizedBox(height: 16),
-          const _PlanBanner(),
+          _PlanBanner(
+            planName: ((_stats?['perfil'] as Map?)?['plano'] as Map?)?['nome'] as String?,
+          ),
           const SizedBox(height: 20),
-          const AppSectionCard(
+          AppSectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
                     Text(
                       'Evolução das notas',
@@ -117,7 +162,7 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                     Spacer(),
                     Text(
-                      '2026',
+                      'Últimos 7 meses',
                       style: TextStyle(
                         fontSize: 11,
                         color: EducanoColors.legacyTextSecondary,
@@ -125,8 +170,8 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
-                Row(
+                const SizedBox(height: 12),
+                const Row(
                   children: [
                     _LegendDot(
                       color: EducanoColors.legacyRed,
@@ -139,8 +184,11 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                   ],
                 ),
-                SizedBox(height: 16),
-                MiniBarChart(data: _chartData),
+                const SizedBox(height: 16),
+                if (_chartData.isEmpty)
+                  const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
+                else
+                  MiniBarChart(data: _chartData),
               ],
             ),
           ),
@@ -149,9 +197,9 @@ class _ProfileViewState extends State<ProfileView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text(
+                    const Text(
                       'Meus Cursos',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -159,10 +207,10 @@ class _ProfileViewState extends State<ProfileView> {
                         color: EducanoColors.legacyTextPrimary,
                       ),
                     ),
-                    Spacer(),
+                    const Spacer(),
                     Text(
-                      '4 em andamento',
-                      style: TextStyle(
+                      '${_courses.length} em andamento',
+                      style: const TextStyle(
                         fontSize: 11.5,
                         color: EducanoColors.legacyTextSecondary,
                       ),
@@ -174,13 +222,19 @@ class _ProfileViewState extends State<ProfileView> {
                   _CourseRow(
                     course: _courses[i],
                     selected: _selectedCourse == i,
-                    onTap: () => setState(
-                      () => _selectedCourse = _selectedCourse == i ? null : i,
-                    ),
+                    onTap: () {
+                      setState(() => _selectedCourse = i);
+                      NavigationService.pushNamed(AppRoutes.course, arguments: _courses[i].id);
+                    },
+                  ),
+                if (_courses.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('Você ainda não está inscrito em cursos.'),
                   ),
                 const SizedBox(height: 6),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => NavigationService.pushNamed(AppRoutes.courses),
                   child: const Text(
                     'Ver todos os cursos  ›',
                     style: TextStyle(
@@ -202,8 +256,18 @@ class _ProfileViewState extends State<ProfileView> {
 
 class _ProfileHeaderCard extends StatelessWidget {
   final AppUser? user;
+  final String? photoUrl;
+  final Map<String, dynamic>? stats;
+  final VoidCallback onEdit;
+  final VoidCallback onShare;
 
-  const _ProfileHeaderCard({required this.user});
+  const _ProfileHeaderCard({
+    required this.user,
+    required this.photoUrl,
+    required this.stats,
+    required this.onEdit,
+    required this.onShare,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -239,9 +303,14 @@ class _ProfileHeaderCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: Colors.white,
                   ),
-                  child: const CircleAvatar(
+                  child: CircleAvatar(
                     backgroundColor: EducanoColors.legacyPrimary,
-                    child: Icon(Icons.person, color: Colors.white, size: 30),
+                    backgroundImage: (photoUrl?.isNotEmpty ?? false)
+                        ? NetworkImage(photoUrl!)
+                        : null,
+                    child: (photoUrl?.isNotEmpty ?? false)
+                        ? null
+                        : const Icon(Icons.person, color: Colors.white, size: 30),
                   ),
                 ),
               ),
@@ -282,13 +351,13 @@ class _ProfileHeaderCard extends StatelessWidget {
                     HoverOutlineButton(
                       label: 'Editar Perfil',
                       leadingIcon: Icons.edit_outlined,
-                      onPressed: () {},
+                      onPressed: onEdit,
                     ),
                     const SizedBox(width: 10),
                     HoverOutlineButton(
                       label: 'Compartilhar',
                       leadingIcon: Icons.ios_share,
-                      onPressed: () {},
+                      onPressed: onShare,
                     ),
                   ],
                 );
@@ -312,7 +381,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                             ],
                           ),
                     const SizedBox(height: 20),
-                    const _StatsRow(),
+                    _StatsRow(stats: stats),
                   ],
                 );
               },
@@ -325,15 +394,20 @@ class _ProfileHeaderCard extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  final Map<String, dynamic>? stats;
+
+  const _StatsRow({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    const List<List<String>> items = [
-      ['5', 'Nível'],
-      ['1.240', 'XP'],
-      ['7 dias', 'Sequência'],
-      ['3', 'Concluídos'],
+    final perfil = stats?['perfil'] as Map<String, dynamic>?;
+    final cursos = stats?['cursos'] as Map<String, dynamic>?;
+    final sequence = perfil?['sequenciaDias'] ?? 0;
+    final List<List<String>> items = [
+      ['${perfil?['nivel'] ?? '—'}', 'Nível'],
+      ['${perfil?['xp'] ?? '—'}', 'XP'],
+      ['$sequence ${sequence == 1 ? 'dia' : 'dias'}', 'Sequência'],
+      ['${cursos?['concluidos'] ?? '—'}', 'Concluídos'],
     ];
 
     return Row(
@@ -373,7 +447,9 @@ class _StatsRow extends StatelessWidget {
 }
 
 class _PlanBanner extends StatelessWidget {
-  const _PlanBanner();
+  final String? planName;
+
+  const _PlanBanner({this.planName});
 
   @override
   Widget build(BuildContext context) {
@@ -399,21 +475,23 @@ class _PlanBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Plano Básico',
-                  style: TextStyle(
+                  'Plano ${planName ?? 'Básico'}',
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13.5,
                     color: EducanoColors.legacyTextPrimary,
                   ),
                 ),
                 Text(
-                  'Grátis - Tenha acesso a mais recursos disponíveis.',
-                  style: TextStyle(
+                  planName == null || planName == 'Básico'
+                      ? 'Grátis - Tenha acesso a mais recursos disponíveis.'
+                      : 'Obrigado por apoiar o Educano!',
+                  style: const TextStyle(
                     fontSize: 11.5,
                     color: EducanoColors.legacyTextSecondary,
                   ),
@@ -573,6 +651,148 @@ class _CourseRowState extends State<_CourseRow> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Edição do perfil: foto e visibilidade (perfil público ou privado).
+class _EditProfileDialog extends StatefulWidget {
+  final Map<String, dynamic> profile;
+
+  const _EditProfileDialog({required this.profile});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late bool _public = widget.profile['tipoPerfil'] == 'PUBLICO';
+  late String _photoUrl = widget.profile['urlFotoPerfil'] as String? ?? '';
+  bool _busy = false;
+  bool _changed = false;
+
+  void _error(String message) => ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message), backgroundColor: EducanoColors.legacyRed),
+  );
+
+  Future<void> _pickPhoto() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+    );
+    if (!mounted || files.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final file = files.first;
+      final profile = await UsersService.instance.uploadPhoto(
+        await file.readAsBytes(),
+        file.name,
+      );
+      if (!mounted) return;
+      setState(() {
+        _photoUrl = profile['urlFotoPerfil'] as String? ?? '';
+        _changed = true;
+      });
+    } on ApiException catch (error) {
+      if (mounted) _error(error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    setState(() => _busy = true);
+    try {
+      await UsersService.instance.updateMyProfile({'urlFotoPerfil': ''});
+      if (!mounted) return;
+      setState(() {
+        _photoUrl = '';
+        _changed = true;
+      });
+    } on ApiException catch (error) {
+      if (mounted) _error(error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      await UsersService.instance.updateMyProfile({
+        'tipoPerfil': _public ? 'PUBLICO' : 'PRIVADO',
+      });
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _error(error.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar perfil'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 42,
+              backgroundColor: EducanoColors.legacyPrimary,
+              backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
+              child: _photoUrl.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 40)
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _pickPhoto,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Trocar foto'),
+                ),
+                if (_photoUrl.isNotEmpty)
+                  TextButton(
+                    onPressed: _busy ? null : _removePhoto,
+                    child: const Text('Remover'),
+                  ),
+              ],
+            ),
+            const Text(
+              'JPG, PNG ou WEBP de até 5 MB.',
+              style: TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: _public,
+              onChanged: _busy ? null : (value) => setState(() => _public = value),
+              title: const Text('Perfil público'),
+              subtitle: Text(
+                _public
+                    ? 'Outros usuários podem ver seu nível, XP e foto.'
+                    : 'Somente você vê os dados do seu perfil.',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context, _changed),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _busy ? null : _save,
+          child: _busy
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Salvar'),
+        ),
+      ],
     );
   }
 }

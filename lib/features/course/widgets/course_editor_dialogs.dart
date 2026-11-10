@@ -1,13 +1,24 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../services/api_client.dart';
+import '../../../services/questions_service.dart';
 import '../models/course_models.dart';
 
 const _blue = Color(0xFF425BC2);
-const _green = Color(0xFF20D500);
 const _border = Color(0xFFD4D4D4);
+
+/// Matérias oferecidas no cadastro de questões e na configuração de simulados.
+const questionSubjects = [
+  'Matemática',
+  'Linguagens',
+  'Ciências da Natureza',
+  'Ciências Humanas',
+  'Redação',
+];
 
 Future<Map<String, String>?> showSessionEditor(BuildContext context) {
   final title = TextEditingController();
@@ -501,7 +512,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           controller: _file,
           decoration: InputDecoration(
             labelText: 'Anexo do arquivo',
-            hintText: 'Selecione um arquivo ou informe uma URL',
+            hintText: 'Clique no clipe para selecionar o arquivo',
             suffixIcon: _pickingFile
                 ? const Padding(
                     padding: EdgeInsets.all(12),
@@ -533,7 +544,10 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
               });
             }
           },
-          validator: _required,
+          readOnly: true,
+          onTap: _fileBytes == null && !_pickingFile ? _pickAttachment : null,
+          validator: (_) =>
+              _fileBytes == null ? 'Selecione o arquivo da aula.' : null,
         ),
         if (_selectedFileSize != null) ...[
           const SizedBox(height: 6),
@@ -669,6 +683,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
             theme: _theme.text.trim(),
             durationMinutes: int.parse(_duration.text.trim()),
             questions: List.unmodifiable(_questions),
+            questionIds: _questions.map((q) => q.id).toList(),
           ),
         ),
       );
@@ -682,9 +697,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
         kind: _fileKind,
         title: _title.text.trim(),
         description: _description.text.trim(),
-        fileName:
-            _selectedFileName ?? _file.text.trim().split(RegExp(r'[/\\]')).last,
-        fileUrl: _fileBytes == null ? _file.text.trim() : null,
+        fileName: _selectedFileName,
         fileBytes: _fileBytes,
         filePath: _selectedFilePath,
         fileSizeBytes: _selectedFileSize,
@@ -710,52 +723,38 @@ class _QuestionSearchArea extends StatefulWidget {
 
 class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
   final _controller = TextEditingController();
-  final _bank = const [
-    ActivityQuestion(
-      id: 'q1',
-      title: 'Brasil Colônia',
-      statement: 'Qual tratado dividiu as terras entre Portugal e Espanha?',
-      difficulty: ActivityQuestionDifficulty.easy,
-      options: ['Tordesilhas', 'Madri', 'Santo Ildefonso', 'Utrecht'],
-      correctOptionIndex: 0,
-    ),
-    ActivityQuestion(
-      id: 'q2',
-      title: 'História do Brasil',
-      statement: 'Em qual período ocorreu a Independência do Brasil?',
-      difficulty: ActivityQuestionDifficulty.easy,
-      options: ['1822', '1889', '1500', '1930'],
-      correctOptionIndex: 0,
-    ),
-    ActivityQuestion(
-      id: 'q3',
-      title: 'Geografia',
-      statement: 'Qual é a capital do Brasil?',
-      difficulty: ActivityQuestionDifficulty.easy,
-      options: ['São Paulo', 'Brasília', 'Salvador', 'Rio de Janeiro'],
-      correctOptionIndex: 1,
-    ),
-  ];
   List<ActivityQuestion> _results = [];
+  Timer? _debounce;
+  bool _searching = false;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   void _search(String value) {
-    final q = value.trim().toLowerCase();
-    setState(() {
-      _results = q.isEmpty
-          ? []
-          : _bank
-                .where(
-                  (item) =>
-                      item.title.toLowerCase().contains(q) ||
-                      item.statement.toLowerCase().contains(q),
-                )
-                .toList();
+    _debounce?.cancel();
+    final q = value.trim();
+    if (q.isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      setState(() => _searching = true);
+      try {
+        final page = await QuestionsService.instance.list(search: q);
+        if (mounted) setState(() => _results = page.questions);
+      } on ApiException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.message)),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _searching = false);
+      }
     });
   }
 
@@ -766,9 +765,19 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
         TextField(
           controller: _controller,
           onChanged: _search,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Pesquisar questões existentes',
-            prefixIcon: Icon(Icons.search_rounded),
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: _searching
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : null,
           ),
         ),
         if (_results.isNotEmpty) ...[
@@ -785,7 +794,7 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
                       dense: true,
                       title: Text(question.title),
                       subtitle: Text(
-                        question.statement,
+                        '${question.subject} · ${question.difficulty.label} · ${question.statement}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -858,42 +867,111 @@ class _QuestionTile extends StatelessWidget {
 }
 
 class _QuestionEditorDialog extends StatefulWidget {
-  const _QuestionEditorDialog();
+  final ActivityQuestion? question;
+
+  const _QuestionEditorDialog({this.question});
 
   @override
   State<_QuestionEditorDialog> createState() => _QuestionEditorDialogState();
 }
 
-/// Reutilizado pelas telas administrativas que precisam cadastrar uma questão.
-Future<ActivityQuestion?> showActivityQuestionDialog(BuildContext context) {
+/// Cadastra (ou edita, quando [question] é informada) uma questão no banco
+/// de questões da API e devolve a questão salva.
+Future<ActivityQuestion?> showActivityQuestionDialog(
+  BuildContext context, {
+  ActivityQuestion? question,
+}) {
   return showDialog<ActivityQuestion>(
     context: context,
-    builder: (_) => const _QuestionEditorDialog(),
+    builder: (_) => _QuestionEditorDialog(question: question),
   );
 }
 
 class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _statement = TextEditingController();
-  final List<TextEditingController> _answers = [
-    TextEditingController(),
-    TextEditingController(),
-  ];
-  ActivityQuestionDifficulty _difficulty = ActivityQuestionDifficulty.easy;
-  int _correctIndex = 0;
+  late final _title = TextEditingController(text: widget.question?.title);
+  late final _statement = TextEditingController(text: widget.question?.statement);
+  late final _topic = TextEditingController(text: widget.question?.topic);
+  late final _explanation = TextEditingController(text: widget.question?.explanation);
+  late final List<TextEditingController> _answers = widget.question == null
+      ? [TextEditingController(), TextEditingController()]
+      : widget.question!.options.map((o) => TextEditingController(text: o)).toList();
+  // Ids das alternativas existentes, na mesma ordem dos campos.
+  late final List<String?> _answerIds = widget.question == null
+      ? [null, null]
+      : List<String?>.from(widget.question!.optionIds);
+  late ActivityQuestionDifficulty _difficulty =
+      widget.question?.difficulty ?? ActivityQuestionDifficulty.easy;
+  late int _correctIndex =
+      (widget.question?.correctOptionIndex ?? 0).clamp(0, 4).toInt();
+  late String _subject = questionSubjects.contains(widget.question?.subject)
+      ? widget.question!.subject
+      : questionSubjects.first;
+  bool _saving = false;
+
+  bool get _editing => widget.question != null;
 
   @override
   void dispose() {
     _title.dispose();
     _statement.dispose();
+    _topic.dispose();
+    _explanation.dispose();
     for (final controller in _answers) controller.dispose();
     super.dispose();
   }
 
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+
+    final question = ActivityQuestion(
+      id: widget.question?.id ?? '',
+      title: _title.text.trim(),
+      statement: _statement.text.trim(),
+      difficulty: _difficulty,
+      options: _answers.map((item) => item.text.trim()).toList(),
+      optionIds: [for (final id in _answerIds) id ?? ''],
+      correctOptionIndex: _correctIndex,
+      subject: _subject,
+      topic: _topic.text.trim(),
+      explanation: _explanation.text.trim(),
+    );
+
+    try {
+      final saved = _editing
+          ? await QuestionsService.instance.update(_withoutNewIds(question))
+          : await QuestionsService.instance.create(_withoutNewIds(question));
+      if (mounted) Navigator.pop(context, saved);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // Alternativas novas vão sem id; as existentes mantêm o id na API.
+  ActivityQuestion _withoutNewIds(ActivityQuestion q) => ActivityQuestion(
+    id: q.id,
+    title: q.title,
+    statement: q.statement,
+    difficulty: q.difficulty,
+    options: q.options,
+    optionIds: q.optionIds.takeWhile((id) => id.isNotEmpty).toList(),
+    correctOptionIndex: q.correctOptionIndex,
+    subject: q.subject,
+    topic: q.topic,
+    explanation: q.explanation,
+  );
+
   void _addAnswer() {
     if (_answers.length >= 5) return;
-    setState(() => _answers.add(TextEditingController()));
+    setState(() {
+      _answers.add(TextEditingController());
+      _answerIds.add(null);
+    });
   }
 
   void _removeAnswer(int index) {
@@ -901,6 +979,7 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
     setState(() {
       _answers[index].dispose();
       _answers.removeAt(index);
+      _answerIds.removeAt(index);
       if (_correctIndex >= _answers.length) _correctIndex = 0;
     });
   }
@@ -909,7 +988,7 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Cadastrar pergunta'),
+      title: Text(_editing ? 'Editar questão' : 'Cadastrar pergunta'),
       content: SizedBox(
         width: 560,
         child: Form(
@@ -946,6 +1025,23 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                       )
                       .toList(),
                   onChanged: (value) => setState(() => _difficulty = value!),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _subject,
+                  decoration: const InputDecoration(labelText: 'Matéria'),
+                  items: questionSubjects
+                      .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _subject = value!),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _topic,
+                  decoration: const InputDecoration(
+                    labelText: 'Tema',
+                    hintText: 'Ex.: Ditadura Militar',
+                  ),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -1018,6 +1114,15 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                     style: TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _explanation,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Comentário do gabarito (opcional)',
+                    hintText: 'Explique por que a alternativa correta está certa.',
+                  ),
+                ),
               ],
             ),
           ),
@@ -1029,22 +1134,15 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton.icon(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(
-              context,
-              ActivityQuestion(
-                id: 'question-${DateTime.now().microsecondsSinceEpoch}',
-                title: _title.text.trim(),
-                statement: _statement.text.trim(),
-                difficulty: _difficulty,
-                options: _answers.map((item) => item.text.trim()).toList(),
-                correctOptionIndex: _correctIndex,
-              ),
-            );
-          },
-          icon: const Icon(Icons.check_rounded),
-          label: const Text('Cadastrar pergunta'),
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check_rounded),
+          label: Text(_editing ? 'Salvar questão' : 'Cadastrar pergunta'),
         ),
       ],
     );

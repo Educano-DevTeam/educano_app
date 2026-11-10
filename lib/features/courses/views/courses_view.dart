@@ -2,8 +2,14 @@ import 'package:educano_app/core/widgets/ui/app_small_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
+import '../../../core/models/app_user.dart';
+import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
-import '../../dashboard/views/course_editor_view.dart';
+import '../../../core/utils/api_mappers.dart';
+import '../../../services/api_client.dart';
+import '../../../services/courses_service.dart';
+import '../../../services/storage_service.dart';
+import '../../dashboard/views/dashboard_courses_view.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -27,62 +33,84 @@ class _CoursesViewState extends State<CoursesView> {
   String _selectedStatus = 'Todos';
   String _selectedCategory = 'Todas';
 
-  final List<Map<String, dynamic>> _courses = [
-    {
-      'name': 'Matemática Básica',
-      'category': 'Exatas',
-      'description': 'Fundamentos de matemática para o ensino médio.',
-      'enrolled': 45,
-      'capacity': 100,
-      'status': 'Ativo',
-      'createdAt': '01/05/2026',
-    },
-    {
-      'name': 'Português Avançado',
-      'category': 'Humanas',
-      'description': 'Gramática, interpretação de texto e redação.',
-      'enrolled': 28,
-      'capacity': 60,
-      'status': 'Ativo',
-      'createdAt': '05/05/2026',
-    },
-    {
-      'name': 'Biologia Celular',
-      'category': 'Biológicas',
-      'description': 'Estrutura e funcionamento das células.',
-      'enrolled': 62,
-      'capacity': 80,
-      'status': 'Ativo',
-      'createdAt': '10/05/2026',
-    },
-    {
-      'name': 'História do Brasil',
-      'category': 'Humanas',
-      'description': 'Da colonização à república.',
-      'enrolled': 15,
-      'capacity': 50,
-      'status': 'Inativo',
-      'createdAt': '15/05/2026',
-    },
-    {
-      'name': 'Física Quântica',
-      'category': 'Exatas',
-      'description': 'Introdução aos conceitos da física quântica.',
-      'enrolled': 8,
-      'capacity': 40,
-      'status': 'Rascunho',
-      'createdAt': '20/05/2026',
-    },
-    {
-      'name': 'Química Orgânica',
-      'category': 'Exatas',
-      'description': 'Compostos orgânicos e suas reações.',
-      'enrolled': 33,
-      'capacity': 60,
-      'status': 'Ativo',
-      'createdAt': '25/05/2026',
-    },
-  ];
+  List<Map<String, dynamic>> _courses = [];
+  bool _loading = true;
+  String? _error;
+  AppUser? _user;
+
+  bool get _isStaff => _user?.isStaff ?? false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      _user ??= await StorageService.instance.loadCurrentUser();
+      final result = await CoursesService.instance.list();
+      if (!mounted) return;
+      setState(() {
+        _courses = result.courses;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.message;
+      });
+    }
+  }
+
+  void _snack(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openCourse(Map<String, dynamic> course) {
+    Navigator.pushNamed(context, AppRoutes.course, arguments: course['id']);
+  }
+
+  /// Inscrição do próprio aluno, com escolha da turma.
+  Future<void> _selfEnroll(Map<String, dynamic> course) async {
+    final turma = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Inscrever-se em ${course['name']}'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text('Escolha a turma:'),
+          ),
+          for (final label in ApiMappers.turmas.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, label),
+              child: Text(label),
+            ),
+        ],
+      ),
+    );
+    if (turma == null) return;
+    try {
+      final message = await CoursesService.instance.enroll(course['id'] as String, turma: turma);
+      if (!mounted) return;
+      _snack(message);
+      await _loadCourses();
+    } on ApiException catch (error) {
+      _snack(error.message, error: true);
+    }
+  }
 
   List<String> get _categoryOptions => [
     'Todas',
@@ -160,7 +188,7 @@ class _CoursesViewState extends State<CoursesView> {
               _buildSummaryRow('Criado em', course['createdAt'] as String),
               _buildSummaryRow(
                 'Capacidade',
-                '${course['enrolled']}/${course['capacity']} vagas preenchidas',
+                '${course['enrolled']}/${course['capacity'] ?? '∞'} vagas preenchidas',
               ),
               const SizedBox(height: 4),
               _buildStatusBadge(course['status'] as String, statusColor),
@@ -172,19 +200,37 @@ class _CoursesViewState extends State<CoursesView> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar'),
           ),
-          AppSmallButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CourseEditorView(course: course),
-                ),
-              );
-            },
-            icon: Icons.edit_rounded,
-            label: "",
-          ),
+          if (course['isEnrolled'] == true || _isStaff)
+            AppSmallButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _openCourse(course);
+              },
+              icon: Icons.visibility_outlined,
+              label: 'Abrir curso',
+            )
+          else
+            AppSmallButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _selfEnroll(course);
+              },
+              icon: Icons.how_to_reg_rounded,
+              label: 'Inscrever-se',
+            ),
+          if (course['canEdit'] == true)
+            AppSmallButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final saved = await openDashboardCourseEditor(
+                  this.context,
+                  courseId: course['id'] as String,
+                );
+                if (saved) await _loadCourses();
+              },
+              icon: Icons.edit_rounded,
+              label: '',
+            ),
         ],
       ),
     );
@@ -221,42 +267,28 @@ class _CoursesViewState extends State<CoursesView> {
     );
   }
 
-  void _openCourseEditor(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CourseEditorView()),
-    );
+  Future<void> _openCourseEditor(BuildContext context) async {
+    final saved = await openDashboardCourseEditor(context);
+    if (saved) await _loadCourses();
   }
 
   Future<void> _showEnrollDialog(
     BuildContext context, {
     String? courseName,
   }) async {
-    final result = await showDialog<Map<String, dynamic>>(
+    final active = _courses.where((c) => c['status'] == 'Ativo').toList();
+    if (active.isEmpty) return;
+    final message = await showDialog<String>(
       context: context,
-      builder: (_) =>
-          _EnrollUserDialog(courses: _courses, initialCourseName: courseName),
-    );
-
-    if (result == null || !context.mounted) return;
-
-    setState(() {
-      final course = _courses.firstWhere(
-        (c) => c['name'] == result['courseName'],
-      );
-      course['enrolled'] = (course['enrolled'] as int) + 1;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${result['studentName']} inscrito(a) em ${result['courseName']} '
-          '(turma ${result['turma']}).',
-        ),
-        backgroundColor: EducanoColors.successGreen,
-        behavior: SnackBarBehavior.floating,
+      builder: (_) => EnrollUserDialog(
+        courses: active,
+        initialCourseName: active.any((c) => c['name'] == courseName) ? courseName : null,
       ),
     );
+
+    if (message == null || !context.mounted) return;
+    _snack(message);
+    await _loadCourses();
   }
 
   @override
@@ -286,12 +318,14 @@ class _CoursesViewState extends State<CoursesView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Cursos Cadastrados',
+          _isStaff ? 'Cursos Cadastrados' : 'Catálogo de Cursos',
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: _spacingMinimum),
         Text(
-          'Encontre seus cursos para editar informações e materiais.',
+          _isStaff
+              ? 'Encontre seus cursos para editar informações e materiais.'
+              : 'Inscreva-se nos cursos disponíveis e continue seus estudos.',
           style: Theme.of(
             context,
           ).textTheme.bodyLarge?.copyWith(color: EducanoColors.textSecondary),
@@ -303,6 +337,8 @@ class _CoursesViewState extends State<CoursesView> {
   /// Barra de ações acima da busca (frame do Figma: botão primário à
   /// esquerda, ações secundárias na sequência).
   Widget _buildActions(BuildContext context) {
+    // Cadastro de cursos e inscrição de outros usuários são da equipe.
+    if (!_isStaff) return const SizedBox.shrink();
     return Wrap(
       spacing: _spacingMinimum,
       runSpacing: _spacingMinimum,
@@ -316,11 +352,6 @@ class _CoursesViewState extends State<CoursesView> {
           onPressed: () => _showEnrollDialog(context),
           icon: const Icon(Icons.person_add_alt_1_rounded),
           label: const Text('Inscrever Usuário'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.download_rounded),
-          label: const Text('Exportar'),
         ),
       ],
     );
@@ -353,15 +384,23 @@ class _CoursesViewState extends State<CoursesView> {
         'icon': Icons.people_alt_rounded,
         'color': EducanoColors.accentYellow,
       },
-      {
-        'label': 'Em Rascunho',
-        'value': _courses
-            .where((c) => c['status'] == 'Rascunho')
-            .length
-            .toString(),
-        'icon': Icons.edit_note_rounded,
-        'color': EducanoColors.lightBlue,
-      },
+      if (_isStaff)
+        {
+          'label': 'Em Rascunho',
+          'value': _courses
+              .where((c) => c['status'] == 'Rascunho')
+              .length
+              .toString(),
+          'icon': Icons.edit_note_rounded,
+          'color': EducanoColors.lightBlue,
+        }
+      else
+        {
+          'label': 'Meus Cursos',
+          'value': _courses.where((c) => c['isEnrolled'] == true).length.toString(),
+          'icon': Icons.school_rounded,
+          'color': EducanoColors.lightBlue,
+        },
     ];
 
     return LayoutBuilder(
@@ -535,6 +574,21 @@ class _CoursesViewState extends State<CoursesView> {
   Widget _buildCoursesList(BuildContext context) {
     final courses = _filteredCourses;
 
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(_spacingLarge),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return Row(
+        children: [
+          Expanded(child: Text(_error!, style: const TextStyle(color: EducanoColors.error))),
+          TextButton(onPressed: _loadCourses, child: const Text('Tentar novamente')),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -585,7 +639,8 @@ class _CoursesViewState extends State<CoursesView> {
       'Inativo' => EducanoColors.error,
       _ => EducanoColors.accentYellow,
     };
-    final progress = (course['enrolled'] as int) / (course['capacity'] as int);
+    final capacity = course['capacity'] as int? ?? 0;
+    final progress = capacity == 0 ? 0.0 : (course['enrolled'] as int) / capacity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: _spacingSmall),
@@ -611,13 +666,21 @@ class _CoursesViewState extends State<CoursesView> {
               builder: (context, constraints) {
                 final isNarrow = constraints.maxWidth < AppBreakpoints.compact;
 
-                final enrollButton = AppSmallButton(
-                  onPressed: () => _showEnrollDialog(
-                    context,
-                    courseName: course['name'] as String,
-                  ),
-                  label: 'Inscrever',
-                );
+                final enrolled = course['isEnrolled'] == true;
+                final enrollButton = _isStaff
+                    ? AppSmallButton(
+                        onPressed: course['status'] != 'Ativo'
+                            ? null
+                            : () => _showEnrollDialog(
+                                  context,
+                                  courseName: course['name'] as String,
+                                ),
+                        label: 'Inscrever',
+                      )
+                    : AppSmallButton(
+                        onPressed: () => enrolled ? _openCourse(course) : _selfEnroll(course),
+                        label: enrolled ? 'Acessar' : 'Inscrever-se',
+                      );
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,12 +688,15 @@ class _CoursesViewState extends State<CoursesView> {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: EducanoColors.primaryBlue.withValues(
+                          backgroundColor: (course['color'] as Color).withValues(
                             alpha: 0.12,
                           ),
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: EducanoColors.primaryBlue,
+                          foregroundImage: (course['imageUrl'] as String? ?? '').isEmpty
+                              ? null
+                              : NetworkImage(course['imageUrl'] as String),
+                          child: Icon(
+                            course['icon'] as IconData,
+                            color: course['color'] as Color,
                           ),
                         ),
                         const SizedBox(width: _spacingSmall),
@@ -668,7 +734,7 @@ class _CoursesViewState extends State<CoursesView> {
                           ),
                           const SizedBox(width: _spacingSmall),
                           Text(
-                            '${course['enrolled']}/${course['capacity']}',
+                            '${course['enrolled']}/${course['capacity'] ?? '∞'}',
                             style: const TextStyle(
                               color: EducanoColors.textSecondary,
                             ),
@@ -716,7 +782,7 @@ class _CoursesViewState extends State<CoursesView> {
                           const SizedBox(width: _spacingMinimum),
                           Expanded(
                             child: Text(
-                              '${course['enrolled']}/${course['capacity']} '
+                              '${course['enrolled']}/${course['capacity'] ?? '∞'} '
                               'vagas',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -755,160 +821,6 @@ class _CoursesViewState extends State<CoursesView> {
           fontWeight: FontWeight.w600,
         ),
       ),
-    );
-  }
-}
-
-// IBL07 – Formulário de Inscrição de usuário em Curso
-class _EnrollUserDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> courses;
-  final String? initialCourseName;
-
-  const _EnrollUserDialog({required this.courses, this.initialCourseName});
-
-  @override
-  State<_EnrollUserDialog> createState() => _EnrollUserDialogState();
-}
-
-class _EnrollUserDialogState extends State<_EnrollUserDialog> {
-  static final RegExp _emailRegex = RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
-
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-
-  late String _selectedCourse;
-  String _selectedTurma = 'Manhã';
-
-  final List<String> _turmas = ['Manhã', 'Tarde', 'Noite', 'EAD'];
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedCourse =
-        widget.initialCourseName ?? widget.courses.first['name'] as String;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-
-    final course = widget.courses.firstWhere(
-      (c) => c['name'] == _selectedCourse,
-    );
-    if ((course['enrolled'] as int) >= (course['capacity'] as int)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Este curso já atingiu a capacidade máxima de vagas.'),
-          backgroundColor: EducanoColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    Navigator.pop(context, {
-      'courseName': _selectedCourse,
-      'studentName': _nameController.text.trim(),
-      'email': _emailController.text.trim(),
-      'turma': _selectedTurma,
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_radius),
-      ),
-      title: const Row(
-        children: [
-          Icon(
-            Icons.person_add_alt_1_rounded,
-            color: EducanoColors.primaryBlue,
-          ),
-          SizedBox(width: _spacingMinimum),
-          Expanded(child: Text('Inscrever Usuário em Curso')),
-        ],
-      ),
-      content: SizedBox(
-        width: 380,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCourse,
-                decoration: const InputDecoration(labelText: 'Curso'),
-                items: widget.courses
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c['name'] as String,
-                        child: Text(
-                          c['name'] as String,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedCourse = value!),
-              ),
-              const SizedBox(height: _spacingSmall),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome completo do aluno',
-                ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Informe o nome do aluno'
-                    : null,
-              ),
-              const SizedBox(height: _spacingSmall),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'E-mail'),
-                validator: (value) {
-                  final trimmed = value?.trim() ?? '';
-                  if (trimmed.isEmpty) return 'Informe o e-mail do aluno';
-                  if (!_emailRegex.hasMatch(trimmed)) {
-                    return 'Informe um e-mail válido';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: _spacingSmall),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedTurma,
-                decoration: const InputDecoration(labelText: 'Turma'),
-                items: _turmas
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedTurma = value!),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.check_rounded),
-          label: const Text('Inscrever aluno'),
-        ),
-      ],
     );
   }
 }

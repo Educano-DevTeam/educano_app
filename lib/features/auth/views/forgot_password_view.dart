@@ -7,6 +7,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/auth_card.dart';
+import '../../../core/navigation/app_routes.dart';
 
 class ForgotPasswordView extends StatefulWidget {
   const ForgotPasswordView({super.key});
@@ -18,35 +19,89 @@ class ForgotPasswordView extends StatefulWidget {
 class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
 
   bool _isLoading = false;
-  bool _linkSent = false;
+  bool _codeSent = false;
+  bool _obscurePassword = true;
   String? _errorMessage;
+  String? _infoMessage;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // O login envia o e-mail quando a senha expirou.
+    final email = ModalRoute.of(context)?.settings.arguments;
+    if (email is String && _emailController.text.isEmpty) {
+      _emailController.text = email;
+      _infoMessage = 'Sua senha expirou (validade de 90 dias). Redefina para continuar.';
+    }
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
+    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSendLink() async {
+  Future<void> _handleSendCode() async {
     FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
+    if (!_codeSent && !_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    final result = await AuthService.instance.sendPasswordResetLink(
+    final result = await AuthService.instance.sendPasswordResetCode(
       email: _emailController.text,
     );
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
+    setState(() {
+      _isLoading = false;
+      if (result.success) {
+        _codeSent = true;
+        _infoMessage = null;
+      } else {
+        _errorMessage = result.message ?? 'Não foi possível enviar o código.';
+      }
+    });
+  }
 
+  Future<void> _handleReset() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await AuthService.instance.resetPassword(
+      email: _emailController.text,
+      code: _codeController.text,
+      newPassword: _passwordController.text,
+    );
+
+    if (!mounted) return;
     if (result.success) {
-      setState(() => _linkSent = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Senha redefinida.')),
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
+      );
     } else {
       setState(() {
-        _errorMessage = result.message ?? 'Não foi possível enviar o link.';
+        _isLoading = false;
+        _errorMessage = result.message ?? 'Não foi possível redefinir a senha.';
       });
     }
   }
@@ -98,7 +153,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           AppLogo(size: isWeb ? 72 : 64),
           const SizedBox(height: 20),
           Text(
-            _linkSent ? 'Verifique seu e-mail' : 'Esqueceu sua senha?',
+            _codeSent ? 'Redefina sua senha' : 'Esqueceu sua senha?',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: isWeb ? 28 : 22,
@@ -108,23 +163,27 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           ),
           const SizedBox(height: 8),
           Text(
-            _linkSent
-                ? 'Enviamos um link de recuperação para ${Validators.maskEmail(_emailController.text.trim())}. Verifique também a caixa de spam.'
+            _codeSent
+                ? 'Se o e-mail ${Validators.maskEmail(_emailController.text.trim())} estiver cadastrado, você receberá um código de 6 caracteres. Verifique também a caixa de spam.'
                 : isWeb
-                ? 'Sem problemas! Digite seu e-mail e enviaremos um link para você redefinir sua senha.'
-                : 'Digite seu e-mail e enviaremos um link para redefinir sua senha.',
+                ? 'Sem problemas! Digite seu e-mail e enviaremos um código para você redefinir sua senha.'
+                : 'Digite seu e-mail e enviaremos um código para redefinir sua senha.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: isWeb ? 15 : 13,
               color: EducanoColors.textSecondary,
             ),
           ),
+          if (_infoMessage != null) ...[
+            const SizedBox(height: 16),
+            AuthMessage(message: _infoMessage!, isError: false),
+          ],
           if (_errorMessage != null) ...[
             const SizedBox(height: 16),
             AuthMessage(message: _errorMessage!, isError: true),
           ],
           const SizedBox(height: 20),
-          if (!_linkSent) ...[
+          if (!_codeSent) ...[
             AppTextField(
               label: 'E-mail',
               hint: 'Digite seu e-mail cadastrado',
@@ -132,26 +191,72 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.done,
               validator: Validators.email,
-              onFieldSubmitted: (_) => _handleSendLink(),
+              onFieldSubmitted: (_) => _handleSendCode(),
             ),
             const SizedBox(height: 20),
             PrimaryButton(
-              label: 'Enviar link de recuperação',
+              label: 'Enviar código',
               isLoading: _isLoading,
-              onPressed: _handleSendLink,
+              onPressed: _handleSendCode,
             ),
           ] else ...[
-            AppOutlineButton(
-              label: 'Reenviar link',
+            AppTextField(
+              label: 'Código',
+              hint: 'Código recebido por e-mail',
+              controller: _codeController,
+              validator: (value) => RegExp(r'^[A-Za-z0-9]{6}$').hasMatch(value?.trim() ?? '')
+                  ? null
+                  : 'Digite o código de 6 caracteres',
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Nova senha',
+              hint: 'Digite a nova senha',
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              validator: Validators.password,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: EducanoColors.textSecondary,
+                ),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Confirmar nova senha',
+              hint: 'Digite a nova senha novamente',
+              controller: _confirmController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleReset(),
+              validator: (value) =>
+                  Validators.confirmPassword(value, _passwordController.text),
+            ),
+            const SizedBox(height: 20),
+            PrimaryButton(
+              label: 'Redefinir senha',
               isLoading: _isLoading,
-              onPressed: _handleSendLink,
+              onPressed: _handleReset,
+            ),
+            const SizedBox(height: 12),
+            AppOutlineButton(
+              label: 'Reenviar código',
+              isLoading: false,
+              onPressed: _isLoading ? null : _handleSendCode,
             ),
           ],
           const SizedBox(height: 16),
           InlineLinkRow(
             text: 'Lembrou sua senha?',
             linkText: 'Voltar para o login',
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRoutes.login,
+              (route) => false,
+            ),
           ),
         ],
       ),

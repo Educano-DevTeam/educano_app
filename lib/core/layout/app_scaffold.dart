@@ -10,10 +10,10 @@ import '../widgets/components/app_sidebar.dart';
 import '../widgets/components/app_bottom_navigation.dart';
 import '../../features/materials/widgets/course_mini_audio_player.dart';
 import '../widgets/ui/app_fab_menu.dart';
-import '../../features/dashboard/views/course_editor_view.dart';
 import '../../features/dashboard/views/dashboard_users_view.dart';
 import '../../features/dashboard/views/dashboard_items_view.dart';
-import '../../features/course/widgets/course_editor_dialogs.dart';
+import '../../features/dashboard/views/dashboard_questions_view.dart';
+import '../../features/dashboard/views/dashboard_courses_view.dart';
 import '../theme/educano_colors.dart';
 import '../../services/storage_service.dart';
 import '../models/app_user.dart';
@@ -125,6 +125,7 @@ class _AppScaffoldState extends State<AppScaffold> {
         isMobile: true,
         selectedMenu: widget.selectedMenu,
         sidebarExpanded: true,
+        user: _currentUser,
         onMenuSelected: (menu) {
           Navigator.pop(context);
           _handleMenuSelected(menu);
@@ -182,6 +183,7 @@ class _AppScaffoldState extends State<AppScaffold> {
                     sidebarExpanded: _sidebarExpanded,
                     onToggleSidebar: _toggleSidebar,
                     onMenuSelected: _handleMenuSelected,
+                    user: _currentUser,
                   ),
 
                   Expanded(
@@ -203,10 +205,15 @@ class _AppScaffoldState extends State<AppScaffold> {
 
   bool get _dashboardMenuVisible => widget.selectedMenu == AppMenu.dashboard || widget.selectedMenu == AppMenu.itensListage || widget.selectedMenu == AppMenu.coursesListage || widget.selectedMenu == AppMenu.questionsListage || widget.selectedMenu == AppMenu.usersListage;
 
-  Widget _buildDashboardFab() => AppFabMenu(actions: [
-    AppFabAction(label: 'Cadastrar Usuário', icon: Icons.person_add_alt_rounded, color: EducanoColors.primaryBlue, onPressed: () => showDashboardUserDialog(context)),
-    AppFabAction(label: 'Cadastrar Curso', icon: Icons.school_rounded, color: EducanoColors.successGreen, onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CourseEditorView()))),
-    AppFabAction(label: 'Cadastrar Questão', icon: Icons.quiz_rounded, color: EducanoColors.accentYellow, onPressed: () => showActivityQuestionDialog(context)),
-    AppFabAction(label: 'Cadastrar Item', icon: Icons.store_rounded, color: const Color(0xFFE94B0C), onPressed: () => showDashboardItemDialog(context)),
-  ]);
+  Widget _buildDashboardFab() {
+    final isAdmin = _currentUser?.isAdmin ?? false;
+    return AppFabMenu(actions: [
+      if (isAdmin)
+        AppFabAction(label: 'Cadastrar Usuário', icon: Icons.person_add_alt_rounded, color: EducanoColors.primaryBlue, onPressed: () => showDashboardUserDialog(context)),
+      AppFabAction(label: 'Cadastrar Curso', icon: Icons.school_rounded, color: EducanoColors.successGreen, onPressed: () => openDashboardCourseEditor(context)),
+      AppFabAction(label: 'Cadastrar Questão', icon: Icons.quiz_rounded, color: EducanoColors.accentYellow, onPressed: () => createQuestionFromDashboard(context)),
+      if (isAdmin)
+        AppFabAction(label: 'Cadastrar Item', icon: Icons.store_rounded, color: const Color(0xFFE94B0C), onPressed: () => showDashboardItemDialog(context)),
+    ]);
+  }
 }
