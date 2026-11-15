@@ -50,35 +50,67 @@ class UsersService {
     String? type,
     String? status,
   }) async {
-    final data = await _api.get('/users', query: {
-      'page': page,
-      'busca': search,
-      'tipo': type,
-      'status': status,
-    }) as Map<String, dynamic>;
+    final response = await _api.get(
+      '/users',
+      query: {'page': page, 'busca': search, 'tipo': type, 'status': status},
+    );
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/users',
+      optional: true,
+    );
 
-    final pagination = data['paginacao'] as Map<String, dynamic>;
+    final pagination = ApiClient.responseMap(
+      data['paginacao'],
+      endpoint: '/users.paginacao',
+      optional: true,
+    );
     return UserPage(
-      users: (data['dados'] as List).cast<Map<String, dynamic>>(),
-      page: pagination['pagina'] as int,
-      totalPages: pagination['totalPaginas'] as int,
-      total: pagination['total'] as int,
+      users: ApiClient.responseList(data['dados'], endpoint: '/users.dados'),
+      page: ApiClient.responseInt(
+        pagination['pagina'],
+        endpoint: '/users.paginacao.pagina',
+        fallback: page,
+      ),
+      totalPages: ApiClient.responseInt(
+        pagination['totalPaginas'],
+        endpoint: '/users.paginacao.totalPaginas',
+      ),
+      total: ApiClient.responseInt(
+        pagination['total'],
+        endpoint: '/users.paginacao.total',
+      ),
     );
   }
 
   Future<Map<String, dynamic>> setStatus(String id, bool active) async {
-    final data = await _api.patch('/users/$id/status', {
+    final response = await _api.patch('/users/$id/status', {
       'status': active ? 'ATIVO' : 'INATIVO',
-    }) as Map<String, dynamic>;
-    return data['usuario'] as Map<String, dynamic>;
+    });
+    final data = ApiClient.responseMap(response, endpoint: '/users/$id/status');
+    return ApiClient.responseMap(
+      data['usuario'],
+      endpoint: '/users/$id/status.usuario',
+    );
   }
 
   Future<void> delete(String id) => _api.delete('/users/$id');
 
   Future<Map<String, dynamic>?> profileOf(String id) async {
     try {
-      final data = await _api.get('/users/$id/profile') as Map<String, dynamic>;
-      return (data['perfil'] ?? data['dados']) as Map<String, dynamic>?;
+      final response = await _api.get('/users/$id/profile');
+      final data = ApiClient.responseMap(
+        response,
+        endpoint: '/users/$id/profile',
+        optional: true,
+      );
+      final profile = data['perfil'] ?? data['dados'];
+      return profile == null
+          ? null
+          : ApiClient.responseMap(
+              profile,
+              endpoint: '/users/$id/profile.perfil',
+            );
     } on ApiException catch (error) {
       if (error.statusCode == 404) return null;
       rethrow;
@@ -86,23 +118,43 @@ class UsersService {
   }
 
   Future<Map<String, dynamic>> myProfile() async {
-    final data = await _api.get('/users/me/profile') as Map<String, dynamic>;
-    return data['perfil'] as Map<String, dynamic>;
+    final response = await _api.get('/users/me/profile');
+    final data = ApiClient.responseMap(response, endpoint: '/users/me/profile');
+    return ApiClient.responseMap(
+      data['perfil'],
+      endpoint: '/users/me/profile.perfil',
+    );
   }
 
-  Future<Map<String, dynamic>> updateMyProfile(Map<String, dynamic> changes) async {
-    final data = await _api.patch('/users/me/profile', changes) as Map<String, dynamic>;
-    return data['perfil'] as Map<String, dynamic>;
+  Future<Map<String, dynamic>> updateMyProfile(
+    Map<String, dynamic> changes,
+  ) async {
+    final response = await _api.patch('/users/me/profile', changes);
+    final data = ApiClient.responseMap(response, endpoint: '/users/me/profile');
+    return ApiClient.responseMap(
+      data['perfil'],
+      endpoint: '/users/me/profile.perfil',
+    );
   }
 
-  Future<Map<String, dynamic>> uploadPhoto(Uint8List bytes, String fileName) async {
-    final data = await _api.upload(
+  Future<Map<String, dynamic>> uploadPhoto(
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    final response = await _api.upload(
       '/users/me/profile/photo',
       field: 'foto',
       bytes: bytes,
       fileName: fileName,
-    ) as Map<String, dynamic>;
-    return data['perfil'] as Map<String, dynamic>;
+    );
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/users/me/profile/photo',
+    );
+    return ApiClient.responseMap(
+      data['perfil'],
+      endpoint: '/users/me/profile/photo.perfil',
+    );
   }
 
   /// Atualiza o nome e a sessão salva no aparelho.
@@ -114,11 +166,19 @@ class UsersService {
   }
 
   Future<String> changePassword(String current, String next) async {
-    final data = await _api.patch('/users/me/password', {
+    final response = await _api.patch('/users/me/password', {
       'senhaAtual': current,
       'novaSenha': next,
-    }) as Map<String, dynamic>;
-    return data['message'] as String? ?? 'Senha alterada.';
+    });
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/users/me/password',
+    );
+    return ApiClient.responseString(
+          data['message'],
+          endpoint: '/users/me/password.message',
+        ) ??
+        'Senha alterada.';
   }
 
   Future<void> deleteMyAccount() => _api.delete('/users/me');

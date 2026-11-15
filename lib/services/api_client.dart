@@ -40,6 +40,7 @@ class ApiClient {
   static final ApiClient instance = ApiClient._();
 
   static const _timeout = Duration(seconds: 30);
+  static const _downloadTimeout = Duration(seconds: 60);
 
   http.Client _http = http.Client();
 
@@ -50,11 +51,142 @@ class ApiClient {
   /// Chamado quando uma requisição autenticada recebe 401.
   void Function()? onSessionExpired;
 
+  /// Converte falhas de formato em erros controlados da API, em vez de deixar
+  /// casts inválidos escaparem como exceções não tratadas no Flutter.
+  static T parseResponse<T>(String endpoint, T Function() parse) {
+    try {
+      return parse();
+    } on TypeError {
+      throw ApiException(
+        502,
+        'A resposta recebida para $endpoint está incompleta ou em formato inválido.',
+      );
+    } on FormatException {
+      throw ApiException(
+        502,
+        'A resposta recebida para $endpoint está incompleta ou em formato inválido.',
+      );
+    } on RangeError {
+      throw ApiException(
+        502,
+        'A resposta recebida para $endpoint está incompleta ou em formato inválido.',
+      );
+    }
+  }
+
+  /// Converte um objeto JSON, tratando objetos opcionais ausentes como vazios.
+  static Map<String, dynamic> responseMap(
+    Object? value, {
+    required String endpoint,
+    bool optional = false,
+  }) => parseResponse(endpoint, () {
+    if (value == null && optional) return <String, dynamic>{};
+    if (value is Map) {
+      final result = Map<String, dynamic>.from(value);
+      if (result.isEmpty && !optional) {
+        throw const FormatException('Objeto JSON vazio.');
+      }
+      return result;
+    }
+    throw const FormatException('Esperado um objeto JSON.');
+  });
+
+  /// Converte uma lista de objetos JSON; uma coleção ausente pode ser vazia.
+  static List<Map<String, dynamic>> responseList(
+    Object? value, {
+    required String endpoint,
+    bool optional = true,
+  }) => parseResponse(endpoint, () {
+    if (value == null && optional) return <Map<String, dynamic>>[];
+    if (value is! List) throw const FormatException('Esperada uma lista JSON.');
+    return [
+      for (final item in value)
+        if (item is Map<String, dynamic>)
+          item
+        else if (item is Map)
+          Map<String, dynamic>.from(item)
+        else
+          throw const FormatException('Item inválido na lista JSON.'),
+    ];
+  });
+
+  static String? responseString(
+    Object? value, {
+    required String endpoint,
+    String? fallback,
+    bool required = false,
+  }) => parseResponse(endpoint, () {
+    if (value == null) {
+      if (required) throw const FormatException('Texto obrigatório ausente.');
+      return fallback;
+    }
+    if (value is String) return value;
+    throw const FormatException('Esperado um texto.');
+  });
+
+  static int responseInt(
+    Object? value, {
+    required String endpoint,
+    int fallback = 0,
+    bool required = false,
+  }) => parseResponse(endpoint, () {
+    if (value == null) {
+      if (required) throw const FormatException('Número obrigatório ausente.');
+      return fallback;
+    }
+    if (value is num) return value.toInt();
+    throw const FormatException('Esperado um número inteiro.');
+  });
+
+  static List<String> responseStringList(
+    Object? value, {
+    required String endpoint,
+    bool optional = true,
+  }) => parseResponse(endpoint, () {
+    if (value == null && optional) return <String>[];
+    if (value is! List) throw const FormatException('Esperada uma lista JSON.');
+    return [
+      for (final item in value)
+        if (item is String)
+          item
+        else
+          throw const FormatException('Item inválido na lista JSON.'),
+    ];
+  });
+
   Future<dynamic> get(String path, {Map<String, Object?>? query}) =>
       _send('GET', path, query: query);
 
+  Future<Uint8List> getBytes(Uri uri) async {
+    try {
+      final response = await _http
+          .get(uri, headers: const {'Accept': 'application/pdf, */*'})
+          .timeout(_downloadTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          response.statusCode,
+          'Não foi possível baixar o arquivo (HTTP ${response.statusCode}).',
+        );
+      }
+      return response.bodyBytes;
+    } on TimeoutException {
+      throw const ApiException(0, 'O download demorou demais. Tente novamente.');
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        0,
+        'Não foi possível baixar o arquivo. Verifique sua conexão.',
+      );
+    }
+  }
+
   Future<dynamic> post(String path, [Object? body]) =>
       _send('POST', path, body: body);
+
+  /// Envia um POST público sem anexar um token salvo de uma sessão anterior.
+  Future<dynamic> postPublic(String path, [Object? body]) =>
+      _send('POST', path, body: body, authenticated: false);
 
   Future<dynamic> put(String path, [Object? body]) =>
       _send('PUT', path, body: body);
@@ -150,8 +282,13 @@ class ApiClient {
     return params.isEmpty ? uri : uri.replace(queryParameters: params);
   }
 
-  Future<Map<String, String>> _headers({bool json = true}) async {
-    final token = await StorageService.instance.loadToken();
+  Future<Map<String, String>> _headers({
+    bool json = true,
+    bool authenticated = true,
+  }) async {
+    final token = authenticated
+        ? await StorageService.instance.loadToken()
+        : null;
     return {
       'Accept': 'application/json',
       if (json) 'Content-Type': 'application/json',
@@ -164,9 +301,10 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, Object?>? query,
+    bool authenticated = true,
   }) async {
     final request = http.Request(method, _uri(path, query));
-    request.headers.addAll(await _headers());
+    request.headers.addAll(await _headers(authenticated: authenticated));
     if (body != null) request.body = jsonEncode(body);
 
     try {
@@ -194,16 +332,22 @@ class ApiClient {
     if (text.isNotEmpty) {
       try {
         data = jsonDecode(text);
-      } catch (_) {
-        data = null;
+      } on FormatException {
+        throw const ApiException(
+          502,
+          'O servidor retornou uma resposta inválida. Tente novamente.',
+        );
       }
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) return data;
 
-    final message = _messageFrom(data) ??
+    final message =
+        _messageFrom(data) ??
         'Não foi possível concluir a solicitação (${response.statusCode}).';
-    final code = data is Map ? data['code'] as String? : null;
+    final code = data is Map && data['code'] is String
+        ? data['code'] as String
+        : null;
     final hadToken = response.request?.headers['Authorization'] != null;
 
     if (response.statusCode == 401 && hadToken) {
@@ -221,7 +365,9 @@ class ApiClient {
     final errors = data['errors'];
     if (errors is List && errors.isNotEmpty && errors.first is Map) {
       final detail = (errors.first as Map)['message'];
-      if (detail is String && detail.isNotEmpty && !detail.startsWith('Invalid')) {
+      if (detail is String &&
+          detail.isNotEmpty &&
+          !detail.startsWith('Invalid')) {
         return '${message ?? 'Dados inválidos.'} $detail';
       }
     }

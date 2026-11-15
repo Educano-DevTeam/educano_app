@@ -9,20 +9,36 @@ class ProgressService {
   final _api = ApiClient.instance;
 
   /// Estatísticas do usuário logado (nível, XP, cursos, desempenho).
-  Future<Map<String, dynamic>> me() async =>
-      await _api.get('/progress/me') as Map<String, dynamic>;
+  Future<Map<String, dynamic>> me() async => ApiClient.responseMap(
+    await _api.get('/progress/me'),
+    endpoint: '/progress/me',
+  );
 
   Future<Map<String, dynamic>> ranking({int page = 1}) async =>
-      await _api.get('/ranking', query: {'page': page}) as Map<String, dynamic>;
+      ApiClient.responseMap(
+        await _api.get('/ranking', query: {'page': page}),
+        endpoint: '/ranking',
+      );
 
   Future<Map<String, dynamic>> plans() async =>
-      await _api.get('/plans') as Map<String, dynamic>;
+      ApiClient.responseMap(await _api.get('/plans'), endpoint: '/plans');
 
   Future<String> subscribe(String planId) async {
-    final data = await _api.post('/plans/$planId/subscribe') as Map<String, dynamic>;
-    return data['message'] as String? ?? 'Plano alterado.';
+    final response = await _api.post('/plans/$planId/subscribe');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/plans/$planId/subscribe',
+    );
+    return ApiClient.responseString(
+          data['message'],
+          endpoint: '/plans/$planId/subscribe.message',
+        ) ??
+        'Plano alterado.';
   }
 
   Future<Map<String, dynamic>> dashboardSummary() async =>
-      await _api.get('/dashboard/summary') as Map<String, dynamic>;
+      ApiClient.responseMap(
+        await _api.get('/dashboard/summary'),
+        endpoint: '/dashboard/summary',
+      );
 }

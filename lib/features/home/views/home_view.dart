@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/utils/api_mappers.dart';
+import '../models/home_level_progress.dart';
 import '../../../services/api_client.dart';
-import '../../../services/progress_service.dart';
+import '../../../services/courses_service.dart';
+import '../../../services/users_service.dart';
 
 const double _spacingSmall = 16;
 const double _spacingMedium = 24;
@@ -22,9 +24,11 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   List<_CourseData> _courses = const [];
-  _LevelData? _level;
+  HomeLevelProgress? _level;
   bool _loading = true;
+  bool _levelLoading = true;
   String? _error;
+  String? _levelError;
 
   @override
   void initState() {
@@ -33,14 +37,21 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _levelLoading = true;
+      _error = null;
+      _levelError = null;
+    });
+    await Future.wait([_loadCourses(), _loadLevel()]);
+  }
+
+  Future<void> _loadCourses() async {
     try {
-      final progress = await ProgressService.instance.me();
-      final perfil = progress['perfil'] as Map<String, dynamic>;
-      final cursos = (progress['cursos'] as Map<String, dynamic>)['lista'] as List;
+      final enrolled = await CoursesService.instance.myCourses();
       if (!mounted) return;
       setState(() {
-        _level = _LevelData.fromApi(perfil);
-        _courses = cursos.cast<Map<String, dynamic>>().map(_CourseData.fromApi).toList();
+        _courses = enrolled.map(_CourseData.fromApi).toList();
         _loading = false;
         _error = null;
       });
@@ -49,6 +60,35 @@ class _HomeViewState extends State<HomeView> {
       setState(() {
         _loading = false;
         _error = error.message;
+      });
+    }
+  }
+
+  Future<void> _loadLevel() async {
+    if (mounted) {
+      setState(() {
+        _levelLoading = true;
+        _levelError = null;
+      });
+    }
+    try {
+      final perfil = await UsersService.instance.myProfile();
+      final totalXp = ApiClient.responseInt(
+        perfil['xp'],
+        endpoint: '/users/me/profile.perfil.xp',
+        required: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _level = HomeLevelProgress.fromTotalXp(totalXp);
+        _levelLoading = false;
+        _levelError = null;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _levelLoading = false;
+        _levelError = error.message;
       });
     }
   }
@@ -86,7 +126,13 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
 
-              _OverviewCard(isMobile: isMobile, level: _level),
+              _OverviewCard(
+                isMobile: isMobile,
+                level: _level,
+                loading: _levelLoading,
+                error: _levelError,
+                onRetry: _loadLevel,
+              ),
 
               const SizedBox(height: _spacingMedium),
 
@@ -105,9 +151,18 @@ class _HomeViewState extends State<HomeView> {
 
 class _OverviewCard extends StatelessWidget {
   final bool isMobile;
-  final _LevelData? level;
+  final HomeLevelProgress? level;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRetry;
 
-  const _OverviewCard({required this.isMobile, this.level});
+  const _OverviewCard({
+    required this.isMobile,
+    this.level,
+    required this.loading,
+    this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +187,25 @@ class _OverviewCard extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          _LevelCard(isMobile: isMobile, level: level ?? const _LevelData.empty()),
+          if (loading)
+            const Center(child: CircularProgressIndicator())
+          else if (error != null)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: EducanoColors.error),
+                  ),
+                ),
+                TextButton(onPressed: onRetry, child: const Text('Tentar novamente')),
+              ],
+            )
+          else
+            _LevelCard(
+              isMobile: isMobile,
+              level: level ?? HomeLevelProgress.fromTotalXp(0),
+            ),
         ],
       ),
     );
@@ -145,7 +218,7 @@ class _OverviewCard extends StatelessWidget {
 
 class _LevelCard extends StatelessWidget {
   final bool isMobile;
-  final _LevelData level;
+  final HomeLevelProgress level;
 
   const _LevelCard({required this.isMobile, required this.level});
 
@@ -695,54 +768,27 @@ class _CourseData {
     required this.color,
   });
 
-  /// Curso inscrito retornado em /progress/me.
+  /// Curso inscrito retornado por /courses/minhas-inscricoes.
   factory _CourseData.fromApi(Map<String, dynamic> json) {
-    final progress = (json['progresso'] as num).toDouble();
-    final minutes = json['cargaHorariaMinutos'] as int? ?? 0;
-    final hours = (minutes / 60).round();
+    final progressData = json['progresso'] as Map<String, dynamic>? ?? const {};
+    final progressValue = progressData['percentual'] ?? json['progresso'];
+    final rawProgress = (progressValue as num?)?.toDouble() ?? 0;
+    final progress = rawProgress > 1 ? rawProgress / 100 : rawProgress;
+    final workload = (json['cargaHoraria'] as num?)?.toInt() ?? 0;
+    final image = CoursesService.courseCoverUrl(json) ?? '';
     return _CourseData(
       id: json['id'] as String,
       title: json['nome'] as String,
       category: ApiMappers.categoryLabel(json['categoria'] as String?),
-      hours: minutes <= 0
-          ? '${json['totalConteudos']} ${json['totalConteudos'] == 1 ? 'conteúdo' : 'conteúdos'}'
-          : (hours > 0 ? '$hours ${hours == 1 ? 'Hora' : 'Horas'}' : '$minutes min'),
+      hours: '$workload ${workload == 1 ? 'Hora' : 'Horas'}',
       description: json['descricao'] as String? ?? '',
       progress: progress,
       progressLabel: progress >= 1 ? 'Concluído' : '${(progress * 100).round()}%',
-      image: ApiMappers.mediaUrl(json['idCapa'] as String?) ?? '',
+      image: image,
       icon: ApiMappers.coverIcon(json['iconeCapa'] as String?),
       color: ApiMappers.color(json['cor'] as String?),
     );
   }
-}
-
-class _LevelData {
-  final int level;
-  final int xpInLevel;
-  final int xpPerLevel;
-  final int totalXp;
-
-  const _LevelData({
-    required this.level,
-    required this.xpInLevel,
-    required this.xpPerLevel,
-    required this.totalXp,
-  });
-
-  const _LevelData.empty() : level = 0, xpInLevel = 0, xpPerLevel = 250, totalXp = 0;
-
-  factory _LevelData.fromApi(Map<String, dynamic> perfil) => _LevelData(
-    level: perfil['nivel'] as int,
-    xpInLevel: perfil['xpNoNivel'] as int,
-    xpPerLevel: perfil['xpParaProximoNivel'] as int,
-    totalXp: perfil['xp'] as int,
-  );
-
-  double get progress => xpPerLevel == 0 ? 0 : xpInLevel / xpPerLevel;
-  String get percentLabel => '${(progress * 100).round()}%';
-  String get label =>
-      '$xpInLevel/$xpPerLevel XP para o Level ${level + 1} · $totalXp XP no total';
 }
 
 /// Imagem do curso (URL da API) ou o ícone e a cor dele.

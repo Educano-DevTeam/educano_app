@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -97,6 +99,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
   String? _duration;
   // Arquivo novo enviado ao storage da API (ainda não vinculado).
   String? _fileId;
+  Uint8List? _fileBytes;
   bool _uploading = false;
   bool _showFileError = false;
   late final TextEditingController _durationController;
@@ -136,6 +139,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       _fileSize = null;
       _duration = null;
       _fileId = null;
+      _fileBytes = null;
       _durationController.clear();
     });
   }
@@ -154,15 +158,9 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
 
     try {
       final bytes = await file.readAsBytes();
-      final type = switch (_kind) {
-        MaterialKind.pdf => 'PDF',
-        MaterialKind.video => 'VIDEO',
-        MaterialKind.audio => 'AUDIO',
-      };
-      final id = await CoursesService.instance.uploadFile(type, bytes, file.name);
       if (!mounted) return;
       setState(() {
-        _fileId = id;
+        _fileBytes = bytes;
         _fileName = file.name;
         _fileSize = ApiMappers.fileSize(bytes.lengthInBytes);
         _showFileError = false;
@@ -190,6 +188,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       _fileSize = null;
       _duration = null;
       _fileId = null;
+      _fileBytes = null;
     });
   }
 
@@ -211,6 +210,7 @@ class _MaterialEditorViewState extends State<MaterialEditorView> {
       'icon': _kind.icon,
       'fileName': _fileName,
       'fileSize': _fileSize,
+      if (_fileBytes != null) 'fileBytes': _fileBytes,
       if (_fileId != null) 'idArquivo': _fileId,
       if (duration.isNotEmpty) 'duration': duration,
     });

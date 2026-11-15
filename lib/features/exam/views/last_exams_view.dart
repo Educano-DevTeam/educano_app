@@ -54,7 +54,7 @@ class _UltimosSimuladosScreenState extends State<UltimosSimuladosScreen> {
       final expired = inProgress && (session.remainingSeconds ?? 0) <= 0;
       if (expired) {
         // O tempo acabou: finaliza para calcular a nota.
-        final finished = await ExamsService.instance.finish(session.id!);
+        final finished = await ExamsService.instance.finish(session);
         if (!mounted) return;
         await Navigator.of(context).pushNamed(ExamResultScreen.routeName, arguments: finished);
       } else {

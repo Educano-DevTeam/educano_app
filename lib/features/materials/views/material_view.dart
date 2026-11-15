@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -15,6 +16,9 @@ import '../config/material_test_paths.dart';
 import '../models/material_route_args.dart';
 import '../services/audio_playback_service.dart';
 import '../services/material_video_controller.dart';
+import '../services/remote_pdf_frame_stub.dart'
+    if (dart.library.js_interop) '../services/remote_pdf_frame_web.dart'
+    as remote_pdf;
 import '../widgets/material_playback_controls.dart';
 
 class MaterialView extends StatefulWidget {
@@ -22,6 +26,11 @@ class MaterialView extends StatefulWidget {
   final String sessionId;
   final String moduleId;
   final String materialId;
+  final String? materialUrl;
+  final MaterialKind? materialKind;
+  final String? title;
+  final String? materialDescription;
+  final bool materialCompleted;
 
   const MaterialView({
     super.key,
@@ -29,6 +38,11 @@ class MaterialView extends StatefulWidget {
     required this.sessionId,
     required this.moduleId,
     required this.materialId,
+    this.materialUrl,
+    this.materialKind,
+    this.title,
+    this.materialDescription,
+    this.materialCompleted = false,
   });
 
   @override
@@ -53,18 +67,29 @@ class _MaterialViewState extends State<MaterialView> {
     CourseMaterial? found;
 
     try {
-      final course = await _service.course(widget.courseId);
-      for (final session in course.sessions) {
-        if (session.id != widget.sessionId) continue;
-        for (final module in session.modules) {
-          if (module.id != widget.moduleId) continue;
-          for (final material in module.materials) {
-            if (material.id == widget.materialId) found = material;
+      if (widget.materialKind != null) {
+        found = CourseMaterial(
+          id: widget.materialId,
+          kind: widget.materialKind!,
+          title: widget.title ?? 'Material didático',
+          description: widget.materialDescription ?? '',
+          fileUrl: widget.materialUrl,
+          completed: widget.materialCompleted,
+        );
+      } else {
+        final course = await _service.course(widget.courseId);
+        for (final session in course.sessions) {
+          if (session.id != widget.sessionId) continue;
+          for (final module in session.modules) {
+            if (module.id != widget.moduleId) continue;
+            for (final material in module.materials) {
+              if (material.id == widget.materialId) found = material;
+            }
           }
         }
       }
 
-      // O arquivo é aberto por um link temporário, liberado pela inscrição.
+      // URLs incluídas no curso expiram; solicita uma URL atual ao abrir.
       if (found != null && found.kind != MaterialKind.activity) {
         final access = await _service.materialAccess(found.id);
         found = CourseMaterial(
@@ -75,6 +100,7 @@ class _MaterialViewState extends State<MaterialView> {
           fileName: access.fileName,
           fileUrl: access.url,
           fileSizeBytes: found.fileSizeBytes,
+          pageCount: found.pageCount,
           durationSeconds: found.durationSeconds,
           completed: found.completed,
         );
@@ -107,10 +133,10 @@ class _MaterialViewState extends State<MaterialView> {
       }
     }
 
-    await _markMaterialCompleted();
+    final reward = await _markMaterialCompleted();
 
     if (!mounted) return;
-    Navigator.of(context).pop(true);
+    Navigator.of(context).pop(reward);
   }
 
   Future<void> _minimizeAudio() async {
@@ -125,37 +151,22 @@ class _MaterialViewState extends State<MaterialView> {
         materialId: widget.materialId,
       ),
     );
-    await _markMaterialCompleted();
+    final reward = await _markMaterialCompleted();
 
     if (!mounted) return;
-    Navigator.of(context).pop(true);
+    Navigator.of(context).pop(reward);
   }
 
-  Future<void> _markMaterialCompleted() async {
-    if (_material == null || _material!.completed) return;
-    // O messenger do app continua disponível depois que a tela fecha.
-    final messenger = ScaffoldMessenger.maybeOf(context);
+  Future<Map<String, dynamic>> _markMaterialCompleted() async {
+    if (_material == null || _material!.completed) return {'xp': 0, 'moedas': 0};
     try {
       final result = await _service.completeMaterial(widget.materialId);
       final reward = result['recompensa'] as Map<String, dynamic>?;
-      final xp = reward?['xp'] as int? ?? 0;
-      if (xp > 0) {
-        final coins = reward?['moedas'] as int? ?? 0;
-        messenger?.showSnackBar(
-          SnackBar(
-            content: Text(
-              result['moduloConcluido'] == true
-                  ? 'Módulo concluído! +$xp XP · +$coins moedas'
-                  : 'Material concluído! +$xp XP · +$coins moedas',
-            ),
-            backgroundColor: EducanoColors.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      return {'xp': reward?['xp'] as int? ?? 0, 'moedas': reward?['moedas'] as int? ?? 0};
     } on ApiException catch (error) {
       // Quem gerencia o curso sem estar inscrito apenas visualiza.
       debugPrint('Progresso não registrado: ${error.message}');
+      return {'xp': 0, 'moedas': 0};
     }
   }
 
@@ -334,6 +345,7 @@ class _VideoMaterialViewState extends State<_VideoMaterialView> {
   }
 
   Future<void> _initialize() async {
+    VideoPlayerController? controller;
     try {
       final source = widget.material.fileUrl?.trim().isNotEmpty == true
           ? widget.material.fileUrl!.trim()
@@ -343,7 +355,7 @@ class _VideoMaterialViewState extends State<_VideoMaterialView> {
           !source.startsWith('https://')) {
         await rootBundle.load(source);
       }
-      final controller = createMaterialVideoController(
+      controller = createMaterialVideoController(
         source: source,
         bytes: widget.material.fileBytes,
         path: widget.material.filePath,
@@ -357,6 +369,7 @@ class _VideoMaterialViewState extends State<_VideoMaterialView> {
       await controller.play();
       setState(() => _controller = controller);
     } catch (error) {
+      await controller?.dispose();
       debugPrint('Failed to load video: $error');
       if (mounted) {
         setState(() {
@@ -594,9 +607,9 @@ class _AudioMaterialViewState extends State<_AudioMaterialView> {
         : widget.material.fileBytes != null
             ? 'attachment:${widget.material.id}'
             : MaterialTestPaths.audio;
-    // O link do arquivo muda a cada acesso (token); compara sem a query.
+    // O token da URL assinada muda a cada acesso e não deve reutilizar um link antigo.
     if (_service.title == widget.material.title &&
-        _service.source?.split('?').first == source.split('?').first &&
+        _service.source == source &&
         !_service.loading) {
       _service.restore();
       return;
@@ -832,15 +845,27 @@ class _PdfMaterialViewState extends State<_PdfMaterialView> {
   @override
   void initState() {
     super.initState();
-    _loadTimeout = Timer(const Duration(seconds: 25), () {
+    _loadTimeout = Timer(const Duration(seconds: 60), () {
       if (mounted && !_documentLoaded) {
         _failPdfLoad('PDF loading timed out.');
       }
     });
     if (widget.material.fileBytes != null) {
       _pdfBytes = widget.material.fileBytes;
+    } else if (_isNetwork && !kIsWeb) {
+      _loadRemotePdf();
     } else if (!_isNetwork) {
       _loadLocalPdf();
+    }
+  }
+
+  Future<void> _loadRemotePdf() async {
+    try {
+      final bytes = await CoursesService.instance.materialPdfBytes(_source);
+      if (!mounted) return;
+      setState(() => _pdfBytes = bytes);
+    } on ApiException catch (error) {
+      _failPdfLoad(error.message);
     }
   }
 
@@ -886,48 +911,56 @@ class _PdfMaterialViewState extends State<_PdfMaterialView> {
               child: _MaterialHeader(
                 material: widget.material,
                 onBack: widget.onBack,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: 'Diminuir zoom',
-                      onPressed: () {
-                        _controller.zoomLevel =
-                            (_controller.zoomLevel - .25).clamp(.5, 3.0);
-                      },
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    Text('${(_controller.zoomLevel * 100).round()}%'),
-                    IconButton(
-                      tooltip: 'Aumentar zoom',
-                      onPressed: () {
-                        _controller.zoomLevel =
-                            (_controller.zoomLevel + .25).clamp(.5, 3.0);
-                      },
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                    IconButton(
-                      tooltip: 'Imprimir',
-                      onPressed: () {},
-                      icon: const Icon(Icons.print_outlined),
-                    ),
-                    IconButton(
-                      tooltip: 'Baixar',
-                      onPressed: () {},
-                      icon: const Icon(Icons.download_outlined),
-                    ),
-                  ],
-                ),
+                trailing: kIsWeb && _isNetwork
+                    ? Text(
+                        widget.material.metadataLabel,
+                        style: const TextStyle(
+                          color: EducanoColors.successGreen,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Diminuir zoom',
+                            onPressed: () {
+                              _controller.zoomLevel =
+                                  (_controller.zoomLevel - .25).clamp(.5, 3.0);
+                            },
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                          Text('${(_controller.zoomLevel * 100).round()}%'),
+                          IconButton(
+                            tooltip: 'Aumentar zoom',
+                            onPressed: () {
+                              _controller.zoomLevel =
+                                  (_controller.zoomLevel + .25).clamp(.5, 3.0);
+                            },
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                          IconButton(
+                            tooltip: 'Imprimir',
+                            onPressed: () {},
+                            icon: const Icon(Icons.print_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'Baixar',
+                            onPressed: () {},
+                            icon: const Icon(Icons.download_outlined),
+                          ),
+                        ],
+                      ),
               ),
             ),
             Expanded(
               child: Row(
                 children: [
-                  if (!mobile)
+                  if (!mobile && !kIsWeb)
                     _PdfPageRail(
                       pageCount: _pageCount,
                       currentPage: _currentPage,
-                      source: _source,
                       pdfBytes: _pdfBytes,
                       onPageSelected: _controller.jumpToPage,
                     ),
@@ -983,19 +1016,10 @@ class _PdfMaterialViewState extends State<_PdfMaterialView> {
       return _PlayerError(message: _loadError!);
     }
 
-    if (_isNetwork) {
-      return SfPdfViewer.network(
+    if (kIsWeb && _isNetwork) {
+      return remote_pdf.buildRemotePdfFrame(
         _source,
-        controller: _controller,
-        initialPageNumber: 1,
-        pageLayoutMode: PdfPageLayoutMode.single,
-        scrollDirection: mobile
-            ? PdfScrollDirection.vertical
-            : PdfScrollDirection.horizontal,
-        canShowScrollHead: false,
-        onDocumentLoaded: _onDocumentLoaded,
-        onPageChanged: _onPageChanged,
-        onDocumentLoadFailed: (_) => _failPdfLoad('Could not render the PDF.'),
+        _onRemotePdfFrameLoaded,
       );
     }
 
@@ -1014,8 +1038,15 @@ class _PdfMaterialViewState extends State<_PdfMaterialView> {
       canShowScrollHead: false,
       onDocumentLoaded: _onDocumentLoaded,
       onPageChanged: _onPageChanged,
-      onDocumentLoadFailed: (_) => _failPdfLoad('Could not render the PDF.'),
+      onDocumentLoadFailed: (details) => _failPdfLoad(
+        '${details.error}: ${details.description}',
+      ),
     );
+  }
+
+  void _onRemotePdfFrameLoaded() {
+    _loadTimeout?.cancel();
+    if (mounted) setState(() => _documentLoaded = true);
   }
 
   void _onDocumentLoaded(PdfDocumentLoadedDetails details) {
@@ -1080,14 +1111,12 @@ class _PdfMobilePageNavigation extends StatelessWidget {
 class _PdfPageRail extends StatelessWidget {
   final int pageCount;
   final int currentPage;
-  final String source;
   final Uint8List? pdfBytes;
   final ValueChanged<int> onPageSelected;
 
   const _PdfPageRail({
     required this.pageCount,
     required this.currentPage,
-    required this.source,
     required this.pdfBytes,
     required this.onPageSelected,
   });
@@ -1104,7 +1133,7 @@ class _PdfPageRail extends StatelessWidget {
         border: Border.all(color: const Color(0xFFD4D4D4), width: 1.5),
       ),
       child: pageCount == 0
-          ? const Center(child: CircularProgressIndicator())
+          ? const SizedBox.shrink()
           : ListView.separated(
               itemCount: pageCount,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -1133,20 +1162,10 @@ class _PdfPageRail extends StatelessWidget {
                       aspectRatio: .72,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: pdfBytes != null
-                            ? SfPdfViewer.memory(
+                        child: pdfBytes == null
+                            ? const SizedBox.shrink()
+                            : SfPdfViewer.memory(
                                 pdfBytes!,
-                                initialPageNumber: page,
-                                pageLayoutMode: PdfPageLayoutMode.single,
-                                scrollDirection: PdfScrollDirection.horizontal,
-                                canShowScrollHead: false,
-                                canShowPaginationDialog: false,
-                                canShowScrollStatus: false,
-                                enableTextSelection: false,
-                                enableDoubleTapZooming: false,
-                              )
-                            : SfPdfViewer.network(
-                                source,
                                 initialPageNumber: page,
                                 pageLayoutMode: PdfPageLayoutMode.single,
                                 scrollDirection: PdfScrollDirection.horizontal,

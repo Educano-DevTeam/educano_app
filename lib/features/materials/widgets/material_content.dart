@@ -23,6 +23,11 @@ class MaterialContent extends StatelessWidget {
       sessionId: arguments.sessionId,
       moduleId: arguments.moduleId,
       materialId: arguments.materialId,
+      materialUrl: arguments.materialUrl,
+      materialKind: arguments.materialKind,
+      title: arguments.title,
+      materialDescription: arguments.description,
+      materialCompleted: arguments.completed,
     );
   }
 }

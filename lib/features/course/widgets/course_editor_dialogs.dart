@@ -11,7 +11,6 @@ import '../models/course_models.dart';
 const _blue = Color(0xFF425BC2);
 const _border = Color(0xFFD4D4D4);
 
-/// Matérias oferecidas no cadastro de questões e na configuração de simulados.
 const questionSubjects = [
   'Matemática',
   'Linguagens',
@@ -20,15 +19,16 @@ const questionSubjects = [
   'Redação',
 ];
 
-Future<Map<String, String>?> showSessionEditor(BuildContext context) {
-  final title = TextEditingController();
-  final subtitle = TextEditingController();
-  final description = TextEditingController();
+Future<Map<String, String>?> showSessionEditor(BuildContext context, {CourseSession? session}) {
+  final title = TextEditingController(text: session?.title ?? '');
+  final subtitle = TextEditingController(text: session?.subtitle ?? '');
+  final description = TextEditingController(text: session?.description ?? '');
 
   return showDialog<Map<String, String>>(
     context: context,
     builder: (_) => _TextEditorDialog(
-      title: 'Cadastrar sessão',
+      title: session == null ? 'Cadastrar sessão' : 'Editar sessão',
+      submitLabel: session == null ? 'Cadastrar' : 'Salvar',
       fields: [
         ('Título', title, 'Ex.: C. Humanas'),
         ('Subtítulo', subtitle, 'Ex.: 500 anos de História'),
@@ -43,14 +43,15 @@ Future<Map<String, String>?> showSessionEditor(BuildContext context) {
   );
 }
 
-Future<Map<String, String>?> showModuleEditor(BuildContext context) {
-  final title = TextEditingController();
-  final description = TextEditingController();
+Future<Map<String, String>?> showModuleEditor(BuildContext context, {CourseModule? module}) {
+  final title = TextEditingController(text: module?.title ?? '');
+  final description = TextEditingController(text: module?.description ?? '');
 
   return showDialog<Map<String, String>>(
     context: context,
     builder: (_) => _TextEditorDialog(
-      title: 'Cadastrar módulo',
+      title: module == null ? 'Cadastrar módulo' : 'Editar módulo',
+      submitLabel: module == null ? 'Cadastrar' : 'Salvar',
       fields: [
         ('Título', title, 'Ex.: Módulo 8: Redemocratização'),
         ('Descrição', description, 'Resumo do conteúdo do módulo.'),
@@ -65,11 +66,13 @@ Future<Map<String, String>?> showModuleEditor(BuildContext context) {
 
 class _TextEditorDialog extends StatefulWidget {
   final String title;
+  final String submitLabel;
   final List<(String, TextEditingController, String)> fields;
   final Map<String, String> Function() onSubmit;
 
   const _TextEditorDialog({
     required this.title,
+    this.submitLabel = 'Cadastrar',
     required this.fields,
     required this.onSubmit,
   });
@@ -127,23 +130,24 @@ class _TextEditorDialogState extends State<_TextEditorDialog> {
             Navigator.pop(context, widget.onSubmit());
           },
           icon: const Icon(Icons.check_rounded),
-          label: const Text('Cadastrar'),
+          label: Text(widget.submitLabel),
         ),
       ],
     );
   }
 }
 
-Future<CourseMaterial?> showMaterialEditor(BuildContext context) {
+Future<CourseMaterial?> showMaterialEditor(BuildContext context, {CourseMaterial? material}) {
   return showDialog<CourseMaterial>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const _MaterialEditorDialog(),
+    builder: (_) => _MaterialEditorDialog(initialMaterial: material),
   );
 }
 
 class _MaterialEditorDialog extends StatefulWidget {
-  const _MaterialEditorDialog();
+  const _MaterialEditorDialog({this.initialMaterial});
+  final CourseMaterial? initialMaterial;
 
   @override
   State<_MaterialEditorDialog> createState() => _MaterialEditorDialogState();
@@ -152,6 +156,16 @@ class _MaterialEditorDialog extends StatefulWidget {
 class _MaterialEditorDialogState extends State<_MaterialEditorDialog> {
   MaterialKind? _kind;
   int _step = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final material = widget.initialMaterial;
+    if (material != null) {
+      _kind = material.kind;
+      _step = 1;
+    }
+  }
 
   void _selectKind(MaterialKind kind) {
     setState(() {
@@ -195,6 +209,7 @@ class _MaterialEditorDialogState extends State<_MaterialEditorDialog> {
                   key: ValueKey(_kind),
                   kind: _kind!,
                   onBack: _backToKind,
+                  initialMaterial: widget.initialMaterial,
                 ),
         ),
       ),
@@ -323,11 +338,13 @@ class _KindCard extends StatelessWidget {
 class _MaterialFormStep extends StatefulWidget {
   final MaterialKind kind;
   final VoidCallback onBack;
+  final CourseMaterial? initialMaterial;
 
   const _MaterialFormStep({
     super.key,
     required this.kind,
     required this.onBack,
+    this.initialMaterial,
   });
 
   @override
@@ -341,6 +358,8 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
   final _file = TextEditingController();
   final _theme = TextEditingController();
   final _duration = TextEditingController();
+  final _materialDuration = TextEditingController();
+  final _pageCount = TextEditingController();
   Uint8List? _fileBytes;
   String? _selectedFileName;
   String? _selectedFilePath;
@@ -352,8 +371,30 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
   ActivityQuestion? _selectedBankQuestion;
 
   @override
+  void initState() {
+    super.initState();
+    final material = widget.initialMaterial;
+    if (material == null) return;
+    _title.text = material.title;
+    _description.text = material.description;
+    _fileKind = material.kind;
+    _selectedFileName = material.fileName;
+    _selectedFileSize = material.fileSizeBytes;
+    _file.text = material.fileName ?? '';
+    _fileBytes = material.fileBytes;
+    if (material.pageCount != null) _pageCount.text = '${material.pageCount}';
+    if (material.durationSeconds != null) _materialDuration.text = '${material.durationSeconds! ~/ 60}';
+    final activity = material.activity;
+    if (activity != null) {
+      _theme.text = activity.theme;
+      _duration.text = '${activity.durationMinutes}';
+      _questions.addAll(activity.questions);
+    }
+  }
+
+  @override
   void dispose() {
-    for (final c in [_title, _description, _file, _theme, _duration]) {
+    for (final c in [_title, _description, _file, _theme, _duration, _materialDuration, _pageCount]) {
       c.dispose();
     }
     super.dispose();
@@ -425,7 +466,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    isActivity ? 'Cadastrar atividade' : 'Cadastrar aula',
+                    widget.initialMaterial != null
+                        ? 'Editar ${isActivity ? 'atividade' : 'aula'}'
+                        : (isActivity ? 'Cadastrar atividade' : 'Cadastrar aula'),
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -460,7 +503,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                   onPressed: _submit,
                   icon: const Icon(Icons.check_rounded),
                   label: Text(
-                    isActivity ? 'Cadastrar atividade' : 'Cadastrar aula',
+                    widget.initialMaterial == null
+                        ? (isActivity ? 'Cadastrar atividade' : 'Cadastrar aula')
+                        : 'Salvar alteraÃ§Ãµes',
                   ),
                 ),
               ],
@@ -508,6 +553,27 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           validator: _required,
         ),
         const SizedBox(height: 14),
+        if (_fileKind == MaterialKind.pdf)
+          TextFormField(
+            controller: _pageCount,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Quantidade de páginas'),
+            validator: (value) {
+              final pages = int.tryParse((value ?? '').trim());
+              return pages == null || pages < 1 ? 'Informe a quantidade de páginas.' : null;
+            },
+          )
+        else
+          TextFormField(
+            controller: _materialDuration,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Duração (minutos)'),
+            validator: (value) {
+              final minutes = int.tryParse((value ?? '').trim());
+              return minutes == null || minutes < 1 ? 'Informe a duração em minutos.' : null;
+            },
+          ),
+        const SizedBox(height: 14),
         TextFormField(
           controller: _file,
           decoration: InputDecoration(
@@ -546,8 +612,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           },
           readOnly: true,
           onTap: _fileBytes == null && !_pickingFile ? _pickAttachment : null,
-          validator: (_) =>
-              _fileBytes == null ? 'Selecione o arquivo da aula.' : null,
+          validator: (_) => _fileBytes == null && widget.initialMaterial == null
+              ? 'Selecione o arquivo da aula.'
+              : null,
         ),
         if (_selectedFileSize != null) ...[
           const SizedBox(height: 6),
@@ -675,7 +742,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
       Navigator.pop(
         context,
         CourseMaterial(
-          id: 'material-${DateTime.now().microsecondsSinceEpoch}',
+          id: widget.initialMaterial?.id ?? 'material-${DateTime.now().microsecondsSinceEpoch}',
           kind: MaterialKind.activity,
           title: _theme.text.trim(),
           description: 'Atividade com ${_questions.length} questões.',
@@ -693,7 +760,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
     Navigator.pop(
       context,
       CourseMaterial(
-        id: 'material-${DateTime.now().microsecondsSinceEpoch}',
+          id: widget.initialMaterial?.id ?? 'material-${DateTime.now().microsecondsSinceEpoch}',
         kind: _fileKind,
         title: _title.text.trim(),
         description: _description.text.trim(),
@@ -701,6 +768,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
         fileBytes: _fileBytes,
         filePath: _selectedFilePath,
         fileSizeBytes: _selectedFileSize,
+        fileUrl: widget.initialMaterial?.fileUrl,
+        pageCount: _fileKind == MaterialKind.pdf ? int.parse(_pageCount.text.trim()) : null,
+        durationSeconds: _fileKind == MaterialKind.pdf ? null : int.parse(_materialDuration.text.trim()) * 60,
       ),
     );
   }
@@ -794,7 +864,7 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
                       dense: true,
                       title: Text(question.title),
                       subtitle: Text(
-                        '${question.subject} · ${question.difficulty.label} · ${question.statement}',
+                        '${question.subject.isEmpty ? '' : '${question.subject} · '}${question.difficulty.label} · ${question.statement}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -891,22 +961,13 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.question?.title);
   late final _statement = TextEditingController(text: widget.question?.statement);
-  late final _topic = TextEditingController(text: widget.question?.topic);
-  late final _explanation = TextEditingController(text: widget.question?.explanation);
   late final List<TextEditingController> _answers = widget.question == null
       ? [TextEditingController(), TextEditingController()]
       : widget.question!.options.map((o) => TextEditingController(text: o)).toList();
-  // Ids das alternativas existentes, na mesma ordem dos campos.
-  late final List<String?> _answerIds = widget.question == null
-      ? [null, null]
-      : List<String?>.from(widget.question!.optionIds);
   late ActivityQuestionDifficulty _difficulty =
       widget.question?.difficulty ?? ActivityQuestionDifficulty.easy;
   late int _correctIndex =
       (widget.question?.correctOptionIndex ?? 0).clamp(0, 4).toInt();
-  late String _subject = questionSubjects.contains(widget.question?.subject)
-      ? widget.question!.subject
-      : questionSubjects.first;
   bool _saving = false;
 
   bool get _editing => widget.question != null;
@@ -915,8 +976,6 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   void dispose() {
     _title.dispose();
     _statement.dispose();
-    _topic.dispose();
-    _explanation.dispose();
     for (final controller in _answers) controller.dispose();
     super.dispose();
   }
@@ -931,17 +990,17 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
       statement: _statement.text.trim(),
       difficulty: _difficulty,
       options: _answers.map((item) => item.text.trim()).toList(),
-      optionIds: [for (final id in _answerIds) id ?? ''],
+      optionIds: widget.question?.optionIds ?? const [],
       correctOptionIndex: _correctIndex,
-      subject: _subject,
-      topic: _topic.text.trim(),
-      explanation: _explanation.text.trim(),
+      subject: widget.question?.subject ?? '',
+      topic: widget.question?.topic ?? '',
+      explanation: widget.question?.explanation ?? '',
     );
 
     try {
       final saved = _editing
-          ? await QuestionsService.instance.update(_withoutNewIds(question))
-          : await QuestionsService.instance.create(_withoutNewIds(question));
+          ? await QuestionsService.instance.update(question)
+          : await QuestionsService.instance.create(question);
       if (mounted) Navigator.pop(context, saved);
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -952,25 +1011,10 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
     }
   }
 
-  // Alternativas novas vão sem id; as existentes mantêm o id na API.
-  ActivityQuestion _withoutNewIds(ActivityQuestion q) => ActivityQuestion(
-    id: q.id,
-    title: q.title,
-    statement: q.statement,
-    difficulty: q.difficulty,
-    options: q.options,
-    optionIds: q.optionIds.takeWhile((id) => id.isNotEmpty).toList(),
-    correctOptionIndex: q.correctOptionIndex,
-    subject: q.subject,
-    topic: q.topic,
-    explanation: q.explanation,
-  );
-
   void _addAnswer() {
     if (_answers.length >= 5) return;
     setState(() {
       _answers.add(TextEditingController());
-      _answerIds.add(null);
     });
   }
 
@@ -979,7 +1023,6 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
     setState(() {
       _answers[index].dispose();
       _answers.removeAt(index);
-      _answerIds.removeAt(index);
       if (_correctIndex >= _answers.length) _correctIndex = 0;
     });
   }
@@ -1027,22 +1070,6 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                   onChanged: (value) => setState(() => _difficulty = value!),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _subject,
-                  decoration: const InputDecoration(labelText: 'Matéria'),
-                  items: questionSubjects
-                      .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                      .toList(),
-                  onChanged: (value) => setState(() => _subject = value!),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _topic,
-                  decoration: const InputDecoration(
-                    labelText: 'Tema',
-                    hintText: 'Ex.: Ditadura Militar',
-                  ),
-                ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
@@ -1112,15 +1139,6 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                   child: Text(
                     'Marque a alternativa correta usando o botão ao lado da resposta.',
                     style: TextStyle(fontSize: 11, color: Colors.black54),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _explanation,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Comentário do gabarito (opcional)',
-                    hintText: 'Explique por que a alternativa correta está certa.',
                   ),
                 ),
               ],

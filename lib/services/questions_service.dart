@@ -34,45 +34,93 @@ class QuestionsService {
     int? alternatives,
     bool onlyMine = false,
   }) async {
-    final data = await _api.get('/questions', query: {
-      'page': page,
-      'busca': search,
-      'dificuldade': difficulty,
-      'materia': subject == null ? null : ApiMappers.subjectValue(subject),
-      'alternativas': alternatives,
-      if (onlyMine) 'minhas': 'true',
-    }) as Map<String, dynamic>;
+    final response = await _api.get(
+      '/questions',
+      query: {
+        'pagina': page,
+        'limite': 30,
+        'busca': search,
+        'dificuldade': difficulty,
+        'materia': subject == null ? null : ApiMappers.subjectValue(subject),
+        'alternativas': alternatives,
+        if (onlyMine) 'minhas': 'true',
+      },
+    );
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/questions',
+      optional: true,
+    );
 
-    final pagination = data['paginacao'] as Map<String, dynamic>;
+    final pagination = ApiClient.responseMap(
+      data['paginacao'],
+      endpoint: '/questions.paginacao',
+      optional: true,
+    );
 
     return QuestionPage(
-      questions: (data['dados'] as List)
-          .cast<Map<String, dynamic>>()
-          .map(ApiMappers.question)
-          .toList(),
+      questions: ApiClient.parseResponse(
+        '/questions',
+        () => ApiClient.responseList(
+          data['dados'],
+          endpoint: '/questions.dados',
+        ).map(ApiMappers.question).toList(),
+      ),
       subjects: ApiMappers.subjects.values.toList(),
-      page: pagination['pagina'] as int,
-      totalPages: pagination['totalPaginas'] as int,
-      total: pagination['total'] as int,
+      page: ApiClient.responseInt(
+        pagination['pagina'],
+        endpoint: '/questions.paginacao.pagina',
+        fallback: page,
+      ),
+      totalPages: ApiClient.responseInt(
+        pagination['totalPaginas'],
+        endpoint: '/questions.paginacao.totalPaginas',
+      ),
+      total: ApiClient.responseInt(
+        pagination['total'],
+        endpoint: '/questions.paginacao.total',
+      ),
     );
   }
 
   Future<ActivityQuestion> create(ActivityQuestion question) async {
-    final data = await _api.post('/questions', ApiMappers.questionPayload(question))
-        as Map<String, dynamic>;
-    return ApiMappers.question(data['questao'] as Map<String, dynamic>);
+    final response = await _api.post(
+      '/questions',
+      ApiMappers.questionPayload(question),
+    );
+    final data = ApiClient.responseMap(response, endpoint: '/questions');
+    return ApiClient.parseResponse(
+      '/questions',
+      () => ApiMappers.question(
+        ApiClient.responseMap(data['questao'], endpoint: '/questions.questao'),
+      ),
+    );
   }
 
   Future<ActivityQuestion> update(ActivityQuestion question) async {
-    final data = await _api.put(
+    final response = await _api.put(
       '/questions/${question.id}',
       ApiMappers.questionPayload(question),
-    ) as Map<String, dynamic>;
-    return ApiMappers.question(data['questao'] as Map<String, dynamic>);
+    );
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/questions/${question.id}',
+    );
+    return ApiClient.parseResponse(
+      '/questions/${question.id}',
+      () => ApiMappers.question(
+        ApiClient.responseMap(
+          data['questao'],
+          endpoint: '/questions/${question.id}.questao',
+        ),
+      ),
+    );
   }
 
   Future<void> delete(String id) => _api.delete('/questions/$id');
 
-  Future<Map<String, dynamic>> report() async =>
-      await _api.get('/questions/report') as Map<String, dynamic>;
+  Future<Map<String, dynamic>> report() async => ApiClient.responseMap(
+    await _api.get('/questions/report'),
+    endpoint: '/questions/report',
+  );
 }

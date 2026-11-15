@@ -5,7 +5,6 @@ import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/api_mappers.dart';
 import '../../../services/api_client.dart';
 import '../../../services/courses_service.dart';
 import '../../../services/storage_service.dart';
@@ -53,10 +52,25 @@ class _CoursesViewState extends State<CoursesView> {
     });
     try {
       _user ??= await StorageService.instance.loadCurrentUser();
-      final result = await CoursesService.instance.list();
+      final results = await Future.wait([
+        CoursesService.instance.list(),
+        CoursesService.instance.myCourses(),
+      ]);
+      final result = results[0] as CourseListResult;
+      final enrolledIds = (results[1] as List<Map<String, dynamic>>)
+          .where((course) => course['inscritoEm'] != null)
+          .map((course) => course['id'] as String)
+          .toSet();
       if (!mounted) return;
       setState(() {
-        _courses = result.courses;
+        _courses = result.courses
+            .map(
+              (course) => {
+                ...course,
+                'isEnrolled': enrolledIds.contains(course['id']),
+              },
+            )
+            .toList();
         _loading = false;
       });
     } on ApiException catch (error) {
@@ -72,7 +86,9 @@ class _CoursesViewState extends State<CoursesView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
+        backgroundColor: error
+            ? EducanoColors.error
+            : EducanoColors.successGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -84,26 +100,10 @@ class _CoursesViewState extends State<CoursesView> {
 
   /// Inscrição do próprio aluno, com escolha da turma.
   Future<void> _selfEnroll(Map<String, dynamic> course) async {
-    final turma = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text('Inscrever-se em ${course['name']}'),
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text('Escolha a turma:'),
-          ),
-          for (final label in ApiMappers.turmas.values)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, label),
-              child: Text(label),
-            ),
-        ],
-      ),
-    );
-    if (turma == null) return;
     try {
-      final message = await CoursesService.instance.enroll(course['id'] as String, turma: turma);
+      final message = await CoursesService.instance.enroll(
+        course['id'] as String,
+      );
       if (!mounted) return;
       _snack(message);
       await _loadCourses();
@@ -200,7 +200,7 @@ class _CoursesViewState extends State<CoursesView> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar'),
           ),
-          if (course['isEnrolled'] == true || _isStaff)
+          if (course['isEnrolled'] == true)
             AppSmallButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -216,7 +216,7 @@ class _CoursesViewState extends State<CoursesView> {
                 _selfEnroll(course);
               },
               icon: Icons.how_to_reg_rounded,
-              label: 'Inscrever-se',
+              label: 'Me inscrever',
             ),
           if (course['canEdit'] == true)
             AppSmallButton(
@@ -282,7 +282,9 @@ class _CoursesViewState extends State<CoursesView> {
       context: context,
       builder: (_) => EnrollUserDialog(
         courses: active,
-        initialCourseName: active.any((c) => c['name'] == courseName) ? courseName : null,
+        initialCourseName: active.any((c) => c['name'] == courseName)
+            ? courseName
+            : null,
       ),
     );
 
@@ -397,7 +399,10 @@ class _CoursesViewState extends State<CoursesView> {
       else
         {
           'label': 'Meus Cursos',
-          'value': _courses.where((c) => c['isEnrolled'] == true).length.toString(),
+          'value': _courses
+              .where((c) => c['isEnrolled'] == true)
+              .length
+              .toString(),
           'icon': Icons.school_rounded,
           'color': EducanoColors.lightBlue,
         },
@@ -583,8 +588,16 @@ class _CoursesViewState extends State<CoursesView> {
     if (_error != null) {
       return Row(
         children: [
-          Expanded(child: Text(_error!, style: const TextStyle(color: EducanoColors.error))),
-          TextButton(onPressed: _loadCourses, child: const Text('Tentar novamente')),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(color: EducanoColors.error),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadCourses,
+            child: const Text('Tentar novamente'),
+          ),
         ],
       );
     }
@@ -640,7 +653,9 @@ class _CoursesViewState extends State<CoursesView> {
       _ => EducanoColors.accentYellow,
     };
     final capacity = course['capacity'] as int? ?? 0;
-    final progress = capacity == 0 ? 0.0 : (course['enrolled'] as int) / capacity;
+    final progress = capacity == 0
+        ? 0.0
+        : (course['enrolled'] as int) / capacity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: _spacingSmall),
@@ -667,20 +682,14 @@ class _CoursesViewState extends State<CoursesView> {
                 final isNarrow = constraints.maxWidth < AppBreakpoints.compact;
 
                 final enrolled = course['isEnrolled'] == true;
-                final enrollButton = _isStaff
-                    ? AppSmallButton(
-                        onPressed: course['status'] != 'Ativo'
-                            ? null
-                            : () => _showEnrollDialog(
-                                  context,
-                                  courseName: course['name'] as String,
-                                ),
-                        label: 'Inscrever',
-                      )
-                    : AppSmallButton(
-                        onPressed: () => enrolled ? _openCourse(course) : _selfEnroll(course),
-                        label: enrolled ? 'Acessar' : 'Inscrever-se',
-                      );
+                final imageUrl = course['imageUrl'] as String? ?? '';
+                final icon = course['icon'] as IconData;
+                final color = course['color'] as Color;
+                final enrollButton = AppSmallButton(
+                  onPressed: () =>
+                      enrolled ? _openCourse(course) : _selfEnroll(course),
+                  label: enrolled ? 'Acessar' : 'Me inscrever',
+                );
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,16 +697,17 @@ class _CoursesViewState extends State<CoursesView> {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: (course['color'] as Color).withValues(
-                            alpha: 0.12,
-                          ),
-                          foregroundImage: (course['imageUrl'] as String? ?? '').isEmpty
-                              ? null
-                              : NetworkImage(course['imageUrl'] as String),
-                          child: Icon(
-                            course['icon'] as IconData,
-                            color: course['color'] as Color,
-                          ),
+                          backgroundColor: color.withValues(alpha: 0.12),
+                          child: imageUrl.isEmpty
+                              ? Icon(icon, color: color)
+                              : Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  width: 40,
+                                  height: 40,
+                                  errorBuilder: (_, _, _) =>
+                                      Icon(icon, color: color),
+                                ),
                         ),
                         const SizedBox(width: _spacingSmall),
                         Expanded(

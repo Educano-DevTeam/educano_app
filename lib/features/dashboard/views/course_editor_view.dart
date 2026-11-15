@@ -1,10 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/utils/api_mappers.dart';
-import 'material_editor_view.dart';
+import '../../course/models/course_models.dart' as course_models;
+import '../../course/widgets/course_editor_dialogs.dart';
+import 'material_editor_view.dart' as editor;
 import '../../../services/api_client.dart';
 import '../../../services/courses_service.dart';
 import '../../../services/storage_service.dart';
@@ -19,7 +22,7 @@ const double _radius = 18;
 /// Aberta a partir da Listagem de Cursos (admin/parceiro/professor).
 ///
 /// Além dos dados do curso, organiza o conteúdo na mesma estrutura que o
-/// aluno vê em Meu Progresso: trilhas -> módulos (1 lição + materiais).
+/// aluno vê em Meu Progresso: trilhas -> módulos -> materiais.
 class CourseEditorView extends StatefulWidget {
   final Map<String, dynamic>? course;
 
@@ -35,23 +38,32 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _capacityController;
+  late final TextEditingController _workloadController;
+  late final TextEditingController _priceController;
   late String _category;
   late String _status;
   late IconData _icon;
   late Color _color;
   late final List<Map<String, dynamic>> _trilhas;
+  late List<Map<String, dynamic>> _persistedTrilhas;
 
   /// Trilha criada por último, que já aparece aberta na lista.
   String? _newTrilhaId;
 
   final List<String> _categories = ApiMappers.courseCategories.values.toList();
   bool _saving = false;
+  String? _savedCourseId;
+  List<Map<String, dynamic>> _selectedTeachers = [];
+  String? _courseOwnerId;
+  String? _currentUserId;
 
   /// Somente administradores ativam ou desativam cursos.
   bool _isAdmin = false;
 
   /// Capa em imagem é mantida enquanto nenhum ícone for escolhido.
   bool _iconChanged = false;
+  Uint8List? _coverBytes;
+  String? _coverFileName;
   final List<String> _statuses = ['Ativo', 'Inativo', 'Rascunho'];
 
   // Mesmos ícones e cores dos cards de curso do aluno.
@@ -76,10 +88,12 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   ];
 
   bool get _isEditing => widget.course != null;
+  String? get _courseId => widget.course?['id'] as String? ?? _savedCourseId;
 
   String get _imageUrl => widget.course?['imageUrl'] as String? ?? '';
 
-  bool get _showsImage => _imageUrl.isNotEmpty && !_iconChanged;
+  bool get _showsImage =>
+      _coverBytes != null || (_imageUrl.isNotEmpty && !_iconChanged);
 
   int get _enrolled => widget.course?['enrolled'] as int? ?? 0;
 
@@ -92,13 +106,20 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   void initState() {
     super.initState();
     final course = widget.course;
-    _nameController =
-        TextEditingController(text: course?['name'] as String? ?? '');
+    _nameController = TextEditingController(
+      text: course?['name'] as String? ?? '',
+    );
     _descriptionController = TextEditingController(
       text: course?['description'] as String? ?? '',
     );
     _capacityController = TextEditingController(
       text: course?['capacity']?.toString() ?? '',
+    );
+    _workloadController = TextEditingController(
+      text: course?['workload']?.toString() ?? '',
+    );
+    _priceController = TextEditingController(
+      text: course?['price']?.toString() ?? '0',
     );
     _category = course?['category'] as String? ?? _categories.first;
     // Categorias cadastradas antes ficam disponíveis no seletor.
@@ -107,12 +128,247 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     _icon = course?['icon'] as IconData? ?? Icons.menu_book_rounded;
     _color = course?['color'] as Color? ?? EducanoColors.primaryBlue;
     _trilhas = _copyTrilhas(course?['trilhas']);
+    _persistedTrilhas = _copyTrilhas(course?['trilhas']);
+    _courseOwnerId = course?['ownerId'] as String?;
     _loadUser();
   }
 
   Future<void> _loadUser() async {
     final user = await StorageService.instance.loadCurrentUser();
-    if (mounted) setState(() => _isAdmin = user?.isAdmin ?? false);
+    if (mounted) {
+      setState(() {
+        _isAdmin = user?.isAdmin ?? false;
+        _currentUserId = user?.id;
+      });
+    }
+    if (user != null && user.id == _courseOwnerId && _courseId != null) {
+      await _loadTeachers(_courseId!);
+    }
+  }
+
+  bool get _isCourseOwner =>
+      _courseOwnerId != null && _courseOwnerId == _currentUserId;
+
+  Future<void> _pickCover() async {
+    final picked = await FilePicker.pickFiles(type: FileType.image);
+    if (picked.isEmpty) return;
+    final file = picked.first;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _coverBytes = bytes;
+      _coverFileName = file.name;
+      _iconChanged = true;
+    });
+  }
+
+  Future<void> _loadTeachers(String courseId) async {
+    try {
+      final linked = await CoursesService.instance.linkedTeachers(courseId);
+      if (mounted) setState(() => _selectedTeachers = linked);
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _chooseTeachers() async {
+    final courseId = _courseId;
+    if (courseId == null) return;
+    try {
+      final available = await CoursesService.instance.availableTeachers(
+        courseId,
+      );
+      if (!mounted) return;
+      final selected = List<Map<String, dynamic>>.from(_selectedTeachers);
+      final search = TextEditingController();
+      final saved = await showDialog<List<Map<String, dynamic>>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, refresh) {
+            final query = search.text.trim().toLowerCase();
+            final matches = available.where((person) {
+              final name = (person['nome'] as String? ?? '').toLowerCase();
+              final email = (person['email'] as String? ?? '').toLowerCase();
+              final isSelected = selected.any(
+                (item) => item['id'] == person['id'],
+              );
+              return !isSelected &&
+                  (query.isEmpty ||
+                      name.contains(query) ||
+                      email.contains(query));
+            }).toList();
+            return AlertDialog(
+              title: const Text('Professores do curso'),
+              content: SizedBox(
+                width: 480,
+                height: 520,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: search,
+                      onChanged: (_) => refresh(() {}),
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Pesquisar professor',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('${matches.length} professores encontrados'),
+                    if (selected.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${selected.length} selecionados',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 128),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: selected.length,
+                          itemExtent: 64,
+                          itemBuilder: (_, index) {
+                            final person = selected[index];
+                            return ListTile(
+                              dense: true,
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person_outline_rounded),
+                              ),
+                              title: Text(person['nome'] as String? ?? ''),
+                              subtitle: Text(person['email'] as String? ?? ''),
+                              trailing: IconButton(
+                                tooltip: 'Remover professor',
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () =>
+                                    refresh(() => selected.removeAt(index)),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const Divider(),
+                    if (matches.isEmpty)
+                      const Expanded(
+                        child: Center(
+                          child: Text('Nenhum professor encontrado.'),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 192,
+                        child: ListView.builder(
+                          itemCount: matches.length,
+                          itemExtent: 64,
+                          itemBuilder: (_, index) {
+                            final person = matches[index];
+                            return ListTile(
+                              dense: true,
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person_outline_rounded),
+                              ),
+                              title: Text(person['nome'] as String? ?? ''),
+                              subtitle: Text(person['email'] as String? ?? ''),
+                              trailing: const Icon(Icons.add_circle_outline),
+                              onTap: () => refresh(() => selected.add(person)),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, selected),
+                  child: const Text('Salvar seleção'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+      search.dispose();
+      if (saved == null) return;
+      final oldIds = _selectedTeachers
+          .map((person) => person['id'] as String)
+          .toSet();
+      final newIds = saved.map((person) => person['id'] as String).toSet();
+      for (final id in newIds.difference(oldIds)) {
+        await CoursesService.instance.linkTeacher(courseId, id);
+      }
+      for (final id in oldIds.difference(newIds)) {
+        await CoursesService.instance.unlinkTeacher(courseId, id);
+      }
+      if (mounted) setState(() => _selectedTeachers = saved);
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: EducanoColors.error,
+          ),
+        );
+    }
+  }
+
+  Widget _buildTeachersCard(bool isCompact) {
+    if (_courseId == null || !_isCourseOwner) return const SizedBox.shrink();
+    return _buildSectionCard(
+      title: 'Professores vinculados',
+      isCompact: isCompact,
+      children: [
+        if (_selectedTeachers.isEmpty)
+          const Text(
+            'Nenhum professor selecionado.',
+            style: TextStyle(color: EducanoColors.textSecondary),
+          ),
+        ..._selectedTeachers.map(
+          (person) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+            title: Text(person['nome'] as String? ?? ''),
+            subtitle: Text(person['email'] as String? ?? ''),
+            trailing: IconButton(
+              tooltip: 'Desvincular',
+              onPressed: () async {
+                try {
+                  await CoursesService.instance.unlinkTeacher(
+                    _courseId!,
+                    person['id'] as String,
+                  );
+                  if (mounted)
+                    setState(
+                      () => _selectedTeachers.removeWhere(
+                        (item) => item['id'] == person['id'],
+                      ),
+                    );
+                } on ApiException catch (error) {
+                  if (mounted)
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(error.message)));
+                }
+              },
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _chooseTeachers,
+          icon: const Icon(Icons.group_add_outlined),
+          label: const Text('Selecionar professores'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -120,6 +376,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     _nameController.dispose();
     _descriptionController.dispose();
     _capacityController.dispose();
+    _workloadController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -127,7 +385,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     if (!_formKey.currentState!.validate()) return;
 
     final course = <String, dynamic>{
-      'id': widget.course?['id'],
+      'id': _courseId,
       'name': _nameController.text.trim(),
       'category': _category,
       'status': _status,
@@ -135,18 +393,43 @@ class _CourseEditorViewState extends State<CourseEditorView> {
       'description': _descriptionController.text.trim(),
       'enrolled': _enrolled,
       'capacity': int.tryParse(_capacityController.text.trim()),
+      'workload': int.tryParse(_workloadController.text.trim()),
+      'price':
+          double.tryParse(_priceController.text.trim().replaceAll(',', '.')) ??
+          0,
+      'coverBytes': _coverBytes,
+      'coverFileName': _coverFileName,
       'idCapa': widget.course?['idCapa'],
       'iconChanged': _iconChanged,
       'createdAt': widget.course?['createdAt'] ?? _formatDate(DateTime.now()),
       'icon': _icon,
       'color': _color,
       'trilhas': _trilhas,
+      'originalTrilhas': _persistedTrilhas,
+      'ownerId': _courseOwnerId,
     };
 
+    final creating = _courseId == null;
     setState(() => _saving = true);
     try {
       final saved = await CoursesService.instance.saveFromEditor(course);
       if (!mounted) return;
+      _persistedTrilhas = _copyTrilhas(_trilhas);
+      if (creating) {
+        _savedCourseId = saved['id'] as String;
+        _courseOwnerId = _currentUserId;
+        await _loadTeachers(_savedCourseId!);
+        if (!mounted) return;
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Curso criado. Agora você pode vincular os professores e salvar novamente.',
+            ),
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditing ? 'Curso atualizado!' : 'Curso criado!'),
@@ -208,7 +491,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     final modulos = (trilha['modulos'] as List<dynamic>).length;
     final confirmed = await _confirmRemoval(
       title: 'Remover Trilha',
-      message: 'Tem certeza que deseja remover "${trilha['title']}"? '
+      message:
+          'Tem certeza que deseja remover "${trilha['title']}"? '
           '${_plural(modulos, 'módulo', 'módulos')} e seus materiais também '
           'serão removidos.',
     );
@@ -229,10 +513,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
       modulos.add(<String, dynamic>{
         'id': 'mod-${DateTime.now().microsecondsSinceEpoch}',
         'title': result['title'],
-        'licao': <String, dynamic>{
-          'title': result['licaoTitle'],
-          'xp': result['xp'],
-        },
+        'description': result['description'],
         'materiais': <Map<String, dynamic>>[],
       });
     });
@@ -245,20 +526,14 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     final modulos = trilha['modulos'] as List<dynamic>;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => _ModuloDialog(
-        number: modulos.indexOf(modulo) + 1,
-        modulo: modulo,
-      ),
+      builder: (_) =>
+          _ModuloDialog(number: modulos.indexOf(modulo) + 1, modulo: modulo),
     );
     if (result == null) return;
 
     setState(() {
       modulo['title'] = result['title'];
-      modulo['licao'] = <String, dynamic>{
-        ...modulo['licao'] as Map<String, dynamic>,
-        'title': result['licaoTitle'],
-        'xp': result['xp'],
-      };
+      modulo['description'] = result['description'];
     });
   }
 
@@ -268,8 +543,9 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   ) async {
     final confirmed = await _confirmRemoval(
       title: 'Remover Módulo',
-      message: 'Tem certeza que deseja remover "${modulo['title']}"? '
-          'A lição e os materiais dele também serão removidos.',
+      message:
+          'Tem certeza que deseja remover "${modulo['title']}"? '
+          'Os materiais dele também serão removidos.',
     );
     if (!confirmed) return;
 
@@ -277,29 +553,84 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   }
 
   Future<void> _openMaterialEditor(
-    Map<String, dynamic> trilha,
     Map<String, dynamic> modulo, {
     Map<String, dynamic>? material,
   }) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MaterialEditorView(
-          courseName: _courseName,
-          trilhaTitle: trilha['title'] as String,
-          moduloTitle: modulo['title'] as String,
-          material: material,
+    course_models.CourseMaterial? initial;
+    if (material != null && material['tipo'] == 'ATIVIDADE') {
+      final currentActivity = material['activity'] as course_models.Activity?;
+      final id = material['id'] as String;
+      final base = course_models.CourseMaterial(
+        id: id,
+        kind: course_models.MaterialKind.activity,
+        title: material['name'] as String? ?? 'Atividade',
+        description: material['description'] as String? ?? '',
+        activity: currentActivity,
+      );
+      try {
+        initial = currentActivity != null
+            ? base
+            : await CoursesService.instance.activityForEdit(base);
+      } on ApiException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
+    } else if (material != null) {
+      final kind = material['type'] as editor.MaterialKind?;
+      initial = course_models.CourseMaterial(
+        id: material['id'] as String,
+        kind: switch (kind) {
+          editor.MaterialKind.video => course_models.MaterialKind.video,
+          editor.MaterialKind.audio => course_models.MaterialKind.audio,
+          _ => course_models.MaterialKind.pdf,
+        },
+        title: material['name'] as String? ?? '',
+        description: material['description'] as String? ?? '',
+        fileName: material['fileName'] as String?,
+        fileUrl: material['fileUrl'] as String?,
+        pageCount: material['quantidadePaginas'] as int?,
+        durationSeconds: ApiMappers.parseDuration(
+          material['duration'] as String?,
         ),
-      ),
-    );
+      );
+    }
+    if (!mounted) return;
+    final result = await showMaterialEditor(context, material: initial);
     if (result == null || !mounted) return;
 
+    final mapped = <String, dynamic>{
+      'id': result.id,
+      'name': result.title,
+      'description': result.description,
+      'fileName': result.fileName,
+      'fileUrl': result.fileUrl,
+      'fileBytes': result.fileBytes,
+      'fileSize': ApiMappers.fileSize(result.fileSizeBytes),
+      'duration': ApiMappers.duration(result.durationSeconds),
+      'quantidadePaginas': result.pageCount,
+      if (result.kind == course_models.MaterialKind.activity) ...{
+        'tipo': 'ATIVIDADE',
+        'activity': result.activity,
+        'idsQuestoes': result.activity?.questionIds ?? const <String>[],
+        'totalQuestoes': result.activity?.questionIds.length ?? 0,
+      } else ...{
+        'type': switch (result.kind) {
+          course_models.MaterialKind.video => editor.MaterialKind.video,
+          course_models.MaterialKind.audio => editor.MaterialKind.audio,
+          _ => editor.MaterialKind.pdf,
+        },
+      },
+    };
     setState(() {
       final materiais = modulo['materiais'] as List<dynamic>;
       if (material == null) {
-        materiais.add(result);
+        materiais.add(mapped);
       } else {
-        materiais[materiais.indexOf(material)] = result;
+        materiais[materiais.indexOf(material)] = mapped;
       }
     });
   }
@@ -310,7 +641,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
   ) async {
     final confirmed = await _confirmRemoval(
       title: 'Remover Material',
-      message: 'Tem certeza que deseja remover "${material['name']}" do módulo?',
+      message:
+          'Tem certeza que deseja remover "${material['name']}" do módulo?',
     );
     if (!confirmed) return;
 
@@ -336,7 +668,9 @@ class _CourseEditorViewState extends State<CourseEditorView> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: EducanoColors.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EducanoColors.error,
+            ),
             child: const Text('Remover'),
           ),
         ],
@@ -368,6 +702,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
 
             final infoCard = _buildInfoCard(isCompact);
             final appearanceCard = _buildAppearanceCard(isCompact);
+            final teachersCard = _buildTeachersCard(isCompact);
             final contentCard = _buildContentCard(isCompact);
             final saveButton = SizedBox(
               width: double.infinity,
@@ -400,6 +735,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
                             const SizedBox(height: _spacingMedium),
                             appearanceCard,
                             const SizedBox(height: _spacingMedium),
+                            teachersCard,
+                            const SizedBox(height: _spacingMedium),
                             saveButton,
                           ],
                         ),
@@ -414,6 +751,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
                       const SizedBox(height: _spacingMedium),
                       appearanceCard,
                       const SizedBox(height: _spacingMedium),
+                      teachersCard,
+                      const SizedBox(height: _spacingMedium),
                       contentCard,
                       const SizedBox(height: _spacingMedium),
                       saveButton,
@@ -421,7 +760,9 @@ class _CourseEditorViewState extends State<CourseEditorView> {
                   );
 
             return ListView(
-              padding: EdgeInsets.all(isCompact ? _spacingSmall : _spacingMedium),
+              padding: EdgeInsets.all(
+                isCompact ? _spacingSmall : _spacingMedium,
+              ),
               children: [
                 Center(
                   child: ConstrainedBox(
@@ -469,13 +810,15 @@ class _CourseEditorViewState extends State<CourseEditorView> {
             helperText: _isAdmin
                 ? null
                 : 'O curso fica como rascunho até ter nome, categoria, '
-                    'descrição e capa. Um administrador faz a ativação.',
+                      'descrição e capa. Um administrador faz a ativação.',
             helperMaxLines: 2,
           ),
           items: _statuses
               .map((s) => DropdownMenuItem(value: s, child: Text(s)))
               .toList(),
-          onChanged: _isAdmin ? (value) => setState(() => _status = value!) : null,
+          onChanged: _isAdmin
+              ? (value) => setState(() => _status = value!)
+              : null,
         ),
         const SizedBox(height: _spacingSmall),
         TextFormField(
@@ -503,6 +846,34 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         ),
         const SizedBox(height: _spacingSmall),
         TextFormField(
+          controller: _workloadController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            labelText: 'Carga horária (horas)',
+            suffixText: 'h',
+          ),
+          validator: (value) => int.tryParse((value ?? '').trim()) == null
+              ? 'Informe a carga horária em horas.'
+              : null,
+        ),
+        const SizedBox(height: _spacingSmall),
+        TextFormField(
+          controller: _priceController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Preço',
+            prefixText: 'R\$ ',
+          ),
+          validator: (value) {
+            final price = double.tryParse((value ?? '').replaceAll(',', '.'));
+            return price == null || price < 0
+                ? 'Informe um preço válido.'
+                : null;
+          },
+        ),
+        const SizedBox(height: _spacingSmall),
+        TextFormField(
           controller: _descriptionController,
           maxLines: 4,
           decoration: const InputDecoration(
@@ -521,6 +892,12 @@ class _CourseEditorViewState extends State<CourseEditorView> {
       isCompact: isCompact,
       children: [
         _buildCardPreview(),
+        const SizedBox(height: _spacingSmall),
+        OutlinedButton.icon(
+          onPressed: _pickCover,
+          icon: const Icon(Icons.image_outlined),
+          label: Text(_coverFileName ?? 'Enviar arquivo da capa'),
+        ),
         const SizedBox(height: _spacingSmall),
         const Text('Ícone', style: _fieldLabelStyle),
         const SizedBox(height: _spacingMinimum),
@@ -555,7 +932,11 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         color: EducanoColors.background,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Row(
@@ -563,7 +944,9 @@ class _CourseEditorViewState extends State<CourseEditorView> {
           CircleAvatar(
             radius: 24,
             backgroundColor: _color.withValues(alpha: 0.15),
-            foregroundImage: _showsImage ? NetworkImage(_imageUrl) : null,
+            foregroundImage: _coverBytes != null
+                ? MemoryImage(_coverBytes!)
+                : (_showsImage ? NetworkImage(_imageUrl) : null),
             child: Icon(_icon, color: _color, size: 24),
           ),
           const SizedBox(width: _spacingSmall),
@@ -592,7 +975,10 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: EducanoColors.textSecondary),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: EducanoColors.textSecondary,
+          ),
         ],
       ),
     );
@@ -609,6 +995,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => setState(() {
+            _coverBytes = null;
+            _coverFileName = null;
             _icon = icon;
             _iconChanged = true;
           }),
@@ -654,7 +1042,9 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               shape: BoxShape.circle,
               color: color,
               border: Border.all(
-                color: selected ? EducanoColors.textPrimary : Colors.transparent,
+                color: selected
+                    ? EducanoColors.textPrimary
+                    : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -735,7 +1125,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     final modulos = trilha['modulos'] as List<dynamic>;
     final materiais = modulos.fold<int>(
       0,
-      (sum, m) => sum + ((m as Map<String, dynamic>)['materiais'] as List).length,
+      (sum, m) =>
+          sum + ((m as Map<String, dynamic>)['materiais'] as List).length,
     );
     final description = trilha['description'] as String? ?? '';
     final summary = [
@@ -837,7 +1228,6 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     Map<String, dynamic> trilha,
     Map<String, dynamic> modulo,
   ) {
-    final licao = modulo['licao'] as Map<String, dynamic>;
     final materiais = modulo['materiais'] as List<dynamic>;
 
     return Container(
@@ -881,7 +1271,17 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               ),
             ],
           ),
-          _buildLicaoRow(licao),
+          if ((modulo['description'] as String? ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: _spacingSmall),
+              child: Text(
+                modulo['description'] as String,
+                style: const TextStyle(
+                  color: EducanoColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
           const Text(
             'Materiais didáticos',
             style: TextStyle(
@@ -895,15 +1295,18 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               padding: EdgeInsets.symmetric(vertical: 6),
               child: Text(
                 'Nenhum material adicionado.',
-                style: TextStyle(color: EducanoColors.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: EducanoColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             )
           else
             ...materiais.map(
-              (m) => _buildMaterialRow(trilha, modulo, m as Map<String, dynamic>),
+              (m) => _buildMaterialRow(modulo, m as Map<String, dynamic>),
             ),
           TextButton.icon(
-            onPressed: () => _openMaterialEditor(trilha, modulo),
+            onPressed: () => _openMaterialEditor(modulo),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Adicionar material'),
           ),
@@ -912,70 +1315,26 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     );
   }
 
-  Widget _buildLicaoRow(Map<String, dynamic> licao) {
-    return Container(
-      padding: const EdgeInsets.all(_spacingMinimum),
-      margin: const EdgeInsets.symmetric(vertical: _spacingMinimum),
-      decoration: BoxDecoration(
-        color: EducanoColors.primaryBlue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.school_rounded, color: EducanoColors.primaryBlue, size: 18),
-          const SizedBox(width: _spacingMinimum),
-          Expanded(
-            child: Text(
-              licao['title'] as String,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: EducanoColors.textPrimary,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: _spacingMinimum),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: EducanoColors.accentYellow.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '+${licao['xp']} XP',
-              style: const TextStyle(
-                color: EducanoColors.accentYellow,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMaterialRow(
-    Map<String, dynamic> trilha,
     Map<String, dynamic> modulo,
     Map<String, dynamic> material,
   ) {
-    // Atividades são editadas na página do curso; aqui só aparecem na lista.
+    // Atividades e aulas podem ser editadas pelo mesmo modal.
     final isActivity = material['tipo'] == 'ATIVIDADE';
-    final kind = material['type'] as MaterialKind? ?? MaterialKind.pdf;
-    final details = (isActivity
-            ? ['Atividade', '${material['totalQuestoes'] ?? 0} questões']
-            : [
-                kind.label,
-                material['fileName'],
-                material['fileSize'],
-                material['duration'],
-              ])
-        .whereType<String>()
-        .where((text) => text.isNotEmpty)
-        .join('  ·  ');
+    final kind =
+        material['type'] as editor.MaterialKind? ?? editor.MaterialKind.pdf;
+    final details =
+        (isActivity
+                ? ['Atividade', '${material['totalQuestoes'] ?? 0} questões']
+                : [
+                    kind.label,
+                    material['fileName'],
+                    material['fileSize'],
+                    material['duration'],
+                  ])
+            .whereType<String>()
+            .where((text) => text.isNotEmpty)
+            .join('  ·  ');
     final color = isActivity ? EducanoColors.successGreen : kind.color;
     final icon = isActivity ? Icons.assignment_rounded : kind.icon;
 
@@ -1015,14 +1374,12 @@ class _CourseEditorViewState extends State<CourseEditorView> {
               ],
             ),
           ),
-          if (!isActivity)
-            IconButton(
-              tooltip: 'Editar material',
-              visualDensity: VisualDensity.compact,
-              onPressed: () =>
-                  _openMaterialEditor(trilha, modulo, material: material),
-              icon: const Icon(Icons.edit_rounded, size: 18),
-            ),
+          IconButton(
+            tooltip: isActivity ? 'Editar atividade' : 'Editar material',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _openMaterialEditor(modulo, material: material),
+            icon: const Icon(Icons.edit_rounded, size: 18),
+          ),
           IconButton(
             tooltip: 'Remover material',
             visualDensity: VisualDensity.compact,
@@ -1046,13 +1403,20 @@ class _CourseEditorViewState extends State<CourseEditorView> {
         color: EducanoColors.surface,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           const SizedBox(height: 12),
           ...children,
         ],
@@ -1087,9 +1451,6 @@ List<Map<String, dynamic>> _copyTrilhas(Object? trilhas) {
           for (final modulo in trilha['modulos'] as List<dynamic>)
             <String, dynamic>{
               ...modulo as Map<String, dynamic>,
-              'licao': <String, dynamic>{
-                ...modulo['licao'] as Map<String, dynamic>,
-              },
               'materiais': <Map<String, dynamic>>[
                 for (final material in modulo['materiais'] as List<dynamic>)
                   <String, dynamic>{...material as Map<String, dynamic>},
@@ -1118,8 +1479,9 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
   @override
   void initState() {
     super.initState();
-    _titleController =
-        TextEditingController(text: widget.trilha?['title'] as String? ?? '');
+    _titleController = TextEditingController(
+      text: widget.trilha?['title'] as String? ?? '',
+    );
     _descriptionController = TextEditingController(
       text: widget.trilha?['description'] as String? ?? '',
     );
@@ -1152,7 +1514,9 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
           const Icon(Icons.folder_rounded, color: EducanoColors.primaryBlue),
           const SizedBox(width: _spacingMinimum),
           Expanded(
-            child: Text(widget.trilha == null ? 'Nova Trilha' : 'Editar Trilha'),
+            child: Text(
+              widget.trilha == null ? 'Nova Trilha' : 'Editar Trilha',
+            ),
           ),
         ],
       ),
@@ -1215,25 +1579,23 @@ class _ModuloDialog extends StatefulWidget {
 class _ModuloDialogState extends State<_ModuloDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
-  late final TextEditingController _licaoController;
-  late final TextEditingController _xpController;
+  late final TextEditingController _descriptionController;
 
   @override
   void initState() {
     super.initState();
-    final licao = widget.modulo?['licao'] as Map<String, dynamic>?;
-    _titleController =
-        TextEditingController(text: widget.modulo?['title'] as String? ?? '');
-    _licaoController =
-        TextEditingController(text: licao?['title'] as String? ?? '');
-    _xpController = TextEditingController(text: '${licao?['xp'] ?? 50}');
+    _titleController = TextEditingController(
+      text: widget.modulo?['title'] as String? ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.modulo?['description'] as String? ?? '',
+    );
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _licaoController.dispose();
-    _xpController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -1242,8 +1604,7 @@ class _ModuloDialogState extends State<_ModuloDialog> {
 
     Navigator.pop(context, <String, dynamic>{
       'title': _titleController.text.trim(),
-      'licaoTitle': _licaoController.text.trim(),
-      'xp': int.parse(_xpController.text.trim()),
+      'description': _descriptionController.text.trim(),
     });
   }
 
@@ -1255,10 +1616,15 @@ class _ModuloDialogState extends State<_ModuloDialog> {
       ),
       title: Row(
         children: [
-          const Icon(Icons.folder_open_rounded, color: EducanoColors.primaryBlue),
+          const Icon(
+            Icons.folder_open_rounded,
+            color: EducanoColors.primaryBlue,
+          ),
           const SizedBox(width: _spacingMinimum),
           Expanded(
-            child: Text(widget.modulo == null ? 'Novo Módulo' : 'Editar Módulo'),
+            child: Text(
+              widget.modulo == null ? 'Novo Módulo' : 'Editar Módulo',
+            ),
           ),
         ],
       ),
@@ -1283,28 +1649,12 @@ class _ModuloDialogState extends State<_ModuloDialog> {
                 ),
                 const SizedBox(height: _spacingSmall),
                 TextFormField(
-                  controller: _licaoController,
+                  controller: _descriptionController,
+                  maxLines: 3,
                   decoration: const InputDecoration(
-                    labelText: 'Título da lição',
-                    hintText: 'Ex.: Frações Equivalentes',
+                    labelText: 'Descrição',
+                    hintText: 'Resumo do conteúdo do módulo.',
                   ),
-                  validator: (value) => (value == null || value.trim().isEmpty)
-                      ? 'Informe o título da lição'
-                      : null,
-                ),
-                const SizedBox(height: _spacingSmall),
-                TextFormField(
-                  controller: _xpController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    labelText: 'XP da lição',
-                    prefixIcon: Icon(Icons.bolt_rounded),
-                  ),
-                  validator: (value) {
-                    final xp = int.tryParse(value?.trim() ?? '');
-                    return (xp == null || xp <= 0) ? 'Informe um XP válido' : null;
-                  },
                 ),
               ],
             ),
@@ -1325,4 +1675,3 @@ class _ModuloDialogState extends State<_ModuloDialog> {
     );
   }
 }
-

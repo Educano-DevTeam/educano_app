@@ -33,20 +33,26 @@ class StoreService {
   };
 
   /// Item no formato das telas da loja e do dashboard.
-  static Map<String, dynamic> itemMap(Map<String, dynamic> api) => {
-    'id': api['id'],
-    'name': api['nome'],
-    'description': api['descricao'] ?? '',
-    'price': api['preco'],
-    'icon': ApiMappers.icon(api['icone'] as String?, fallback: Icons.star_rounded),
-    'color': ApiMappers.color(api['cor'] as String?),
-    'category': api['categoria'],
-    'effect': api['efeito'],
-    'effectValue': api['valorEfeito'] ?? 0,
-    'durationMinutes': api['duracaoMinutos'],
-    'active': api['ativo'] ?? true,
-    'owned': api['quantidadeNoInventario'] ?? 0,
-  };
+  static Map<String, dynamic> itemMap(Map<String, dynamic> api) =>
+      ApiClient.parseResponse('/items.item', () {
+        return {
+          'id': api['id'],
+          'name': api['nome'],
+          'description': api['descricao'] ?? '',
+          'price': api['preco'],
+          'icon': ApiMappers.icon(
+            api['icone'] as String?,
+            fallback: Icons.star_rounded,
+          ),
+          'color': ApiMappers.color(api['cor'] as String?),
+          'category': api['categoria'],
+          'effect': api['efeito'],
+          'effectValue': api['valorEfeito'] ?? 0,
+          'durationMinutes': api['duracaoMinutos'],
+          'active': api['ativo'] ?? true,
+          'owned': api['quantidadeNoInventario'] ?? 0,
+        };
+      });
 
   static Map<String, dynamic> itemPayload(Map<String, dynamic> item) => {
     'nome': item['name'],
@@ -62,58 +68,129 @@ class StoreService {
   };
 
   Future<StoreSnapshot> items({bool includeInactive = false}) async {
-    final data = await _api.get('/items', query: {
-      if (includeInactive) 'todos': 'true',
-    }) as Map<String, dynamic>;
-    return StoreSnapshot(
-      balance: data['saldo'] as int,
-      items: (data['dados'] as List).cast<Map<String, dynamic>>().map(itemMap).toList(),
-      categories: (data['categorias'] as List).cast<String>(),
+    final response = await _api.get(
+      '/items',
+      query: {if (includeInactive) 'todos': 'true'},
+    );
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/items',
+      optional: true,
+    );
+    return ApiClient.parseResponse(
+      '/items',
+      () => StoreSnapshot(
+        balance: ApiClient.responseInt(data['saldo'], endpoint: '/items.saldo'),
+        items: ApiClient.responseList(
+          data['dados'],
+          endpoint: '/items.dados',
+        ).map(itemMap).toList(),
+        categories: ApiClient.responseStringList(
+          data['categorias'],
+          endpoint: '/items.categorias',
+        ),
+      ),
     );
   }
 
   /// Compra o item e devolve o novo saldo.
   Future<int> purchase(String itemId) async {
-    final data = await _api.post('/items/$itemId/purchase', {'quantidade': 1})
-        as Map<String, dynamic>;
-    return data['saldo'] as int;
+    final response = await _api.post('/items/$itemId/purchase', {
+      'quantidade': 1,
+    });
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/items/$itemId/purchase',
+    );
+    return ApiClient.responseInt(
+      data['saldo'],
+      endpoint: '/items/$itemId/purchase.saldo',
+      required: true,
+    );
   }
 
   Future<StoreSnapshot> inventory() async {
-    final data = await _api.get('/inventory') as Map<String, dynamic>;
+    final response = await _api.get('/inventory');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/inventory',
+      optional: true,
+    );
     return _inventorySnapshot(data);
   }
 
   Future<StoreSnapshot> activate(String itemId) async {
-    final data = await _api.post('/inventory/$itemId/activate') as Map<String, dynamic>;
+    final response = await _api.post('/inventory/$itemId/activate');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/inventory/$itemId/activate',
+    );
     return _inventorySnapshot(data);
   }
 
-  StoreSnapshot _inventorySnapshot(Map<String, dynamic> data) => StoreSnapshot(
-    balance: data['saldo'] as int,
-    items: [
-      for (final entry in (data['dados'] as List).cast<Map<String, dynamic>>())
-        {
-          ...itemMap(entry['item'] as Map<String, dynamic>),
-          'quantity': entry['quantidade'],
-          'active': entry['ativo'] == true,
-          'expiresAt': ApiMappers.date((entry['ativacao'] as Map?)?['expiraEm']),
-        },
-    ],
-  );
+  StoreSnapshot _inventorySnapshot(Map<String, dynamic> data) =>
+      ApiClient.parseResponse(
+        '/inventory',
+        () => StoreSnapshot(
+          balance: ApiClient.responseInt(
+            data['saldo'],
+            endpoint: '/inventory.saldo',
+          ),
+          items: [
+            for (final entry in ApiClient.responseList(
+              data['dados'],
+              endpoint: '/inventory.dados',
+            ))
+              {
+                ...itemMap(
+                  ApiClient.responseMap(
+                    entry['item'],
+                    endpoint: '/inventory.dados.item',
+                  ),
+                ),
+                'quantity': ApiClient.responseInt(
+                  entry['quantidade'],
+                  endpoint: '/inventory.dados.quantidade',
+                ),
+                'active': entry['ativo'] == true,
+                'expiresAt': ApiMappers.date(
+                  (entry['ativacao'] as Map?)?['expiraEm'],
+                ),
+              },
+          ],
+        ),
+      );
 
   Future<Map<String, dynamic>> create(Map<String, dynamic> item) async {
-    final data = await _api.post('/items', itemPayload(item)) as Map<String, dynamic>;
-    return itemMap(data['item'] as Map<String, dynamic>);
+    final response = await _api.post('/items', itemPayload(item));
+    final data = ApiClient.responseMap(response, endpoint: '/items');
+    return itemMap(
+      ApiClient.responseMap(data['item'], endpoint: '/items.item'),
+    );
   }
 
-  Future<Map<String, dynamic>> update(String id, Map<String, dynamic> item) async {
-    final data = await _api.put('/items/$id', itemPayload(item)) as Map<String, dynamic>;
-    return itemMap(data['item'] as Map<String, dynamic>);
+  Future<Map<String, dynamic>> update(
+    String id,
+    Map<String, dynamic> item,
+  ) async {
+    final response = await _api.put('/items/$id', itemPayload(item));
+    final data = ApiClient.responseMap(response, endpoint: '/items/$id');
+    return itemMap(
+      ApiClient.responseMap(data['item'], endpoint: '/items/$id.item'),
+    );
   }
 
   Future<String> delete(String id) async {
-    final data = await _api.delete('/items/$id') as Map<String, dynamic>;
-    return data['message'] as String? ?? 'Item removido.';
+    final response = await _api.delete('/items/$id');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/items/$id',
+      optional: true,
+    );
+    return ApiClient.responseString(
+          data['message'],
+          endpoint: '/items/$id.message',
+        ) ??
+        'Item removido.';
   }
 }

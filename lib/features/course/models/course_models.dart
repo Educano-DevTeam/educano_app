@@ -55,6 +55,7 @@ class Course {
     int? completedMaterials,
     int? totalMaterials,
     List<CourseSession>? sessions,
+    bool? canEdit,
   }) => Course(
     id: id,
     title: title ?? this.title,
@@ -67,7 +68,7 @@ class Course {
     totalMaterials: totalMaterials ?? this.totalMaterials,
     sessions: sessions ?? this.sessions,
     imageUrl: imageUrl,
-    canEdit: canEdit,
+    canEdit: canEdit ?? this.canEdit,
     enrolled: enrolled,
     enrolledCount: enrolledCount,
     creatorName: creatorName,
@@ -148,6 +149,7 @@ class CourseMaterial {
   final Uint8List? fileBytes;
   final String? filePath;
   final int? fileSizeBytes;
+  final int? pageCount;
   final int? durationSeconds;
   final Activity? activity;
   final bool completed;
@@ -162,6 +164,7 @@ class CourseMaterial {
     this.fileBytes,
     this.filePath,
     this.fileSizeBytes,
+    this.pageCount,
     this.durationSeconds,
     this.activity,
     this.completed = false,
@@ -183,6 +186,7 @@ class CourseMaterial {
       final s = durationSeconds! % 60;
       return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')} min';
     }
+    if (pageCount != null) return '$pageCount páginas';
     if (fileSizeBytes != null) {
       final kb = fileSizeBytes! / 1024;
       return kb < 1024
@@ -202,6 +206,7 @@ class CourseMaterial {
     fileBytes: fileBytes,
     filePath: filePath,
     fileSizeBytes: fileSizeBytes,
+    pageCount: pageCount,
     durationSeconds: durationSeconds,
     activity: activity,
     completed: completed ?? this.completed,

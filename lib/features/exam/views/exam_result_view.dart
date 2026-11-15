@@ -20,6 +20,28 @@ class ExamResultScreen extends StatelessWidget {
   final ExamResultArgs? args;
   final ExamSession? session;
 
+  Future<void> _returnToCourse(BuildContext context) async {
+    final result = session?.result;
+    if (session?.isActivity == true && result != null && (result.xp > 0 || result.coins > 0)) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.celebration_rounded, color: Color(0xFFFFC107), size: 42),
+          title: const Text('Recompensas recebidas!'),
+          content: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Chip(avatar: const Icon(Icons.bolt_rounded), label: Text('+${result.xp} XP')),
+            const SizedBox(width: 8),
+            Chip(avatar: const Icon(Icons.monetization_on_rounded), label: Text('+${result.coins} moedas')),
+          ]),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Continuar'))],
+        ),
+      );
+    }
+    if (context.mounted && session?.isActivity == true) {
+      Navigator.of(context).popUntil((route) => route.settings.name == AppRoutes.course);
+    }
+  }
+
   // Desempenho por matéria calculado pela API na correção.
   List<ExamAreaScore> get _scores => session?.result?.bySubject ?? const [];
   List<ExamAreaScore> get _topics => session?.result?.byTopic ?? const [];
@@ -66,7 +88,7 @@ class ExamResultScreen extends StatelessWidget {
           final review = OutlineAppButton(label: 'Ver gabarito', height: 52, onPressed: session == null ? null : () => Navigator.of(context).pushNamed('/simulado', arguments: session!.asReview()));
           final back = PrimaryButton(label: session?.isActivity == true ? 'Voltar para Curso' : 'Voltar aos simulados', height: 52, onPressed: () {
             if (session?.isActivity == true) {
-              Navigator.of(context).popUntil((route) => route.settings.name == AppRoutes.course);
+              _returnToCourse(context);
             } else {
               Navigator.of(context).pushNamedAndRemoveUntil(UltimosSimuladosScreen.routeName, (route) => false);
             }

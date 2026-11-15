@@ -7,7 +7,9 @@ import 'package:educano_app/features/auth/pages/signup_page.dart';
 import 'package:educano_app/features/auth/pages/verify_account_page.dart';
 import 'package:educano_app/main.dart';
 import 'package:educano_app/services/auth_service.dart';
+import 'package:educano_app/services/api_client.dart';
 import 'package:educano_app/services/storage_service.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -41,6 +43,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    // Uma sessão antiga não deve transformar o cadastro público em operação
+    // administrativa na API.
+    await StorageService.instance.saveToken('token-antigo');
     await tester.pumpWidget(_AuthFlowTestApp());
     await tester.pumpAndSettle();
 
@@ -56,6 +61,8 @@ void main() {
     await tester.tap(find.text('Criar conta').last);
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
+    expect(FakeApi.authorizationByPath['/auth/register'], isNull);
+    expect(FakeApi.requests, contains('POST /auth/register'));
     expect(find.text('Verifique sua conta'), findsOneWidget);
     final codeFields = find.byType(TextField);
     for (var index = 0; index < 6; index++) {
@@ -65,6 +72,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('HOME'), findsOneWidget);
+    expect(FakeApi.authorizationByPath['/auth/verify-code'], isNull);
+    expect(FakeApi.authorizationByPath['/auth/login'], isNull);
     final user = await StorageService.instance.loadCurrentUser();
     expect(user?.name, 'Ana Silva');
     expect(user?.email, 'ana.silva@educano.test');
@@ -75,6 +84,45 @@ void main() {
 
     // Encerra a sessão para parar a renovação periódica do token.
     await AuthService.instance.logout();
+  });
+
+  test('restores a saved session through the API session endpoint', () async {
+    await StorageService.instance.saveToken('token-de-teste');
+
+    final user = await AuthService.instance.restoreSession();
+
+    expect(user?.email, 'aluno@educano.test');
+    expect(await StorageService.instance.loadToken(), 'token-de-teste');
+    expect(FakeApi.requests, contains('GET /auth/me'));
+    expect(FakeApi.requests, isNot(contains('POST /auth/refresh')));
+  });
+
+  test('malformed API responses become a controlled login error', () async {
+    FakeApi.responseOverrides['POST /auth/login'] = http.Response(
+      '<html>gateway error</html>',
+      200,
+    );
+
+    final result = await AuthService.instance.login(
+      email: 'aluno@educano.test',
+      password: FakeApi.password,
+    );
+
+    expect(result.success, isFalse);
+    expect(result.message, contains('resposta inválida'));
+    expect(await StorageService.instance.loadToken(), isNull);
+  });
+
+  test('missing list data falls back to an empty collection', () {
+    expect(ApiClient.responseList(null, endpoint: '/items.dados'), isEmpty);
+    expect(
+      () => ApiClient.responseList({'not': 'a list'}, endpoint: '/items.dados'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(
+      () => ApiClient.responseMap({}, endpoint: '/auth/login'),
+      throwsA(isA<ApiException>()),
+    );
   });
 
   testWidgets('valid login opens home and persists the current user', (

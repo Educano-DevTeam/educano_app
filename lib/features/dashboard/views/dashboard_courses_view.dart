@@ -721,14 +721,23 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                       children: [
                         CircleAvatar(
                           backgroundColor: courseColor.withValues(alpha: 0.12),
-                          foregroundImage: (course['imageUrl'] as String? ?? '').isEmpty
-                              ? null
-                              : NetworkImage(course['imageUrl'] as String),
-                          child: Icon(
-                            course['icon'] as IconData? ??
-                                Icons.menu_book_rounded,
-                            color: courseColor,
-                          ),
+                          child: (course['imageUrl'] as String? ?? '').isEmpty
+                              ? Icon(
+                                  course['icon'] as IconData? ??
+                                      Icons.menu_book_rounded,
+                                  color: courseColor,
+                                )
+                              : Image.network(
+                                  course['imageUrl'] as String,
+                                  fit: BoxFit.cover,
+                                  width: 40,
+                                  height: 40,
+                                  errorBuilder: (_, _, _) => Icon(
+                                    course['icon'] as IconData? ??
+                                        Icons.menu_book_rounded,
+                                    color: courseColor,
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: _spacingSmall),
                         Expanded(

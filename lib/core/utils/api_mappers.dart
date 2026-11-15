@@ -29,8 +29,10 @@ class ApiMappers {
     'star': Icons.star_rounded,
   };
 
-  static IconData icon(String? key, {IconData fallback = Icons.menu_book_rounded}) =>
-      _icons[key] ?? fallback;
+  static IconData icon(
+    String? key, {
+    IconData fallback = Icons.menu_book_rounded,
+  }) => _icons[key] ?? fallback;
 
   static String iconKey(IconData? icon, {String fallback = 'menu_book'}) {
     for (final entry in _icons.entries) {
@@ -63,7 +65,9 @@ class ApiMappers {
 
   /// Endereço público da imagem (capa ou foto) guardada no storage.
   static String? mediaUrl(String? idArquivo) =>
-      idArquivo == null || idArquivo.isEmpty ? null : '$apiBaseUrl/media/$idArquivo';
+      idArquivo == null || idArquivo.isEmpty
+      ? null
+      : '$apiBaseUrl/media/$idArquivo';
 
   // Categorias de curso: valor da API <-> texto das telas.
   static const Map<String, String> courseCategories = {
@@ -83,7 +87,10 @@ class ApiMappers {
       courseCategories[value] ?? value ?? '';
 
   static String categoryValue(String label) => courseCategories.entries
-      .firstWhere((e) => e.value == label, orElse: () => courseCategories.entries.first)
+      .firstWhere(
+        (e) => e.value == label,
+        orElse: () => courseCategories.entries.first,
+      )
       .key;
 
   // Matérias das questões e simulados usam as mesmas áreas das categorias.
@@ -167,11 +174,12 @@ class ApiMappers {
       .firstWhere((e) => e.value == label, orElse: () => turmas.entries.last)
       .key;
 
-  static ActivityQuestionDifficulty difficulty(String? value) => switch (value) {
-    'FACIL' => ActivityQuestionDifficulty.easy,
-    'DIFICIL' => ActivityQuestionDifficulty.hard,
-    _ => ActivityQuestionDifficulty.medium,
-  };
+  static ActivityQuestionDifficulty difficulty(String? value) =>
+      switch (value) {
+        'FACIL' => ActivityQuestionDifficulty.easy,
+        'DIFICIL' => ActivityQuestionDifficulty.hard,
+        _ => ActivityQuestionDifficulty.medium,
+      };
 
   static String difficultyValue(ActivityQuestionDifficulty difficulty) =>
       switch (difficulty) {
@@ -227,6 +235,7 @@ class ApiMappers {
     final alternatives = (json['alternativas'] as List? ?? const [])
         .cast<Map<String, dynamic>>();
     final professor = json['professor'] as Map<String, dynamic>?;
+    final correctAlternativeId = json['idAlternativaCorreta'];
     return ActivityQuestion(
       id: json['id'] as String,
       title: json['titulo'] as String? ?? '',
@@ -234,7 +243,11 @@ class ApiMappers {
       difficulty: difficulty(json['dificuldade'] as String?),
       options: alternatives.map((a) => a['texto'] as String).toList(),
       optionIds: alternatives.map((a) => a['id'] as String).toList(),
-      correctOptionIndex: alternatives.indexWhere((a) => a['correta'] == true),
+      correctOptionIndex: alternatives.indexWhere(
+        (a) =>
+            a['correta'] == true ||
+            (correctAlternativeId != null && a['id'] == correctAlternativeId),
+      ),
       subject: subjectLabel(json['materia'] as String?),
       topic: json['tema'] as String? ?? '',
       explanation: json['explicacao'] as String? ?? '',
@@ -248,16 +261,10 @@ class ApiMappers {
     'titulo': question.title,
     'enunciado': question.statement,
     'dificuldade': difficultyValue(question.difficulty),
-    'materia': subjectValue(question.subject),
-    'tema': question.topic,
-    'explicacao': question.explanation,
     'alternativas': [
       for (var i = 0; i < question.options.length; i++)
-        {
-          if (i < question.optionIds.length) 'id': question.optionIds[i],
-          'texto': question.options[i],
-          'correta': i == question.correctOptionIndex,
-        },
+        {'letra': String.fromCharCode(65 + i), 'texto': question.options[i]},
     ],
+    'letraCorreta': String.fromCharCode(65 + question.correctOptionIndex),
   };
 }

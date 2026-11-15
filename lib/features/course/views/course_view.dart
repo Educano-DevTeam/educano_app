@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/educano_colors.dart';
-import '../../../core/utils/api_mappers.dart';
 import '../../../services/api_client.dart';
 import '../../../services/courses_service.dart';
 import '../../../services/exams_service.dart';
@@ -12,6 +11,27 @@ import 'package:educano_app/core/navigation/app_routes.dart';
 import 'package:educano_app/features/materials/models/material_route_args.dart';
 
 const _green = Color(0xFF20D500);
+
+bool _isSessionCompleted(CourseSession session) =>
+    session.modules.isNotEmpty &&
+    session.modules.every(
+      (module) =>
+          module.materials.isNotEmpty &&
+          module.materials.every((material) => material.completed),
+    );
+
+class _RewardChip extends StatelessWidget {
+  const _RewardChip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Chip(
+        avatar: Icon(icon, color: EducanoColors.primaryBlue, size: 18),
+        label: Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFFEAF2FF),
+      );
+}
 
 class CourseView extends StatefulWidget {
   final String courseId;
@@ -103,22 +123,8 @@ class _CourseViewState extends State<CourseView> {
   }
 
   Future<void> _enroll() async {
-    final turma = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Escolha a turma'),
-        children: [
-          for (final label in ApiMappers.turmas.values)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, label),
-              child: Text(label),
-            ),
-        ],
-      ),
-    );
-    if (turma == null) return;
     await _run(
-      () => _service.enroll(widget.courseId, turma: turma),
+      () => _service.enroll(widget.courseId),
       'Inscrição realizada! Bons estudos.',
     );
   }
@@ -158,6 +164,72 @@ class _CourseViewState extends State<CourseView> {
       'Módulo cadastrado.',
     );
   }
+
+  Future<void> _editSession(CourseSession session) async {
+    final data = await showSessionEditor(context, session: session);
+    if (data == null) return;
+    await _run(() => _service.updateSession(session.id, data), 'Sessão atualizada.');
+  }
+
+  Future<void> _deleteSession(CourseSession session) async {
+    if (!await _confirmDelete('Excluir sessão?', 'Os módulos e materiais desta sessão também serão excluídos.')) return;
+    await _run(() => _service.deleteSession(session.id), 'Sessão excluída.');
+  }
+
+  Future<void> _editModule(CourseSession session, CourseModule module) async {
+    final data = await showModuleEditor(context, module: module);
+    if (data == null) return;
+    await _run(() => _service.updateModule(module.id, data), 'Módulo atualizado.');
+  }
+
+  Future<void> _deleteModule(CourseSession session, CourseModule module) async {
+    if (!await _confirmDelete('Excluir módulo?', 'As aulas e atividades deste módulo também serão excluídas.')) return;
+    await _run(() => _service.deleteModule(module.id), 'Módulo excluído.');
+  }
+
+  Future<void> _editMaterial(CourseSession session, CourseModule module, CourseMaterial material) async {
+    try {
+      final existing = material.kind == MaterialKind.activity
+          ? await _service.activityForEdit(material)
+          : material;
+      if (!mounted) return;
+      final updated = await showMaterialEditor(context, material: existing);
+      if (updated == null) return;
+      if (material.kind == MaterialKind.activity) {
+        await _run(() => _service.updateActivity(material.id, updated), 'Atividade atualizada.');
+      } else {
+        await _run(() => _service.updateLesson(material.id, updated), 'Aula atualizada.');
+      }
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message, error: true);
+    }
+  }
+
+  Future<void> _deleteMaterial(
+    CourseSession session,
+    CourseModule module,
+    CourseMaterial material,
+  ) async {
+    if (!await _confirmDelete('Excluir material?', 'Esta ação não pode ser desfeita.')) return;
+    await _run(
+      () => material.kind == MaterialKind.activity
+          ? _service.deleteActivity(material.id)
+          : _service.deleteLesson(material.id),
+      'Material excluído.',
+    );
+  }
+
+  Future<bool> _confirmDelete(String title, String message) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(title), content: Text(message),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Excluir')),
+          ],
+        ),
+      ) == true;
 
   Future<void> _addMaterial(CourseSession session, CourseModule module) async {
     final material = await showMaterialEditor(context);
@@ -200,11 +272,47 @@ class _CourseViewState extends State<CourseView> {
         sessionId: session.id,
         moduleId: module.id,
         materialId: material.id,
+        materialUrl: material.fileUrl,
+        materialKind: material.kind,
+        title: material.title,
+        description: material.description,
+        completed: material.completed,
       ),
     );
 
-    if (!mounted || result != true) return;
-    await _loadCourse();
+    if (!mounted) return;
+    if (result is Map<String, dynamic> &&
+        ((result['xp'] as int? ?? 0) > 0 || (result['moedas'] as int? ?? 0) > 0)) {
+      await _showReward(result);
+    }
+    if (result == true || result is Map<String, dynamic>) await _loadCourse();
+  }
+
+  Future<void> _showReward(Map<String, dynamic> reward) async {
+    final xp = reward['xp'] as int? ?? 0;
+    final coins = reward['moedas'] as int? ?? 0;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(26),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.celebration_rounded, size: 48, color: Color(0xFFFFC107)),
+            const SizedBox(height: 12),
+            const Text('Recompensas recebidas!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 18),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _RewardChip(icon: Icons.bolt_rounded, text: '+$xp XP'),
+              const SizedBox(width: 12),
+              _RewardChip(icon: Icons.monetization_on_rounded, text: '+$coins moedas'),
+            ]),
+            const SizedBox(height: 20),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Continuar')),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
@@ -268,8 +376,14 @@ class _CourseViewState extends State<CourseView> {
                 }),
                 // Só quem gerencia o curso vê as ações de cadastro.
                 onAddSession: course.canEdit ? _addSession : null,
+                onEditSession: course.canEdit ? _editSession : null,
+                onDeleteSession: course.canEdit ? _deleteSession : null,
                 onAddModule: course.canEdit ? _addModule : null,
                 onAddMaterial: course.canEdit ? _addMaterial : null,
+                onEditModule: course.canEdit ? _editModule : null,
+                onDeleteModule: course.canEdit ? _deleteModule : null,
+                onEditMaterial: course.canEdit ? _editMaterial : null,
+                onDeleteMaterial: course.canEdit ? _deleteMaterial : null,
                 onToggleModule: _toggleModule,
                 onOpenMaterial: _openMaterial,
               ),
@@ -550,6 +664,12 @@ class _ContentCard extends StatelessWidget {
   final ValueChanged<int> onSessionChanged;
   final VoidCallback? onAddSession;
   final Future<void> Function(CourseSession)? onAddModule;
+  final Future<void> Function(CourseSession)? onEditSession;
+  final Future<void> Function(CourseSession)? onDeleteSession;
+  final Future<void> Function(CourseSession, CourseModule)? onEditModule;
+  final Future<void> Function(CourseSession, CourseModule)? onDeleteModule;
+  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)? onEditMaterial;
+  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)? onDeleteMaterial;
   final Future<void> Function(CourseSession, CourseModule)? onAddMaterial;
   final void Function(CourseSession, CourseModule) onToggleModule;
   final Future<void> Function(CourseSession, CourseModule, CourseMaterial)
@@ -562,6 +682,12 @@ class _ContentCard extends StatelessWidget {
     required this.onSessionChanged,
     this.onAddSession,
     this.onAddModule,
+    this.onEditSession,
+    this.onDeleteSession,
+    this.onEditModule,
+    this.onDeleteModule,
+    this.onEditMaterial,
+    this.onDeleteMaterial,
     this.onAddMaterial,
     required this.onToggleModule,
     required this.onOpenMaterial,
@@ -596,6 +722,7 @@ class _ContentCard extends StatelessWidget {
                 .toInt(),
             mobile: mobile,
             onChanged: onSessionChanged,
+            onAddSession: onAddSession,
           ),
           const SizedBox(height: 18),
           Row(
@@ -611,10 +738,10 @@ class _ContentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _AddButton(
-                label: 'Adicionar módulo',
-                onPressed: onAddModule == null ? null : () => onAddModule!(session),
-              ),
+              if (onEditSession != null)
+                IconButton(tooltip: 'Editar sessão', onPressed: () => onEditSession!(session), icon: const Icon(Icons.edit_outlined)),
+              if (onDeleteSession != null)
+                IconButton(tooltip: 'Excluir sessão', onPressed: () => onDeleteSession!(session), icon: const Icon(Icons.delete_outline, color: Colors.redAccent)),
             ],
           ),
           const SizedBox(height: 6),
@@ -630,8 +757,8 @@ class _ContentCard extends StatelessWidget {
             _EmptyState(
               compact: true,
               text: 'Nenhum módulo cadastrado nesta sessão.',
-              buttonText: 'Adicionar módulo',
-              onPressed: onAddModule == null ? null : () => onAddModule!(session),
+              buttonText: '',
+              onPressed: null,
             )
           else
             ...session.modules.map(
@@ -645,10 +772,15 @@ class _ContentCard extends StatelessWidget {
                   onAddMaterial: onAddMaterial == null
                       ? null
                       : () => onAddMaterial!(session, module),
+                  onEditModule: onEditModule == null ? null : () => onEditModule!(session, module),
+                  onDeleteModule: onDeleteModule == null ? null : () => onDeleteModule!(session, module),
                   onOpenMaterial: onOpenMaterial,
+                  onEditMaterial: onEditMaterial == null ? null : (material) => onEditMaterial!(session, module, material),
+                  onDeleteMaterial: onDeleteMaterial == null ? null : (material) => onDeleteMaterial!(session, module, material),
                 ),
               ),
             ),
+          Align(alignment: Alignment.centerLeft, child: _AddButton(label: 'Adicionar módulo', onPressed: onAddModule == null ? null : () => onAddModule!(session))),
         ],
       ),
     );
@@ -660,12 +792,14 @@ class _SessionTimeline extends StatelessWidget {
   final int selected;
   final bool mobile;
   final ValueChanged<int> onChanged;
+  final VoidCallback? onAddSession;
 
   const _SessionTimeline({
     required this.sessions,
     required this.selected,
     required this.mobile,
     required this.onChanged,
+    required this.onAddSession,
   });
 
   @override
@@ -678,6 +812,7 @@ class _SessionTimeline extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 0),
         itemBuilder: (context, index) {
           final active = index == selected;
+          final completed = _isSessionCompleted(sessions[index]);
           return SizedBox(
             width: mobile ? 92 : 150,
             child: InkWell(
@@ -699,27 +834,47 @@ class _SessionTimeline extends StatelessWidget {
                           )
                         else
                           const Expanded(child: SizedBox()),
-                        CircleAvatar(
-                          radius: mobile ? 17 : 20,
-                          backgroundColor: active
-                              ? Colors.white
-                              : (index < selected ? _green : Colors.white),
-                          foregroundColor: active
-                              ? EducanoColors.primaryBlue
-                              : (index < selected
-                                    ? Colors.white
-                                    : Colors.black54),
-                          child: active
-                              ? Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                )
-                              : (index < selected
-                                    ? const Icon(Icons.check_rounded, size: 19)
-                                    : Text('${index + 1}')),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: active
+                                ? Border.all(
+                                    color: EducanoColors.primaryBlue,
+                                    width: 2,
+                                  )
+                                : null,
+                          ),
+                          padding: active ? const EdgeInsets.all(2) : null,
+                          child: CircleAvatar(
+                            radius: mobile ? 17 : 20,
+                            backgroundColor:
+                                completed ? _green : Colors.white,
+                            foregroundColor:
+                                completed ? Colors.white : Colors.black,
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
+                        if (active && onAddSession != null) ...[
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: onAddSession,
+                            customBorder: const CircleBorder(),
+                            child: CircleAvatar(
+                              radius: mobile ? 14 : 16,
+                              backgroundColor: Colors.white,
+                              child: const Icon(
+                                Icons.add_rounded,
+                                size: 19,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (index < sessions.length - 1)
                           Expanded(
                             child: Container(
@@ -769,6 +924,10 @@ class _ModuleCard extends StatelessWidget {
   final bool mobile;
   final VoidCallback onToggle;
   final VoidCallback? onAddMaterial;
+  final VoidCallback? onEditModule;
+  final VoidCallback? onDeleteModule;
+  final ValueChanged<CourseMaterial>? onEditMaterial;
+  final ValueChanged<CourseMaterial>? onDeleteMaterial;
   final Future<void> Function(CourseSession, CourseModule, CourseMaterial)
   onOpenMaterial;
 
@@ -778,20 +937,26 @@ class _ModuleCard extends StatelessWidget {
     required this.mobile,
     required this.onToggle,
     this.onAddMaterial,
+    this.onEditModule,
+    this.onDeleteModule,
+    this.onEditMaterial,
+    this.onDeleteMaterial,
     required this.onOpenMaterial,
   });
 
   @override
   Widget build(BuildContext context) {
     final progress = module.progress;
+    final completed = module.materials.isNotEmpty && progress >= 1;
+    final foreground = completed ? Colors.white : Colors.black;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: module.expanded ? Colors.white : const Color(0xFF20D500),
+        color: completed ? _green : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: module.expanded ? const Color(0xFF777777) : Colors.transparent,
+          color: const Color(0xFFD4D4D4),
           width: 1.3,
         ),
       ),
@@ -811,31 +976,54 @@ class _ModuleCard extends StatelessWidget {
                     child: Text(
                       module.title,
                       style: TextStyle(
-                        color: module.expanded ? Colors.black54 : Colors.white,
+                        color: foreground,
                         fontWeight: FontWeight.w700,
                         fontSize: mobile ? 12 : 14,
                       ),
                     ),
                   ),
+                  if (onEditModule != null)
+                    IconButton(
+                      tooltip: 'Editar módulo',
+                      onPressed: onEditModule,
+                      icon: Icon(Icons.edit_outlined, size: 18, color: foreground),
+                    ),
+                  if (onDeleteModule != null)
+                    IconButton(
+                      tooltip: 'Excluir módulo',
+                      onPressed: onDeleteModule,
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: completed ? Colors.white : Colors.redAccent,
+                      ),
+                    ),
                   Icon(
                     module.expanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: module.expanded ? Colors.black54 : Colors.white,
+                    color: foreground,
                   ),
                 ],
               ),
             ),
           ),
           if (module.expanded)
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                mobile ? 12 : 18,
-                0,
-                mobile ? 12 : 18,
-                14,
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
               ),
-              child: Column(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  mobile ? 12 : 18,
+                  0,
+                  mobile ? 12 : 18,
+                  14,
+                ),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -881,6 +1069,8 @@ class _ModuleCard extends StatelessWidget {
                         material: material,
                         mobile: mobile,
                         onTap: () => onOpenMaterial(session, module, material),
+                        onEdit: onEditMaterial == null ? null : () => onEditMaterial!(material),
+                        onDelete: onDeleteMaterial == null ? null : () => onDeleteMaterial!(material),
                       ),
                     ),
                   const SizedBox(height: 6),
@@ -889,6 +1079,7 @@ class _ModuleCard extends StatelessWidget {
                     onPressed: onAddMaterial,
                   ),
                 ],
+              ),
               ),
             ),
         ],
@@ -901,11 +1092,15 @@ class _MaterialRow extends StatelessWidget {
   final CourseMaterial material;
   final bool mobile;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const _MaterialRow({
     required this.material,
     required this.mobile,
     required this.onTap,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -950,6 +1145,8 @@ class _MaterialRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (onEdit != null) IconButton(tooltip: 'Editar material', visualDensity: VisualDensity.compact, onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 17)),
+            if (onDelete != null) IconButton(tooltip: 'Excluir material', visualDensity: VisualDensity.compact, onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 17, color: Colors.redAccent)),
             Text(
               material.metadataLabel,
               style: const TextStyle(fontSize: 10, color: Colors.black54),

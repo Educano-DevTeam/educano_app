@@ -72,11 +72,14 @@ largura disponível.
 
 - `lib/services/api_client.dart` faz as chamadas HTTP e manda o token. A URL
   da API vem de `--dart-define=API_URL=...` (padrão `http://localhost:3000/api`).
+- Respostas inválidas da API viram erros controlados; coleções opcionais em
+  telas de leitura podem aparecer vazias. Operações de escrita não simulam
+  sucesso quando a API não confirma o resultado.
 - Os outros arquivos de `lib/services/` cuidam de cada parte (login, cursos,
   simulados, questões, loja, usuários e progresso) e já entregam os dados no
   formato das telas.
-- O token é renovado a cada 10 minutos. Se a sessão cair, o app volta para o
-  login.
+- A sessão é validada pela API; como não há rota de renovação de token, quando
+  o JWT expira o app volta para o login na próxima requisição autenticada.
 - O dashboard só aparece para admin, professor e parceiro. Painel, Usuários e
   Itens são só do admin.
 - Para rodar local: suba a API e rode `pnpm seed` nela. O seed cria uma conta de

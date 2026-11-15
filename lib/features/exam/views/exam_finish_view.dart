@@ -31,7 +31,7 @@ class _ExamFinishScreenState extends State<ExamFinishScreen> {
     if (session?.id == null) return;
     setState(() => _loading = true);
     try {
-      final result = await ExamsService.instance.finish(session!.id!);
+      final result = await ExamsService.instance.finish(session!);
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed(ExamResultScreen.routeName, arguments: result);
     } on ApiException catch (error) {
