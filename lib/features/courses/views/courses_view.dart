@@ -29,7 +29,6 @@ class CoursesView extends StatefulWidget {
 class _CoursesViewState extends State<CoursesView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedStatus = 'Todos';
   String _selectedCategory = 'Todas';
 
   List<Map<String, dynamic>> _courses = [];
@@ -133,12 +132,10 @@ class _CoursesViewState extends State<CoursesView> {
           (course['category'] as String).toLowerCase().contains(
             _searchQuery.toLowerCase(),
           );
-      final matchesStatus =
-          _selectedStatus == 'Todos' || course['status'] == _selectedStatus;
       final matchesCategory =
           _selectedCategory == 'Todas' ||
           course['category'] == _selectedCategory;
-      return matchesSearch && matchesStatus && matchesCategory;
+      return matchesSearch && matchesCategory;
     }).toList();
   }
 
@@ -302,8 +299,6 @@ class _CoursesViewState extends State<CoursesView> {
         children: [
           _buildHeader(context),
           const SizedBox(height: _spacingLarge),
-          _buildStats(),
-          const SizedBox(height: _spacingLarge),
           _buildActions(context),
           const SizedBox(height: _spacingSmall),
           _buildSearchAndFilters(),
@@ -359,140 +354,7 @@ class _CoursesViewState extends State<CoursesView> {
     );
   }
 
-  Widget _buildStats() {
-    final totalInscritos = _courses.fold<int>(
-      0,
-      (sum, c) => sum + (c['enrolled'] as int),
-    );
-    final stats = [
-      {
-        'label': 'Total de Cursos',
-        'value': _courses.length.toString(),
-        'icon': Icons.menu_book_rounded,
-        'color': EducanoColors.primaryBlue,
-      },
-      {
-        'label': 'Cursos Ativos',
-        'value': _courses
-            .where((c) => c['status'] == 'Ativo')
-            .length
-            .toString(),
-        'icon': Icons.check_circle_rounded,
-        'color': EducanoColors.successGreen,
-      },
-      {
-        'label': 'Vagas Preenchidas',
-        'value': totalInscritos.toString(),
-        'icon': Icons.people_alt_rounded,
-        'color': EducanoColors.accentYellow,
-      },
-      if (_isStaff)
-        {
-          'label': 'Em Rascunho',
-          'value': _courses
-              .where((c) => c['status'] == 'Rascunho')
-              .length
-              .toString(),
-          'icon': Icons.edit_note_rounded,
-          'color': EducanoColors.lightBlue,
-        }
-      else
-        {
-          'label': 'Meus Cursos',
-          'value': _courses
-              .where((c) => c['isEnrolled'] == true)
-              .length
-              .toString(),
-          'icon': Icons.school_rounded,
-          'color': EducanoColors.lightBlue,
-        },
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < AppBreakpoints.medium;
-        final columns = isCompact ? 2 : 4;
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: _spacingSmall,
-            mainAxisSpacing: _spacingSmall,
-            mainAxisExtent: 112,
-          ),
-          itemCount: stats.length,
-          itemBuilder: (context, index) {
-            final stat = stats[index];
-            return Container(
-              padding: EdgeInsets.all(isCompact ? 12.0 : _spacingSmall),
-              decoration: BoxDecoration(
-                color: EducanoColors.background,
-                borderRadius: BorderRadius.circular(_radius),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: isCompact ? 16 : 20,
-                    backgroundColor: (stat['color'] as Color).withValues(
-                      alpha: 0.15,
-                    ),
-                    child: Icon(
-                      stat['icon'] as IconData,
-                      size: isCompact ? 18 : 24,
-                      color: stat['color'] as Color,
-                    ),
-                  ),
-                  SizedBox(width: isCompact ? _spacingMinimum : _spacingSmall),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          stat['label'] as String,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: EducanoColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          stat['value'] as String,
-                          style: TextStyle(
-                            fontSize: isCompact ? 20 : 22,
-                            fontWeight: FontWeight.bold,
-                            color: EducanoColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildSearchAndFilters() {
-    Widget statusFilter({double? width}) => _buildFilterDropdown(
-      width: width,
-      value: _selectedStatus,
-      options: const ['Todos', 'Ativo', 'Inativo', 'Rascunho'],
-      onChanged: (value) => setState(() => _selectedStatus = value!),
-    );
     Widget categoryFilter({double? width}) => _buildFilterDropdown(
       width: width,
       value: _selectedCategory,
@@ -512,20 +374,14 @@ class _CoursesViewState extends State<CoursesView> {
           ),
         );
 
-        // Mobile: busca em cima e os dois filtros dividindo a linha de baixo.
+        // Mobile: busca em cima e categoria abaixo.
         if (isNarrow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               searchField,
               const SizedBox(height: _spacingSmall),
-              Row(
-                children: [
-                  Expanded(child: statusFilter()),
-                  const SizedBox(width: _spacingSmall),
-                  Expanded(child: categoryFilter()),
-                ],
-              ),
+              categoryFilter(width: double.infinity),
             ],
           );
         }
@@ -533,8 +389,6 @@ class _CoursesViewState extends State<CoursesView> {
         return Row(
           children: [
             Expanded(child: searchField),
-            const SizedBox(width: _spacingSmall),
-            statusFilter(width: 170),
             const SizedBox(width: _spacingSmall),
             categoryFilter(width: 170),
           ],
@@ -705,6 +559,8 @@ class _CoursesViewState extends State<CoursesView> {
                                   fit: BoxFit.cover,
                                   width: 40,
                                   height: 40,
+                                  webHtmlElementStrategy:
+                                      WebHtmlElementStrategy.fallback,
                                   errorBuilder: (_, _, _) =>
                                       Icon(icon, color: color),
                                 ),

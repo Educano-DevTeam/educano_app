@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/api_mappers.dart';
-import '../../../services/api_client.dart';
-import '../../../services/progress_service.dart';
 
 const double _spacingMinimum = 8;
 const double _spacingSmall = 16;
@@ -24,73 +21,63 @@ class AccountPlanView extends StatefulWidget {
 class _AccountPlanViewState extends State<AccountPlanView> {
   String _currentPlan = 'Básico';
 
-  List<Map<String, dynamic>> _plans = [];
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  /// Planos da API no formato dos cards da tela.
-  Future<void> _load() async {
-    try {
-      final data = await ProgressService.instance.plans();
-      final plans = (data['dados'] as List).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() {
-        _plans = [
-          for (final plan in plans)
-            {
-              'id': plan['id'],
-              'name': plan['nome'],
-              'price': (plan['precoCentavos'] as int) == 0
-                  ? 'Grátis'
-                  : 'R\$ ${((plan['precoCentavos'] as int) / 100).toStringAsFixed(2).replaceAll('.', ',')}/mês',
-              'priceValue': (plan['precoCentavos'] as int) / 100,
-              'color': ApiMappers.color(plan['cor'] as String?),
-              'icon': ApiMappers.icon(plan['icone'] as String?, fallback: Icons.school_rounded),
-              if (plan['destaque'] != null) 'badge': plan['destaque'],
-              'features': (plan['beneficios'] as List).cast<String>(),
-              'disabled': (plan['indisponiveis'] as List).cast<String>(),
-            },
-        ];
-        final current = plans.where((p) => p['atual'] == true).firstOrNull;
-        if (current != null) _currentPlan = current['nome'] as String;
-        _loading = false;
-        _error = null;
-      });
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = error.message;
-      });
-    }
-  }
-
-  Future<void> _changePlan(String newPlan) async {
-    final plan = _plans.firstWhere((p) => p['name'] == newPlan);
-    try {
-      final message = await ProgressService.instance.subscribe(plan['id'] as String);
-      if (!mounted) return;
-      setState(() => _currentPlan = newPlan);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: EducanoColors.successGreen,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
-      );
-    }
-  }
+  final List<Map<String, dynamic>> _plans = [
+    {
+      'name': 'Básico',
+      'price': 'Grátis',
+      'priceValue': 0.0,
+      'color': EducanoColors.softGreen,
+      'icon': Icons.school_rounded,
+      'features': [
+        'Acesso a cursos gratuitos',
+        'Até 3 simulados por mês',
+        'Ranking global',
+        'Suporte por e-mail',
+      ],
+      'disabled': [
+        'Cursos premium',
+        'Simulados ilimitados',
+        'Relatórios avançados',
+        'Suporte prioritário',
+      ],
+    },
+    {
+      'name': 'Pro',
+      'price': 'R\$ 29,90/mês',
+      'priceValue': 29.90,
+      'color': EducanoColors.primaryBlue,
+      'icon': Icons.workspace_premium_rounded,
+      'badge': 'Mais Popular',
+      'features': [
+        'Todos os cursos disponíveis',
+        'Simulados ilimitados',
+        'Ranking global',
+        'Relatórios de desempenho',
+        'Suporte prioritário',
+        'Certificados digitais',
+      ],
+      'disabled': [
+        'Mentoria individual',
+        'Conteúdo exclusivo',
+      ],
+    },
+    {
+      'name': 'Premium',
+      'price': 'R\$ 59,90/mês',
+      'priceValue': 59.90,
+      'color': EducanoColors.accentYellow,
+      'icon': Icons.diamond_rounded,
+      'features': [
+        'Tudo do plano Pro',
+        'Mentoria individual mensal',
+        'Conteúdo exclusivo',
+        'Acesso antecipado a novidades',
+        'Badge exclusivo no perfil',
+        'Desconto em eventos parceiros',
+      ],
+      'disabled': [],
+    },
+  ];
 
   void _showChangePlanDialog(BuildContext context, String newPlan) {
     final plan = _plans.firstWhere((p) => p['name'] == newPlan);
@@ -184,7 +171,14 @@ class _AccountPlanViewState extends State<AccountPlanView> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _changePlan(newPlan);
+              setState(() => _currentPlan = newPlan);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Plano alterado para $newPlan!'),
+                  backgroundColor: EducanoColors.successGreen,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -203,19 +197,6 @@ class _AccountPlanViewState extends State<AccountPlanView> {
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < AppBreakpoints.compact;
         final sectionGap = isCompact ? _spacingMedium : _spacingLarge;
-
-        if (_loading) return const Center(child: CircularProgressIndicator());
-        if (_error != null || _plans.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error ?? 'Nenhum plano disponível.'),
-                TextButton(onPressed: _load, child: const Text('Tentar novamente')),
-              ],
-            ),
-          );
-        }
 
         return SingleChildScrollView(
           padding: EdgeInsets.all(isCompact ? _spacingSmall : _spacingMedium),

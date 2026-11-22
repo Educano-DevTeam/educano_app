@@ -467,6 +467,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
       _trilhas.add({
         'id': id,
         'title': result['title'],
+        'subtitle': result['subtitle'],
         'description': result['description'],
         'modulos': <Map<String, dynamic>>[],
       });
@@ -483,6 +484,7 @@ class _CourseEditorViewState extends State<CourseEditorView> {
 
     setState(() {
       trilha['title'] = result['title'];
+      trilha['subtitle'] = result['subtitle'];
       trilha['description'] = result['description'];
     });
   }
@@ -946,7 +948,13 @@ class _CourseEditorViewState extends State<CourseEditorView> {
             backgroundColor: _color.withValues(alpha: 0.15),
             foregroundImage: _coverBytes != null
                 ? MemoryImage(_coverBytes!)
-                : (_showsImage ? NetworkImage(_imageUrl) : null),
+                : (_showsImage
+                      ? NetworkImage(
+                          _imageUrl,
+                          webHtmlElementStrategy:
+                              WebHtmlElementStrategy.fallback,
+                        )
+                      : null),
             child: Icon(_icon, color: _color, size: 24),
           ),
           const SizedBox(width: _spacingSmall),
@@ -1130,6 +1138,8 @@ class _CourseEditorViewState extends State<CourseEditorView> {
     );
     final description = trilha['description'] as String? ?? '';
     final summary = [
+      if ((trilha['subtitle'] as String? ?? '').isNotEmpty)
+        trilha['subtitle'] as String,
       if (description.isNotEmpty) description,
       _plural(modulos.length, 'módulo', 'módulos'),
       _plural(materiais, 'material', 'materiais'),
@@ -1474,6 +1484,7 @@ class _TrilhaDialog extends StatefulWidget {
 class _TrilhaDialogState extends State<_TrilhaDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
+  late final TextEditingController _subtitleController;
   late final TextEditingController _descriptionController;
 
   @override
@@ -1481,6 +1492,9 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
     super.initState();
     _titleController = TextEditingController(
       text: widget.trilha?['title'] as String? ?? '',
+    );
+    _subtitleController = TextEditingController(
+      text: widget.trilha?['subtitle'] as String? ?? '',
     );
     _descriptionController = TextEditingController(
       text: widget.trilha?['description'] as String? ?? '',
@@ -1490,6 +1504,7 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
   @override
   void dispose() {
     _titleController.dispose();
+    _subtitleController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -1499,6 +1514,7 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
 
     Navigator.pop(context, {
       'title': _titleController.text.trim(),
+      'subtitle': _subtitleController.text.trim(),
       'description': _descriptionController.text.trim(),
     });
   }
@@ -1537,6 +1553,14 @@ class _TrilhaDialogState extends State<_TrilhaDialog> {
                 validator: (value) => (value == null || value.trim().isEmpty)
                     ? 'Informe o título da trilha'
                     : null,
+              ),
+              const SizedBox(height: _spacingSmall),
+              TextFormField(
+                controller: _subtitleController,
+                decoration: const InputDecoration(
+                  labelText: 'Subtítulo da trilha (opcional)',
+                  hintText: 'Ex.: Conceitos essenciais',
+                ),
               ),
               const SizedBox(height: _spacingSmall),
               TextFormField(

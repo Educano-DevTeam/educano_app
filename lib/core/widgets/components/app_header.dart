@@ -3,6 +3,7 @@ import 'package:educano_app/core/navigation/app_navigation.dart';
 import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../theme/theme.dart';
+import '../ui/profile_avatar.dart';
 
 const String _logoAssetPath = 'lib/assets/Educano_Logo.jpeg';
 
@@ -11,6 +12,7 @@ class AppHeader extends StatelessWidget {
 
   final bool isMobile;
   final AppUser? user;
+  final String? profilePhotoUrl;
 
   /// Controller compartilhado com o DashboardPage.
   /// Tudo que o usuário digitar ficará armazenado aqui.
@@ -22,6 +24,7 @@ class AppHeader extends StatelessWidget {
     required this.isMobile,
     required this.searchController,
     required this.user,
+    this.profilePhotoUrl,
   });
 
   @override
@@ -76,19 +79,22 @@ class AppHeader extends StatelessWidget {
 
               SizedBox(width: isMobile ? 12 : 32),
 
-              // Barra de pesquisa
+              // O placeholder preserva o espaço da busca para os demais perfis.
               if (!isMobile)
                 Expanded(
-                  child: SizedBox(
-                    height: 45,
-                    child: TextField(
-                      controller: searchController,
-                      decoration: const InputDecoration(
-                        hintText: "Pesquisar usuários, cursos, questões...",
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                  ),
+                  child: user?.isAdmin == true
+                      ? SizedBox(
+                          height: 45,
+                          child: TextField(
+                            controller: searchController,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  "Pesquisar usuários, cursos, questões...",
+                              prefixIcon: Icon(Icons.search),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
 
               if (isMobile) const Spacer() else const SizedBox(width: 30),
@@ -97,12 +103,19 @@ class AppHeader extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: EducanoColors.surface,
-                      child: Icon(
-                        Icons.person,
-                        color: EducanoColors.secondaryBlue,
+                    IconButton(
+                      tooltip: 'Perfil',
+                      onPressed: () {
+                        AppNavigation.onMenuSelected(context, AppMenu.profile);
+                      },
+                      icon: ProfileAvatar(
+                        imageUrl: profilePhotoUrl,
+                        radius: 22,
+                        backgroundColor: EducanoColors.surface,
+                        placeholder: const Icon(
+                          Icons.person,
+                          color: EducanoColors.secondaryBlue,
+                        ),
                       ),
                     ),
                     if (user != null &&
@@ -132,10 +145,11 @@ class AppHeader extends StatelessWidget {
                       onPressed: () {
                         AppNavigation.onMenuSelected(context, AppMenu.profile);
                       },
-                      icon: const CircleAvatar(
+                      icon: ProfileAvatar(
+                        imageUrl: profilePhotoUrl,
                         radius: 22,
                         backgroundColor: EducanoColors.surface,
-                        child: Icon(
+                        placeholder: const Icon(
                           Icons.person,
                           color: EducanoColors.secondaryBlue,
                         ),

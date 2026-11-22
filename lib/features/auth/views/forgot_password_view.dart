@@ -36,7 +36,8 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
     final email = ModalRoute.of(context)?.settings.arguments;
     if (email is String && _emailController.text.isEmpty) {
       _emailController.text = email;
-      _infoMessage = 'Sua senha expirou (validade de 90 dias). Redefina para continuar.';
+      _infoMessage =
+          'Sua senha expirou (validade de 90 dias). Redefina para continuar.';
     }
   }
 
@@ -91,13 +92,25 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     if (!mounted) return;
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? 'Senha redefinida.')),
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Senha redefinida'),
+          content: Text(
+            result.message ?? 'Sua senha foi redefinida. Você já pode entrar.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Ir para o login'),
+            ),
+          ],
+        ),
       );
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (route) => false,
-      );
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     } else {
       setState(() {
         _isLoading = false;
@@ -204,7 +217,8 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
               label: 'Código',
               hint: 'Código recebido por e-mail',
               controller: _codeController,
-              validator: (value) => RegExp(r'^[A-Za-z0-9]{6}$').hasMatch(value?.trim() ?? '')
+              validator: (value) =>
+                  RegExp(r'^[A-Za-z0-9]{6}$').hasMatch(value?.trim() ?? '')
                   ? null
                   : 'Digite o código de 6 caracteres',
             ),
@@ -222,7 +236,8 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                       : Icons.visibility_off_outlined,
                   color: EducanoColors.textSecondary,
                 ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             const SizedBox(height: 16),
@@ -253,10 +268,9 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           InlineLinkRow(
             text: 'Lembrou sua senha?',
             linkText: 'Voltar para o login',
-            onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-              AppRoutes.login,
-              (route) => false,
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false),
           ),
         ],
       ),

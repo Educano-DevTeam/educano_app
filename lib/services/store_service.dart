@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/utils/api_mappers.dart';
 import 'api_client.dart';
+import 'users_service.dart';
 
 class StoreSnapshot {
   final int balance;
@@ -35,58 +36,87 @@ class StoreService {
   /// Item no formato das telas da loja e do dashboard.
   static Map<String, dynamic> itemMap(Map<String, dynamic> api) =>
       ApiClient.parseResponse('/items.item', () {
+        final icon = switch (api['icone'] as String?) {
+          'RAIO' => Icons.bolt_rounded,
+          'ESCUDO' => Icons.shield_rounded,
+          'LAMPADA' => Icons.lightbulb_rounded,
+          'CRONOMETRO' => Icons.timer_rounded,
+          'REINICIAR' => Icons.refresh_rounded,
+          'AVATAR' => Icons.face_rounded,
+          _ => Icons.star_rounded,
+        };
         return {
           'id': api['id'],
           'name': api['nome'],
           'description': api['descricao'] ?? '',
           'price': api['preco'],
-          'icon': ApiMappers.icon(
-            api['icone'] as String?,
-            fallback: Icons.star_rounded,
-          ),
+          'icon': icon,
           'color': ApiMappers.color(api['cor'] as String?),
-          'category': api['categoria'],
-          'effect': api['efeito'],
-          'effectValue': api['valorEfeito'] ?? 0,
-          'durationMinutes': api['duracaoMinutos'],
-          'active': api['ativo'] ?? true,
-          'owned': api['quantidadeNoInventario'] ?? 0,
+          'category': 'Boosts',
+          'effect': 'BOOST_XP',
+          'effectValue': api['boost'] ?? 2,
+          'durationMinutes': api['tempoUso'] ?? 1440,
+          'active': api['status'] == null || api['status'] == 'ATIVO',
+          'owned': 0,
         };
       });
 
-  static Map<String, dynamic> itemPayload(Map<String, dynamic> item) => {
+  static Map<String, dynamic> itemPayload(Map<String, dynamic> item) {
+    final iconKey = switch (ApiMappers.iconKey(item['icon'] as IconData?)) {
+      'bolt' => 'RAIO',
+      'shield' => 'ESCUDO',
+      'lightbulb' => 'LAMPADA',
+      'timer' => 'CRONOMETRO',
+      'refresh' => 'REINICIAR',
+      'face' => 'AVATAR',
+      _ => 'ESTRELA',
+    };
+    return {
     'nome': item['name'],
     'descricao': item['description'] ?? '',
     'preco': item['price'],
-    'icone': ApiMappers.iconKey(item['icon'], fallback: 'star'),
+    'icone': iconKey,
     'cor': ApiMappers.hex(item['color'] as Color),
-    'categoria': item['category'],
-    'efeito': item['effect'] ?? 'COSMETICO',
-    'valorEfeito': item['effectValue'] ?? 0,
-    'duracaoMinutos': item['durationMinutes'],
-    'ativo': item['active'] ?? true,
+    'categoria': 'BOOST',
+    'boost': ((item['effectValue'] as num?)?.toDouble() ?? 2).clamp(1.01, 100),
+    'tempoUso': item['durationMinutes'] ?? 1440,
   };
+  }
+
+  Future<StoreSnapshot> shop() async {
+    final data = ApiClient.responseMap(
+      await _api.get('/items/loja'),
+      endpoint: '/items/loja',
+    );
+    return StoreSnapshot(
+      balance: 0,
+      items: ApiClient.responseList(data['dados'], endpoint: '/items/loja.dados')
+          .map(itemMap).toList(),
+    );
+  }
 
   Future<StoreSnapshot> items({bool includeInactive = false}) async {
-    final response = await _api.get(
-      '/items',
-      query: {if (includeInactive) 'todos': 'true'},
-    );
-    final data = ApiClient.responseMap(
-      response,
+    final first = ApiClient.responseMap(
+      await _api.get('/items', query: {'pagina': 1}),
       endpoint: '/items',
-      optional: true,
     );
+    final items = ApiClient.responseList(first['dados'], endpoint: '/items.dados');
+    final pagination = ApiClient.responseMap(first['paginacao'], endpoint: '/items.paginacao', optional: true);
+    final totalPages = ApiClient.responseInt(pagination['totalPaginas'], endpoint: '/items.paginacao.totalPaginas');
+    for (var page = 2; page <= totalPages; page++) {
+      final data = ApiClient.responseMap(
+        await _api.get('/items', query: {'pagina': page}),
+        endpoint: '/items',
+      );
+      items.addAll(ApiClient.responseList(data['dados'], endpoint: '/items.dados'));
+    }
     return ApiClient.parseResponse(
       '/items',
       () => StoreSnapshot(
-        balance: ApiClient.responseInt(data['saldo'], endpoint: '/items.saldo'),
-        items: ApiClient.responseList(
-          data['dados'],
-          endpoint: '/items.dados',
-        ).map(itemMap).toList(),
+        balance: 0,
+        items: items.map(itemMap).toList(),
         categories: ApiClient.responseStringList(
-          data['categorias'],
+          const [],
           endpoint: '/items.categorias',
         ),
       ),
@@ -95,67 +125,58 @@ class StoreService {
 
   /// Compra o item e devolve o novo saldo.
   Future<int> purchase(String itemId) async {
-    final response = await _api.post('/items/$itemId/purchase', {
-      'quantidade': 1,
-    });
-    final data = ApiClient.responseMap(
-      response,
-      endpoint: '/items/$itemId/purchase',
-    );
+    await _api.post('/items/$itemId/comprar');
+    final profile = await UsersService.instance.myProfile();
     return ApiClient.responseInt(
-      data['saldo'],
-      endpoint: '/items/$itemId/purchase.saldo',
-      required: true,
+      profile['moedas'],
+      endpoint: '/users/me/profile.perfil.moedas',
     );
   }
 
   Future<StoreSnapshot> inventory() async {
-    final response = await _api.get('/inventory');
+    final response = await _api.get('/items/inventario');
     final data = ApiClient.responseMap(
       response,
-      endpoint: '/inventory',
+      endpoint: '/items/inventario',
       optional: true,
     );
-    return _inventorySnapshot(data);
-  }
-
-  Future<StoreSnapshot> activate(String itemId) async {
-    final response = await _api.post('/inventory/$itemId/activate');
-    final data = ApiClient.responseMap(
-      response,
-      endpoint: '/inventory/$itemId/activate',
+    final profile = await UsersService.instance.myProfile();
+    return _inventorySnapshot(
+      data,
+      balance: ApiClient.responseInt(
+        profile['moedas'],
+        endpoint: '/users/me/profile.perfil.moedas',
+      ),
     );
-    return _inventorySnapshot(data);
   }
 
-  StoreSnapshot _inventorySnapshot(Map<String, dynamic> data) =>
+  Future<StoreSnapshot> activate(String inventoryId) async {
+    await _api.patch('/items/inventario/$inventoryId/ativar');
+    return inventory();
+  }
+
+  StoreSnapshot _inventorySnapshot(Map<String, dynamic> data, {required int balance}) =>
       ApiClient.parseResponse(
-        '/inventory',
+        '/items/inventario',
         () => StoreSnapshot(
-          balance: ApiClient.responseInt(
-            data['saldo'],
-            endpoint: '/inventory.saldo',
-          ),
+          balance: balance,
           items: [
             for (final entry in ApiClient.responseList(
               data['dados'],
-              endpoint: '/inventory.dados',
+              endpoint: '/items/inventario.dados',
             ))
               {
                 ...itemMap(
                   ApiClient.responseMap(
                     entry['item'],
-                    endpoint: '/inventory.dados.item',
+                    endpoint: '/items/inventario.dados.item',
                   ),
                 ),
-                'quantity': ApiClient.responseInt(
-                  entry['quantidade'],
-                  endpoint: '/inventory.dados.quantidade',
-                ),
-                'active': entry['ativo'] == true,
-                'expiresAt': ApiMappers.date(
-                  (entry['ativacao'] as Map?)?['expiraEm'],
-                ),
+                'id': (entry['item'] as Map)['id'],
+                'inventoryId': entry['id'],
+                'quantity': 1,
+                'active': entry['status'] == 'ATIVO',
+                'expiresAt': ApiMappers.date(entry['expiraEm']),
               },
           ],
         ),
@@ -173,7 +194,9 @@ class StoreService {
     String id,
     Map<String, dynamic> item,
   ) async {
-    final response = await _api.put('/items/$id', itemPayload(item));
+    final payload = itemPayload(item)
+      ..['status'] = item['active'] == false ? 'INATIVO' : 'ATIVO';
+    final response = await _api.patch('/items/$id', payload);
     final data = ApiClient.responseMap(response, endpoint: '/items/$id');
     return itemMap(
       ApiClient.responseMap(data['item'], endpoint: '/items/$id.item'),

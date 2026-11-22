@@ -261,6 +261,7 @@ class ApiMappers {
     'titulo': question.title,
     'enunciado': question.statement,
     'dificuldade': difficultyValue(question.difficulty),
+    'tema': question.topic.trim().toLowerCase(),
     'alternativas': [
       for (var i = 0; i < question.options.length; i++)
         {'letra': String.fromCharCode(65 + i), 'texto': question.options[i]},

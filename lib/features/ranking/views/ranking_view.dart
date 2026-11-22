@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/educano_colors.dart';
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/models/app_ranking_entry.dart';
+import '../../../core/navigation/app_routes.dart';
+import '../../../core/navigation/navigation_service.dart';
 import '../../../core/widgets/ui/stat_card.dart';
 
 import '../../../core/widgets/ui/app_card.dart';
+import '../../../core/widgets/ui/profile_avatar.dart';
 import '../../../services/api_client.dart';
 import '../../../services/progress_service.dart';
 import '../../../services/storage_service.dart';
-
+import '../../../services/users_service.dart';
 
 class RankingView extends StatefulWidget {
   const RankingView({super.key});
@@ -20,6 +23,7 @@ class RankingView extends StatefulWidget {
 class _RankingViewState extends State<RankingView> {
   final List<RankingEntry> _entries = [];
   final _search = TextEditingController();
+  final _scrollController = ScrollController();
   Map<String, dynamic>? _me;
   int _page = 1;
   bool _hasMore = false;
@@ -27,17 +31,28 @@ class _RankingViewState extends State<RankingView> {
   String? _error;
   String? _userId;
 
-  int? _selectedIndex;
+  final Set<String> _openingProfileIds = {};
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _load();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 240 &&
+        !_loading &&
+        _hasMore) {
+      _load(more: true);
+    }
   }
 
   @override
   void dispose() {
     _search.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -49,26 +64,44 @@ class _RankingViewState extends State<RankingView> {
     try {
       _userId ??= (await StorageService.instance.loadCurrentUser())?.id;
       final page = more ? _page + 1 : 1;
-      final results = await Future.wait([
-        ProgressService.instance.ranking(page: page),
-        if (!more) ProgressService.instance.me(),
-      ]);
-      final ranking = results[0];
+      final ranking = await ProgressService.instance.ranking(page: page);
       if (!mounted) return;
       setState(() {
         if (!more) {
           _entries.clear();
-          _me = results[1]['perfil'] as Map<String, dynamic>;
         }
         _entries.addAll(
-          (ranking['dados'] as List)
-              .cast<Map<String, dynamic>>()
-              .map((e) => RankingEntry.fromApi(e, currentUserId: _userId)),
+          (ranking['dados'] as List).cast<Map<String, dynamic>>().map(
+            (e) => RankingEntry.fromApi(e, currentUserId: _userId),
+          ),
         );
+        final currentEntry = _entries
+            .where((entry) => entry.isCurrentUser)
+            .firstOrNull;
+        if (currentEntry != null && _me != null) {
+          _me = {..._me!, 'posicaoRanking': currentEntry.position};
+        }
         _page = page;
         _hasMore = (ranking['paginacao'] as Map)['temMais'] == true;
         _loading = false;
       });
+      if (!more) {
+        try {
+          final profile = await UsersService.instance.myProfile();
+          if (!mounted) return;
+          final currentEntry = _entries
+              .where((entry) => entry.isCurrentUser)
+              .firstOrNull;
+          setState(() {
+            _me = {
+              ...profile,
+              if (currentEntry != null) 'posicaoRanking': currentEntry.position,
+            };
+          });
+        } on ApiException {
+          // O ranking é público e continua disponível mesmo sem perfil próprio.
+        }
+      }
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -84,91 +117,162 @@ class _RankingViewState extends State<RankingView> {
     return _entries.where((e) => e.name.toLowerCase().contains(query)).toList();
   }
 
+  String _photoUrl(RankingEntry entry) {
+    if (entry.isCurrentUser) {
+      final currentPhoto = _me?['urlFotoPerfil'];
+      if (currentPhoto is String && currentPhoto.isNotEmpty) {
+        return currentPhoto;
+      }
+    }
+    return entry.photoUrl;
+  }
+
+  Future<void> _openProfile(RankingEntry entry) async {
+    final id = entry.id;
+    if (id == null || _openingProfileIds.contains(id)) return;
+    if (entry.isCurrentUser) {
+      NavigationService.pushNamed(AppRoutes.profile);
+      return;
+    }
+
+    setState(() => _openingProfileIds.add(id));
+    try {
+      final profile = await UsersService.instance.profileOf(id);
+      if (!mounted) return;
+      if (profile == null || profile['tipoPerfil'] != 'PUBLICO') {
+        await _showPrivateProfileMessage();
+        return;
+      }
+      NavigationService.pushNamed(AppRoutes.publicProfile, arguments: profile);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _openingProfileIds.remove(id));
+    }
+  }
+
+  Future<void> _showPrivateProfileMessage() => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Perfil privado'),
+      content: const Text('Este perfil é privado e não pode ser exibido.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Fechar'),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ranking Global',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: EducanoColors.legacyTextPrimary),
+      controller: _scrollController,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ranking Global',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EducanoColors.legacyTextPrimary,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Veja sua posição entre os outros alunos da plataforma.',
-              style: TextStyle(fontSize: 13, color: EducanoColors.legacyTextSecondary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Veja sua posição entre os outros alunos da plataforma.',
+            style: TextStyle(
+              fontSize: 13,
+              color: EducanoColors.legacyTextSecondary,
             ),
-            const SizedBox(height: 16),
-            _SearchField(controller: _search, onChanged: (_) => setState(() {})),
-            const SizedBox(height: 16),
-            _StatsRow(me: _me, entries: _entries),
-            const SizedBox(height: 20),
-            AppSectionCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 18, 20, 12),
+          ),
+          const SizedBox(height: 16),
+          _SearchField(controller: _search, onChanged: (_) => setState(() {})),
+          const SizedBox(height: 16),
+          _StatsRow(me: _me, entries: _entries),
+          const SizedBox(height: 20),
+          AppSectionCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.emoji_events,
+                        color: EducanoColors.legacyGold,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Ranking por XP',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: EducanoColors.legacyTextPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
                     child: Row(
                       children: [
-                        Icon(Icons.emoji_events, color: EducanoColors.legacyGold, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Ranking por XP',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: EducanoColors.legacyTextPrimary),
+                        Expanded(child: Text(_error!)),
+                        TextButton(
+                          onPressed: _load,
+                          child: const Text('Tentar novamente'),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(children: [
-                        Expanded(child: Text(_error!)),
-                        TextButton(onPressed: _load, child: const Text('Tentar novamente')),
-                      ]),
-                    ),
-                  if (!_loading && _error == null && _visible.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text('Nenhum aluno encontrado.'),
-                    ),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _visible.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) => _RankingRow(
-                      entry: _visible[index],
-                      selected: _selectedIndex == index,
-                      onTap: () => setState(
-                        () => _selectedIndex = _selectedIndex == index ? null : index,
-                      ),
+                if (!_loading && _error == null && _visible.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('Nenhum aluno encontrado.'),
+                  ),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _visible.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) => _RankingRow(
+                    entry: _visible[index],
+                    loading: _openingProfileIds.contains(_visible[index].id),
+                    photoUrl: _photoUrl(_visible[index]),
+                    onTap: () => _openProfile(_visible[index]),
+                  ),
+                ),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_hasMore)
+                  Center(
+                    child: TextButton(
+                      onPressed: () => _load(more: true),
+                      child: const Text('Ver mais posições'),
                     ),
                   ),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (_hasMore)
-                    Center(
-                      child: TextButton(
-                        onPressed: () => _load(more: true),
-                        child: const Text('Ver mais posições'),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                ],
-              ),
+                const SizedBox(height: 8),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 }
@@ -192,8 +296,15 @@ class _SearchField extends StatelessWidget {
         onChanged: onChanged,
         decoration: const InputDecoration(
           hintText: 'Pesquisar aluno...',
-          hintStyle: TextStyle(color: EducanoColors.legacyTextSecondary, fontSize: 13),
-          prefixIcon: Icon(Icons.search, size: 20, color: EducanoColors.legacyTextSecondary),
+          hintStyle: TextStyle(
+            color: EducanoColors.legacyTextSecondary,
+            fontSize: 13,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            size: 20,
+            color: EducanoColors.legacyTextSecondary,
+          ),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 14),
         ),
@@ -210,19 +321,26 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool mobile = (MediaQuery.sizeOf(context).width < AppBreakpoints.medium);
+    final bool mobile =
+        (MediaQuery.sizeOf(context).width < AppBreakpoints.medium);
     final position = me?['posicaoRanking'] as int?;
     final xp = me?['xp'] as int? ?? 0;
     final third = entries.where((e) => e.position == 3).firstOrNull;
     final missing = third == null ? null : third.xp - xp + 1;
     final List<Widget> cards = [
-      StatCard(label: 'Sua posição', value: position == null ? '—' : '#$position', valueColor: EducanoColors.legacyPrimary),
+      StatCard(
+        label: 'Sua posição',
+        value: position == null ? '—' : '#$position',
+        valueColor: EducanoColors.legacyPrimary,
+      ),
       StatCard(label: 'Seu XP total', value: '$xp XP'),
       StatCard(
         label: 'Faltam p/ 3º lugar',
         value: position != null && position <= 3
             ? 'No pódio!'
-            : missing == null ? '—' : '$missing XP',
+            : missing == null
+            ? '—'
+            : '$missing XP',
         valueColor: EducanoColors.legacyAmber,
       ),
     ];
@@ -251,12 +369,14 @@ class _StatsRow extends StatelessWidget {
 
 class _RankingRow extends StatefulWidget {
   final RankingEntry entry;
-  final bool selected;
+  final bool loading;
+  final String photoUrl;
   final VoidCallback onTap;
 
   const _RankingRow({
     required this.entry,
-    required this.selected,
+    required this.loading,
+    required this.photoUrl,
     required this.onTap,
   });
 
@@ -296,9 +416,7 @@ class _RankingRowState extends State<_RankingRow> {
     final bool isTop3 = entry.position <= 3;
 
     Color rowColor;
-    if (widget.selected) {
-      rowColor = EducanoColors.legacyPrimary.withValues(alpha: 0.14);
-    } else if (isTop3) {
+    if (isTop3) {
       rowColor = EducanoColors.legacyTopThreeBackground;
     } else if (entry.isCurrentUser) {
       rowColor = EducanoColors.legacyLavender;
@@ -321,7 +439,9 @@ class _RankingRowState extends State<_RankingRow> {
             color: rowColor,
             border: Border(
               left: BorderSide(
-                color: widget.selected ? EducanoColors.legacyPrimary : Colors.transparent,
+                color: widget.loading
+                    ? EducanoColors.legacyPrimary
+                    : Colors.transparent,
                 width: 3,
               ),
             ),
@@ -335,23 +455,26 @@ class _RankingRowState extends State<_RankingRow> {
                 child: Text(
                   '${entry.position}',
                   style: TextStyle(
-                    color: isTop3 ? Colors.white : EducanoColors.legacyTextPrimary,
+                    color: isTop3
+                        ? Colors.white
+                        : EducanoColors.legacyTextPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              CircleAvatar(
+              ProfileAvatar(
+                imageUrl: widget.photoUrl,
                 radius: 15,
                 backgroundColor: const Color(0xFFC9D6F5),
-                backgroundImage: entry.photoUrl.isNotEmpty ? NetworkImage(entry.photoUrl) : null,
-                child: entry.photoUrl.isEmpty
-                    ? Text(
-                        entry.name.isEmpty ? '?' : entry.name[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 12, color: EducanoColors.legacyPrimary),
-                      )
-                    : null,
+                placeholder: Text(
+                  entry.name.isEmpty ? '?' : entry.name[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: EducanoColors.legacyPrimary,
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -364,7 +487,19 @@ class _RankingRowState extends State<_RankingRow> {
                   ),
                 ),
               ),
-              const Icon(Icons.bolt, size: 16, color: EducanoColors.legacyAmber),
+              if (widget.loading) ...[
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Icon(
+                Icons.bolt,
+                size: 16,
+                color: EducanoColors.legacyAmber,
+              ),
               const SizedBox(width: 4),
               Text(
                 '${_formatXp(entry.xp)} XP',

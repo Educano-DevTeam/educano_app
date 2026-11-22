@@ -16,6 +16,7 @@ import 'package:educano_app/features/flashcards/pages/flashcards_page.dart';
 import 'package:educano_app/features/ranking/pages/ranking_page.dart';
 import 'package:educano_app/features/store_inventory/pages/store_inventory_page.dart';
 import 'package:educano_app/features/profile/pages/profile_page.dart';
+import 'package:educano_app/features/profile/pages/public_profile_page.dart';
 import 'package:educano_app/features/settings/pages/settings_page.dart';
 import 'package:educano_app/features/account_plan/account_plan_page.dart';
 
@@ -87,6 +88,13 @@ class EducanoApp extends StatelessWidget {
           case AppRoutes.profile:
             return _buildRoute(const ProfilePage(), settings);
 
+          case AppRoutes.publicProfile:
+            final profile = settings.arguments;
+            if (profile is! Map<String, dynamic>) {
+              return _buildRoute(const ProfilePage(), settings);
+            }
+            return _buildRoute(PublicProfilePage(profile: profile), settings);
+
           case AppRoutes.accountPlan:
             return _buildRoute(const AccountPlanPage(), settings);
 
@@ -100,13 +108,22 @@ class EducanoApp extends StatelessWidget {
             return _buildRoute(RoleGuard.admin(DashboardPage()), settings);
 
           case AppRoutes.dashboardCourses:
-            return _buildRoute(RoleGuard.staff(const DashboardCoursesPage()), settings);
+            return _buildRoute(
+              RoleGuard.coursesManager(const DashboardCoursesPage()),
+              settings,
+            );
 
           case AppRoutes.dashboardUsers:
-            return _buildRoute(RoleGuard.admin(const DashboardUsersPage()), settings);
+            return _buildRoute(
+              RoleGuard.admin(const DashboardUsersPage()),
+              settings,
+            );
 
           case AppRoutes.dashboardQuestions:
-            return _buildRoute(RoleGuard.staff(const DashboardQuestionsPage()), settings);
+            return _buildRoute(
+              RoleGuard.staff(const DashboardQuestionsPage()),
+              settings,
+            );
 
           case AppRoutes.dashboardItems:
             return _buildRoute(RoleGuard.admin(DashboardItemsPage()), settings);

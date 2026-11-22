@@ -1,4 +1,4 @@
-class HomeLevelProgress {
+class LevelProgress {
   static const Map<int, int> _xpRequiredByLevel = {
     1: 250,
     2: 500,
@@ -12,21 +12,21 @@ class HomeLevelProgress {
   final int xpRequiredForNextLevel;
   final int totalXp;
 
-  const HomeLevelProgress({
+  const LevelProgress({
     required this.level,
     required this.xpInLevel,
     required this.xpRequiredForNextLevel,
     required this.totalXp,
   });
 
-  factory HomeLevelProgress.fromTotalXp(int totalXp) {
+  factory LevelProgress.fromTotalXp(int totalXp) {
     final xp = totalXp < 0 ? 0 : totalXp;
     var level = 1;
     while (xp >= _xpAtLevel(level) + _xpRequiredForLevel(level)) {
       level++;
     }
 
-    return HomeLevelProgress(
+    return LevelProgress(
       level: level,
       xpInLevel: xp - _xpAtLevel(level),
       xpRequiredForNextLevel: _xpRequiredForLevel(level),
@@ -37,7 +37,6 @@ class HomeLevelProgress {
   static int _xpRequiredForLevel(int level) {
     final configured = _xpRequiredByLevel[level];
     if (configured != null) return configured;
-    // Continue the progression by doubling the requirement after level 5.
     return _xpRequiredByLevel[5]! * (1 << (level - 5));
   }
 

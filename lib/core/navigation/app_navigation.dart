@@ -113,7 +113,7 @@ class AppNavigation {
       // ==============================================================
 
       case AppMenu.logout:
-        _logout(context);
+        _confirmLogout(context);
         break;
     }
   }
@@ -122,10 +122,41 @@ class AppNavigation {
     NavigationService.pushReplacementNamed(route);
   }
 
+  static Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar saída'),
+        content: const Text('Deseja realmente encerrar sua sessão?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) await _logout(context);
+  }
+
   static Future<void> _logout(BuildContext context) async {
     try {
-      await AuthService.instance.logout();
+      final remoteError = await AuthService.instance.logout();
       if (context.mounted) {
+        if (remoteError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Sessão encerrada localmente; falha ao revogar no servidor: '
+                '${remoteError.message}',
+              ),
+            ),
+          );
+        }
         NavigationService.pushNamedAndRemoveUntil(
           AppRoutes.login,
           (route) => false,

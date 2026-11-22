@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../services/api_client.dart';
 import '../../../services/questions_service.dart';
@@ -19,7 +20,10 @@ const questionSubjects = [
   'Redação',
 ];
 
-Future<Map<String, String>?> showSessionEditor(BuildContext context, {CourseSession? session}) {
+Future<Map<String, String>?> showSessionEditor(
+  BuildContext context, {
+  CourseSession? session,
+}) {
   final title = TextEditingController(text: session?.title ?? '');
   final subtitle = TextEditingController(text: session?.subtitle ?? '');
   final description = TextEditingController(text: session?.description ?? '');
@@ -27,12 +31,12 @@ Future<Map<String, String>?> showSessionEditor(BuildContext context, {CourseSess
   return showDialog<Map<String, String>>(
     context: context,
     builder: (_) => _TextEditorDialog(
-      title: session == null ? 'Cadastrar sessão' : 'Editar sessão',
+      title: session == null ? 'Cadastrar trilha' : 'Editar trilha',
       submitLabel: session == null ? 'Cadastrar' : 'Salvar',
       fields: [
         ('Título', title, 'Ex.: C. Humanas'),
         ('Subtítulo', subtitle, 'Ex.: 500 anos de História'),
-        ('Descrição', description, 'Explique o objetivo da sessão.'),
+        ('Descrição', description, 'Explique o objetivo da trilha.'),
       ],
       onSubmit: () => {
         'title': title.text.trim(),
@@ -43,7 +47,10 @@ Future<Map<String, String>?> showSessionEditor(BuildContext context, {CourseSess
   );
 }
 
-Future<Map<String, String>?> showModuleEditor(BuildContext context, {CourseModule? module}) {
+Future<Map<String, String>?> showModuleEditor(
+  BuildContext context, {
+  CourseModule? module,
+}) {
   final title = TextEditingController(text: module?.title ?? '');
   final description = TextEditingController(text: module?.description ?? '');
 
@@ -137,7 +144,10 @@ class _TextEditorDialogState extends State<_TextEditorDialog> {
   }
 }
 
-Future<CourseMaterial?> showMaterialEditor(BuildContext context, {CourseMaterial? material}) {
+Future<CourseMaterial?> showMaterialEditor(
+  BuildContext context, {
+  CourseMaterial? material,
+}) {
   return showDialog<CourseMaterial>(
     context: context,
     barrierDismissible: false,
@@ -383,7 +393,8 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
     _file.text = material.fileName ?? '';
     _fileBytes = material.fileBytes;
     if (material.pageCount != null) _pageCount.text = '${material.pageCount}';
-    if (material.durationSeconds != null) _materialDuration.text = '${material.durationSeconds! ~/ 60}';
+    if (material.durationSeconds != null)
+      _materialDuration.text = '${material.durationSeconds! ~/ 60}';
     final activity = material.activity;
     if (activity != null) {
       _theme.text = activity.theme;
@@ -394,7 +405,15 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
 
   @override
   void dispose() {
-    for (final c in [_title, _description, _file, _theme, _duration, _materialDuration, _pageCount]) {
+    for (final c in [
+      _title,
+      _description,
+      _file,
+      _theme,
+      _duration,
+      _materialDuration,
+      _pageCount,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -468,7 +487,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                   child: Text(
                     widget.initialMaterial != null
                         ? 'Editar ${isActivity ? 'atividade' : 'aula'}'
-                        : (isActivity ? 'Cadastrar atividade' : 'Cadastrar aula'),
+                        : (isActivity
+                              ? 'Cadastrar atividade'
+                              : 'Cadastrar aula'),
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -504,7 +525,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
                   icon: const Icon(Icons.check_rounded),
                   label: Text(
                     widget.initialMaterial == null
-                        ? (isActivity ? 'Cadastrar atividade' : 'Cadastrar aula')
+                        ? (isActivity
+                              ? 'Cadastrar atividade'
+                              : 'Cadastrar aula')
                         : 'Salvar alteraÃ§Ãµes',
                   ),
                 ),
@@ -557,10 +580,14 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
           TextFormField(
             controller: _pageCount,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Quantidade de páginas'),
+            decoration: const InputDecoration(
+              labelText: 'Quantidade de páginas',
+            ),
             validator: (value) {
               final pages = int.tryParse((value ?? '').trim());
-              return pages == null || pages < 1 ? 'Informe a quantidade de páginas.' : null;
+              return pages == null || pages < 1
+                  ? 'Informe a quantidade de páginas.'
+                  : null;
             },
           )
         else
@@ -570,7 +597,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
             decoration: const InputDecoration(labelText: 'Duração (minutos)'),
             validator: (value) {
               final minutes = int.tryParse((value ?? '').trim());
-              return minutes == null || minutes < 1 ? 'Informe a duração em minutos.' : null;
+              return minutes == null || minutes < 1
+                  ? 'Informe a duração em minutos.'
+                  : null;
             },
           ),
         const SizedBox(height: 14),
@@ -742,7 +771,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
       Navigator.pop(
         context,
         CourseMaterial(
-          id: widget.initialMaterial?.id ?? 'material-${DateTime.now().microsecondsSinceEpoch}',
+          id:
+              widget.initialMaterial?.id ??
+              'material-${DateTime.now().microsecondsSinceEpoch}',
           kind: MaterialKind.activity,
           title: _theme.text.trim(),
           description: 'Atividade com ${_questions.length} questões.',
@@ -760,7 +791,9 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
     Navigator.pop(
       context,
       CourseMaterial(
-          id: widget.initialMaterial?.id ?? 'material-${DateTime.now().microsecondsSinceEpoch}',
+        id:
+            widget.initialMaterial?.id ??
+            'material-${DateTime.now().microsecondsSinceEpoch}',
         kind: _fileKind,
         title: _title.text.trim(),
         description: _description.text.trim(),
@@ -769,8 +802,12 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
         filePath: _selectedFilePath,
         fileSizeBytes: _selectedFileSize,
         fileUrl: widget.initialMaterial?.fileUrl,
-        pageCount: _fileKind == MaterialKind.pdf ? int.parse(_pageCount.text.trim()) : null,
-        durationSeconds: _fileKind == MaterialKind.pdf ? null : int.parse(_materialDuration.text.trim()) * 60,
+        pageCount: _fileKind == MaterialKind.pdf
+            ? int.parse(_pageCount.text.trim())
+            : null,
+        durationSeconds: _fileKind == MaterialKind.pdf
+            ? null
+            : int.parse(_materialDuration.text.trim()) * 60,
       ),
     );
   }
@@ -814,13 +851,20 @@ class _QuestionSearchAreaState extends State<_QuestionSearchArea> {
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       setState(() => _searching = true);
       try {
-        final page = await QuestionsService.instance.list(search: q);
-        if (mounted) setState(() => _results = page.questions);
+        final pages = await Future.wait([
+          QuestionsService.instance.list(search: q),
+          QuestionsService.instance.list(theme: q.toLowerCase()),
+        ]);
+        final byId = <String, ActivityQuestion>{
+          for (final question in [...pages[0].questions, ...pages[1].questions])
+            question.id: question,
+        };
+        if (mounted) setState(() => _results = byId.values.toList());
       } on ApiException catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
         }
       } finally {
         if (mounted) setState(() => _searching = false);
@@ -960,14 +1004,22 @@ Future<ActivityQuestion?> showActivityQuestionDialog(
 class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.question?.title);
-  late final _statement = TextEditingController(text: widget.question?.statement);
+  late final _statement = TextEditingController(
+    text: widget.question?.statement,
+  );
+  late final _topic = TextEditingController(
+    text: widget.question?.topic.toLowerCase(),
+  );
   late final List<TextEditingController> _answers = widget.question == null
       ? [TextEditingController(), TextEditingController()]
-      : widget.question!.options.map((o) => TextEditingController(text: o)).toList();
+      : widget.question!.options
+            .map((o) => TextEditingController(text: o))
+            .toList();
   late ActivityQuestionDifficulty _difficulty =
       widget.question?.difficulty ?? ActivityQuestionDifficulty.easy;
-  late int _correctIndex =
-      (widget.question?.correctOptionIndex ?? 0).clamp(0, 4).toInt();
+  late int _correctIndex = (widget.question?.correctOptionIndex ?? 0)
+      .clamp(0, 4)
+      .toInt();
   bool _saving = false;
 
   bool get _editing => widget.question != null;
@@ -976,6 +1028,7 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
   void dispose() {
     _title.dispose();
     _statement.dispose();
+    _topic.dispose();
     for (final controller in _answers) controller.dispose();
     super.dispose();
   }
@@ -993,7 +1046,7 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
       optionIds: widget.question?.optionIds ?? const [],
       correctOptionIndex: _correctIndex,
       subject: widget.question?.subject ?? '',
-      topic: widget.question?.topic ?? '',
+      topic: _topic.text.trim().toLowerCase(),
       explanation: widget.question?.explanation ?? '',
     );
 
@@ -1052,6 +1105,25 @@ class _QuestionEditorDialogState extends State<_QuestionEditorDialog> {
                   decoration: const InputDecoration(labelText: 'Pergunta'),
                   validator: (v) =>
                       (v ?? '').trim().isEmpty ? 'Informe a pergunta.' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _topic,
+                  textCapitalization: TextCapitalization.none,
+                  inputFormatters: [
+                    TextInputFormatter.withFunction(
+                      (oldValue, newValue) => newValue.copyWith(
+                        text: newValue.text.toLowerCase(),
+                        selection: newValue.selection,
+                      ),
+                    ),
+                  ],
+                  decoration: const InputDecoration(labelText: 'Tema'),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Informe o tema.'
+                      : (value!.trim().length > 150
+                            ? 'O tema deve ter no m\u00e1ximo 150 caracteres.'
+                            : null),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<ActivityQuestionDifficulty>(

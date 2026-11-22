@@ -16,6 +16,8 @@ import '../../features/dashboard/views/dashboard_questions_view.dart';
 import '../../features/dashboard/views/dashboard_courses_view.dart';
 import '../theme/educano_colors.dart';
 import '../../services/storage_service.dart';
+import '../../services/api_client.dart';
+import '../../services/users_service.dart';
 import '../models/app_user.dart';
 
 class AppScaffold extends StatefulWidget {
@@ -33,14 +35,16 @@ class AppScaffold extends StatefulWidget {
 }
 
 class _AppScaffoldState extends State<AppScaffold> {
-  bool _sidebarExpanded = true;
+  static bool? _cachedSidebarExpanded;
+
+  bool _sidebarExpanded = _cachedSidebarExpanded ?? true;
+  bool _sidebarManuallyToggled = false;
   AppUser? _currentUser;
+  String? _profilePhotoUrl;
 
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
-  final GlobalKey<ScaffoldState> _scaffoldKey =
-      GlobalKey<ScaffoldState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -56,8 +60,10 @@ class _AppScaffoldState extends State<AppScaffold> {
 
   void _toggleSidebar() {
     final expanded = !_sidebarExpanded;
+    _cachedSidebarExpanded = expanded;
     setState(() {
       _sidebarExpanded = expanded;
+      _sidebarManuallyToggled = true;
     });
     _saveSidebarPreference(expanded);
   }
@@ -66,15 +72,36 @@ class _AppScaffoldState extends State<AppScaffold> {
     try {
       final expanded = await StorageService.instance.loadSidebarExpanded();
       final user = await StorageService.instance.loadCurrentUser();
+      if (_cachedSidebarExpanded == null && expanded != null) {
+        _cachedSidebarExpanded = expanded;
+      }
       if (mounted) {
         setState(() {
-          if (expanded != null) _sidebarExpanded = expanded;
+          if (!_sidebarManuallyToggled) {
+            _sidebarExpanded = _cachedSidebarExpanded ?? expanded ?? true;
+          }
           _currentUser = user;
         });
       }
+      if (user != null) _loadProfilePhoto();
     } catch (error) {
       _showStorageError(
         'Não foi possível carregar as preferências locais: $error',
+      );
+    }
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    try {
+      final profile = await UsersService.instance.myProfile();
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = profile['urlFotoPerfil'] as String?;
+      });
+    } on ApiException catch (error) {
+      if (!mounted || error.isUnauthorized) return;
+      _showStorageError(
+        'Não foi possível carregar a foto de perfil: ${error.message}',
       );
     }
   }
@@ -139,15 +166,27 @@ class _AppScaffoldState extends State<AppScaffold> {
               onMenuPressed: () => _handleMenuPressed(true),
               searchController: _searchController,
               user: _currentUser,
+              profilePhotoUrl: _profilePhotoUrl,
             ),
 
             Expanded(
-              child: Stack(children: [
-                Positioned.fill(child: widget.child),
-                const Positioned(left: 0, right: 0, bottom: 0, child: CourseMiniAudioPlayer()),
-                if (_dashboardMenuVisible)
-                  Positioned(right: 16, bottom: 68, child: _buildDashboardFab()),
-              ]),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: widget.child),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: CourseMiniAudioPlayer(),
+                  ),
+                  if (_dashboardMenuVisible)
+                    Positioned(
+                      right: 16,
+                      bottom: 32,
+                      child: _buildDashboardFab(),
+                    ),
+                ],
+              ),
             ),
 
             AppBottomNavigation(
@@ -172,6 +211,7 @@ class _AppScaffoldState extends State<AppScaffold> {
               onMenuPressed: () => _handleMenuPressed(false),
               searchController: _searchController,
               user: _currentUser,
+              profilePhotoUrl: _profilePhotoUrl,
             ),
 
             Expanded(
@@ -187,12 +227,23 @@ class _AppScaffoldState extends State<AppScaffold> {
                   ),
 
                   Expanded(
-                    child: Stack(children: [
-                      Positioned.fill(child: widget.child),
-                      const Positioned(left: 0, right: 0, bottom: 0, child: CourseMiniAudioPlayer()),
-                      if (_dashboardMenuVisible)
-                        Positioned(right: 24, bottom: 24, child: _buildDashboardFab()),
-                    ]),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(child: widget.child),
+                        const Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: CourseMiniAudioPlayer(),
+                        ),
+                        if (_dashboardMenuVisible)
+                          Positioned(
+                            right: 24,
+                            bottom: 24,
+                            child: _buildDashboardFab(),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -203,17 +254,46 @@ class _AppScaffoldState extends State<AppScaffold> {
     );
   }
 
-  bool get _dashboardMenuVisible => widget.selectedMenu == AppMenu.dashboard || widget.selectedMenu == AppMenu.itensListage || widget.selectedMenu == AppMenu.coursesListage || widget.selectedMenu == AppMenu.questionsListage || widget.selectedMenu == AppMenu.usersListage;
+  bool get _dashboardMenuVisible =>
+      widget.selectedMenu == AppMenu.dashboard ||
+      widget.selectedMenu == AppMenu.itensListage ||
+      widget.selectedMenu == AppMenu.coursesListage ||
+      widget.selectedMenu == AppMenu.questionsListage ||
+      widget.selectedMenu == AppMenu.usersListage;
 
   Widget _buildDashboardFab() {
     final isAdmin = _currentUser?.isAdmin ?? false;
-    return AppFabMenu(actions: [
-      if (isAdmin)
-        AppFabAction(label: 'Cadastrar Usuário', icon: Icons.person_add_alt_rounded, color: EducanoColors.primaryBlue, onPressed: () => showDashboardUserDialog(context)),
-      AppFabAction(label: 'Cadastrar Curso', icon: Icons.school_rounded, color: EducanoColors.successGreen, onPressed: () => openDashboardCourseEditor(context)),
-      AppFabAction(label: 'Cadastrar Questão', icon: Icons.quiz_rounded, color: EducanoColors.accentYellow, onPressed: () => createQuestionFromDashboard(context)),
-      if (isAdmin)
-        AppFabAction(label: 'Cadastrar Item', icon: Icons.store_rounded, color: const Color(0xFFE94B0C), onPressed: () => showDashboardItemDialog(context)),
-    ]);
+    final canManageCourses = isAdmin || _currentUser?.type == 'PARCEIRO';
+    return AppFabMenu(
+      actions: [
+        if (isAdmin)
+          AppFabAction(
+            label: 'Cadastrar Usuário',
+            icon: Icons.person_add_alt_rounded,
+            color: EducanoColors.primaryBlue,
+            onPressed: () => showDashboardUserDialog(context),
+          ),
+        if (canManageCourses)
+          AppFabAction(
+            label: 'Cadastrar Curso',
+            icon: Icons.school_rounded,
+            color: EducanoColors.successGreen,
+            onPressed: () => openDashboardCourseEditor(context),
+          ),
+        AppFabAction(
+          label: 'Cadastrar Questão',
+          icon: Icons.quiz_rounded,
+          color: EducanoColors.accentYellow,
+          onPressed: () => createQuestionFromDashboard(context),
+        ),
+        if (isAdmin)
+          AppFabAction(
+            label: 'Cadastrar Item',
+            icon: Icons.store_rounded,
+            color: const Color(0xFFE94B0C),
+            onPressed: () => showDashboardItemDialog(context),
+          ),
+      ],
+    );
   }
 }

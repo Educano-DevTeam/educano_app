@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/data/dashboard_events.dart';
@@ -17,7 +16,7 @@ const double _spacingLarge = 32;
 
 const double _radius = 18;
 
-// IBL06 – Listagem e Relatório de Cursos Cadastrados
+// IBL06 – Listagem de Cursos Cadastrados
 // IBL07 – Inscrição de usuário em Curso (ação inline via dialog)
 class DashboardCoursesView extends StatefulWidget {
   const DashboardCoursesView({super.key});
@@ -280,40 +279,6 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     );
   }
 
-  /// Relatório dos cursos filtrados em CSV, para copiar e colar numa planilha.
-  void _exportCourses() {
-    String cell(Object? value) => '"${'${value ?? ''}'.replaceAll('"', '""')}"';
-    final rows = [
-      ['Nome', 'Categoria', 'Status', 'Inscritos', 'Capacidade', 'Criado em', 'Conteúdo'],
-      for (final c in _filteredCourses)
-        [c['name'], c['category'], c['status'], c['enrolled'], c['capacity'] ?? 'Sem limite', c['createdAt'], _contentSummary(c)],
-    ];
-    final csv = rows.map((row) => row.map(cell).join(';')).join('\n');
-
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Relatório de cursos (${rows.length - 1})'),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontSize: 12))),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
-          ElevatedButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: csv));
-              if (context.mounted) Navigator.pop(context);
-              _snack('CSV copiado para a área de transferência.');
-            },
-            icon: const Icon(Icons.copy_rounded),
-            label: const Text('Copiar CSV'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _showEnrollDialog(BuildContext context, {String? courseName}) async {
     final activeCourses = _courses.where((c) => c['status'] == 'Ativo').toList();
     if (activeCourses.isEmpty) {
@@ -374,8 +339,7 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
     );
   }
 
-  /// Barra de ações acima da busca (frame do Figma: botão primário à
-  /// esquerda, ações secundárias na sequência).
+  /// Barra de ações acima da busca.
   Widget _buildActions(BuildContext context) {
     return Wrap(
       spacing: _spacingMinimum,
@@ -385,16 +349,6 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
           onPressed: () => _openCourseEditor(),
           icon: const Icon(Icons.add_rounded),
           label: const Text('Novo Curso'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () => _showEnrollDialog(context),
-          icon: const Icon(Icons.person_add_alt_1_rounded),
-          label: const Text('Inscrever Usuário'),
-        ),
-        OutlinedButton.icon(
-          onPressed: _courses.isEmpty ? null : _exportCourses,
-          icon: const Icon(Icons.download_rounded),
-          label: const Text('Exportar'),
         ),
       ],
     );
@@ -732,6 +686,8 @@ class _DashboardCoursesViewState extends State<DashboardCoursesView> {
                                   fit: BoxFit.cover,
                                   width: 40,
                                   height: 40,
+                                  webHtmlElementStrategy:
+                                      WebHtmlElementStrategy.fallback,
                                   errorBuilder: (_, _, _) => Icon(
                                     course['icon'] as IconData? ??
                                         Icons.menu_book_rounded,

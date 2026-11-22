@@ -92,7 +92,12 @@ class ExamSession {
   int get answeredCount => answers.length;
   int get correctCount => result?.correct ??
       answers.entries
-          .where((entry) => questions[entry.key].correctOptionIndex == entry.value)
+          .where(
+            (entry) =>
+                entry.key >= 0 &&
+                entry.key < questions.length &&
+                questions[entry.key].correctOptionIndex == entry.value,
+          )
           .length;
 
   ExamSession asReview() => ExamSession(

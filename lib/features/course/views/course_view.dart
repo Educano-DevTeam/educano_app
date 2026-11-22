@@ -20,17 +20,25 @@ bool _isSessionCompleted(CourseSession session) =>
           module.materials.every((material) => material.completed),
     );
 
-class _RewardChip extends StatelessWidget {
-  const _RewardChip({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
+class _RewardItem extends StatelessWidget {
+  const _RewardItem({required this.emoji, required this.amount});
+  final String emoji;
+  final String amount;
 
   @override
-  Widget build(BuildContext context) => Chip(
-        avatar: Icon(icon, color: EducanoColors.primaryBlue, size: 18),
-        label: Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFFEAF2FF),
-      );
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 44)),
+        const SizedBox(height: 8),
+        Text(
+          amount,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
 }
 
 class CourseView extends StatefulWidget {
@@ -48,6 +56,9 @@ class _CourseViewState extends State<CourseView> {
   String? _error;
   int _selectedSession = 0;
   bool _sessionChosen = false;
+  bool _mutationBusy = false;
+  String? _busySessionId;
+  String? _busyModuleId;
 
   // Módulos abertos na tela (estado só visual).
   final Set<String> _expandedModules = {};
@@ -105,22 +116,56 @@ class _CourseViewState extends State<CourseView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? EducanoColors.error : EducanoColors.successGreen,
+        backgroundColor: error
+            ? EducanoColors.error
+            : EducanoColors.successGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   /// Executa uma alteração na API e recarrega o curso.
-  Future<void> _run(Future<void> Function() action, String success) async {
+  Future<void> _run(
+    Future<void> Function() action,
+    String success, {
+    String? sessionId,
+    String? moduleId,
+  }) async {
+    if (_mutationBusy) return;
+    setState(() {
+      _mutationBusy = true;
+      _busySessionId = sessionId;
+      _busyModuleId = moduleId;
+    });
     try {
       await action();
       await _loadCourse();
       if (mounted) _showMessage(success);
     } on ApiException catch (error) {
       if (mounted) _showMessage(error.message, error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _mutationBusy = false;
+          _busySessionId = null;
+          _busyModuleId = null;
+        });
+      }
     }
   }
+
+  Future<void> _runInSession(
+    CourseSession session,
+    Future<void> Function() action,
+    String success,
+  ) => _run(action, success, sessionId: session.id);
+
+  Future<void> _runInModule(
+    CourseSession session,
+    CourseModule module,
+    Future<void> Function() action,
+    String success,
+  ) => _run(action, success, sessionId: session.id, moduleId: module.id);
 
   Future<void> _enroll() async {
     await _run(
@@ -140,7 +185,7 @@ class _CourseViewState extends State<CourseView> {
         subtitle: data['subtitle']!,
         description: data['description']!,
       ),
-      'Sessão cadastrada.',
+      'Trilha cadastrada.',
     );
     if (mounted && _course != null) {
       setState(() {
@@ -154,7 +199,8 @@ class _CourseViewState extends State<CourseView> {
     final data = await showModuleEditor(context);
     if (data == null) return;
 
-    await _run(
+    await _runInSession(
+      session,
       () => _service.addModule(
         widget.courseId,
         session.id,
@@ -168,37 +214,100 @@ class _CourseViewState extends State<CourseView> {
   Future<void> _editSession(CourseSession session) async {
     final data = await showSessionEditor(context, session: session);
     if (data == null) return;
-    await _run(() => _service.updateSession(session.id, data), 'Sessão atualizada.');
+    await _runInSession(
+      session,
+      () => _service.updateSession(session.id, data),
+      'Trilha atualizada.',
+    );
   }
 
   Future<void> _deleteSession(CourseSession session) async {
-    if (!await _confirmDelete('Excluir sessão?', 'Os módulos e materiais desta sessão também serão excluídos.')) return;
-    await _run(() => _service.deleteSession(session.id), 'Sessão excluída.');
+    if (!await _confirmDelete(
+      'Excluir trilha?',
+      'Os módulos e materiais desta trilha também serão excluídos.',
+    ))
+      return;
+    await _runInSession(
+      session,
+      () => _service.deleteSession(session.id),
+      'Trilha excluída.',
+    );
   }
 
   Future<void> _editModule(CourseSession session, CourseModule module) async {
     final data = await showModuleEditor(context, module: module);
     if (data == null) return;
-    await _run(() => _service.updateModule(module.id, data), 'Módulo atualizado.');
+    await _runInModule(
+      session,
+      module,
+      () => _service.updateModule(module.id, data),
+      'Módulo atualizado.',
+    );
   }
 
   Future<void> _deleteModule(CourseSession session, CourseModule module) async {
-    if (!await _confirmDelete('Excluir módulo?', 'As aulas e atividades deste módulo também serão excluídas.')) return;
-    await _run(() => _service.deleteModule(module.id), 'Módulo excluído.');
+    if (!await _confirmDelete(
+      'Excluir módulo?',
+      'As aulas e atividades deste módulo também serão excluídas.',
+    ))
+      return;
+    await _runInModule(
+      session,
+      module,
+      () => _service.deleteModule(module.id),
+      'Módulo excluído.',
+    );
   }
 
-  Future<void> _editMaterial(CourseSession session, CourseModule module, CourseMaterial material) async {
+  Future<CourseMaterial> _loadActivityForEdit(
+    CourseSession session,
+    CourseModule module,
+    CourseMaterial material,
+  ) async {
+    setState(() {
+      _mutationBusy = true;
+      _busySessionId = session.id;
+      _busyModuleId = module.id;
+    });
+    try {
+      return await _service.activityForEdit(material);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _mutationBusy = false;
+          _busySessionId = null;
+          _busyModuleId = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _editMaterial(
+    CourseSession session,
+    CourseModule module,
+    CourseMaterial material,
+  ) async {
     try {
       final existing = material.kind == MaterialKind.activity
-          ? await _service.activityForEdit(material)
+          ? await _loadActivityForEdit(session, module, material)
           : material;
       if (!mounted) return;
       final updated = await showMaterialEditor(context, material: existing);
       if (updated == null) return;
       if (material.kind == MaterialKind.activity) {
-        await _run(() => _service.updateActivity(material.id, updated), 'Atividade atualizada.');
+        await _runInModule(
+          session,
+          module,
+          () => _service.updateActivity(material.id, updated),
+          'Atividade atualizada.',
+        );
       } else {
-        await _run(() => _service.updateLesson(material.id, updated), 'Aula atualizada.');
+        await _runInModule(
+          session,
+          module,
+          () => _service.updateLesson(material.id, updated),
+          'Aula atualizada.',
+        );
       }
     } on ApiException catch (error) {
       if (mounted) _showMessage(error.message, error: true);
@@ -210,8 +319,14 @@ class _CourseViewState extends State<CourseView> {
     CourseModule module,
     CourseMaterial material,
   ) async {
-    if (!await _confirmDelete('Excluir material?', 'Esta ação não pode ser desfeita.')) return;
-    await _run(
+    if (!await _confirmDelete(
+      'Excluir material?',
+      'Esta ação não pode ser desfeita.',
+    ))
+      return;
+    await _runInModule(
+      session,
+      module,
       () => material.kind == MaterialKind.activity
           ? _service.deleteActivity(material.id)
           : _service.deleteLesson(material.id),
@@ -223,30 +338,68 @@ class _CourseViewState extends State<CourseView> {
       await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text(title), content: Text(message),
+          title: Text(title),
+          content: Text(message),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Excluir')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Excluir'),
+            ),
           ],
         ),
-      ) == true;
+      ) ==
+      true;
 
   Future<void> _addMaterial(CourseSession session, CourseModule module) async {
     final material = await showMaterialEditor(context);
     if (material == null) return;
 
     _expandedModules.add(module.id);
-    await _run(
+    await _runInModule(
+      session,
+      module,
       () => _service.addMaterial(widget.courseId, module.id, material),
       'Material cadastrado.',
     );
   }
 
   void _toggleModule(CourseSession session, CourseModule module) {
+    if (!_canAccessModule(session, module)) {
+      _showMessage(
+        'Conclua as aulas e atividades dos módulos anteriores para continuar.',
+      );
+      return;
+    }
     setState(() {
       if (!_expandedModules.remove(module.id)) _expandedModules.add(module.id);
       _course = _withExpanded(_course!);
     });
+  }
+
+  bool _canAccessModule(CourseSession session, CourseModule module) {
+    final course = _course;
+    if (course == null || course.canEdit) return true;
+
+    var foundTarget = false;
+    for (final previousSession in course.sessions) {
+      for (final previousModule in previousSession.modules) {
+        if (previousSession.id == session.id &&
+            previousModule.id == module.id) {
+          foundTarget = true;
+          break;
+        }
+        if (previousModule.materials.isNotEmpty &&
+            previousModule.materials.any((material) => !material.completed)) {
+          return false;
+        }
+      }
+      if (foundTarget) break;
+    }
+    return foundTarget;
   }
 
   Future<void> _openMaterial(
@@ -254,11 +407,19 @@ class _CourseViewState extends State<CourseView> {
     CourseModule module,
     CourseMaterial material,
   ) async {
+    if (!_canAccessModule(session, module)) {
+      _showMessage(
+        'Conclua as aulas e atividades dos módulos anteriores para continuar.',
+      );
+      return;
+    }
     if (material.kind == MaterialKind.activity) {
       try {
         final exam = await ExamsService.instance.startActivity(material.id);
         if (!mounted) return;
-        await Navigator.of(context).pushNamed(AppRoutes.activity, arguments: exam);
+        await Navigator.of(
+          context,
+        ).pushNamed(AppRoutes.activity, arguments: exam);
         await _loadCourse();
       } on ApiException catch (error) {
         if (mounted) _showMessage(error.message, error: true);
@@ -282,7 +443,8 @@ class _CourseViewState extends State<CourseView> {
 
     if (!mounted) return;
     if (result is Map<String, dynamic> &&
-        ((result['xp'] as int? ?? 0) > 0 || (result['moedas'] as int? ?? 0) > 0)) {
+        ((result['xp'] as int? ?? 0) > 0 ||
+            (result['moedas'] as int? ?? 0) > 0)) {
       await _showReward(result);
     }
     if (result == true || result is Map<String, dynamic>) await _loadCourse();
@@ -295,21 +457,40 @@ class _CourseViewState extends State<CourseView> {
       context: context,
       builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(26),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.celebration_rounded, size: 48, color: Color(0xFFFFC107)),
-            const SizedBox(height: 12),
-            const Text('Recompensas recebidas!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 18),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _RewardChip(icon: Icons.bolt_rounded, text: '+$xp XP'),
-              const SizedBox(width: 12),
-              _RewardChip(icon: Icons.monetization_on_rounded, text: '+$coins moedas'),
-            ]),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Continuar')),
-          ]),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.celebration_rounded,
+                  size: 42,
+                  color: Color(0xFFFFC107),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Recompensas recebidas!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    _RewardItem(emoji: '⚡', amount: '+$xp XP'),
+                    const SizedBox(width: 12),
+                    _RewardItem(emoji: '🪙', amount: '+$coins moedas'),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Continuar'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -324,7 +505,10 @@ class _CourseViewState extends State<CourseView> {
           children: [
             Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: _loadCourse, child: const Text('Tentar novamente')),
+            OutlinedButton(
+              onPressed: _loadCourse,
+              child: const Text('Tentar novamente'),
+            ),
           ],
         ),
       );
@@ -366,26 +550,47 @@ class _CourseViewState extends State<CourseView> {
                 ),
               ),
               const SizedBox(height: 12),
-              _ContentCard(
-                course: course,
-                mobile: mobile,
-                selectedSession: _selectedSession,
-                onSessionChanged: (value) => setState(() {
-                  _sessionChosen = true;
-                  _selectedSession = value;
-                }),
-                // Só quem gerencia o curso vê as ações de cadastro.
-                onAddSession: course.canEdit ? _addSession : null,
-                onEditSession: course.canEdit ? _editSession : null,
-                onDeleteSession: course.canEdit ? _deleteSession : null,
-                onAddModule: course.canEdit ? _addModule : null,
-                onAddMaterial: course.canEdit ? _addMaterial : null,
-                onEditModule: course.canEdit ? _editModule : null,
-                onDeleteModule: course.canEdit ? _deleteModule : null,
-                onEditMaterial: course.canEdit ? _editMaterial : null,
-                onDeleteMaterial: course.canEdit ? _deleteMaterial : null,
-                onToggleModule: _toggleModule,
-                onOpenMaterial: _openMaterial,
+              IgnorePointer(
+                ignoring: _mutationBusy,
+                child: Stack(
+                  children: [
+                    _ContentCard(
+                      course: course,
+                      mobile: mobile,
+                      selectedSession: _selectedSession,
+                      busySessionId: _busySessionId,
+                      busyModuleId: _busyModuleId,
+                      onSessionChanged: (value) => setState(() {
+                        _sessionChosen = true;
+                        _selectedSession = value;
+                      }),
+                      // Só quem gerencia o curso vê as ações de cadastro.
+                      onAddSession: course.canEdit ? _addSession : null,
+                      onEditSession: course.canEdit ? _editSession : null,
+                      onDeleteSession: course.canEdit ? _deleteSession : null,
+                      onAddModule: course.canEdit ? _addModule : null,
+                      onAddMaterial: course.canEdit ? _addMaterial : null,
+                      onEditModule: course.canEdit ? _editModule : null,
+                      onDeleteModule: course.canEdit ? _deleteModule : null,
+                      onEditMaterial: course.canEdit ? _editMaterial : null,
+                      onDeleteMaterial: course.canEdit ? _deleteMaterial : null,
+                      onToggleModule: _toggleModule,
+                      onOpenMaterial: _openMaterial,
+                    ),
+                    if (_mutationBusy &&
+                        (_busySessionId == null ||
+                            !course.sessions.any(
+                              (session) => session.id == _busySessionId,
+                            )) &&
+                        _busyModuleId == null)
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -403,27 +608,36 @@ class _CourseHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const foregroundColor = Colors.white;
+    const secondaryForegroundColor = Colors.white;
+    final coverIconBackground = Color.alphaBlend(
+      course.color.withValues(alpha: 0.15),
+      Colors.white,
+    );
     final fallback = Container(
-      color: EducanoColors.secondaryBlue,
-      child: const Icon(
-        Icons.menu_book_rounded,
-        color: Colors.white,
-        size: 72,
-      ),
+      color: coverIconBackground,
+      alignment: Alignment.center,
+      child: Icon(course.icon, color: course.color, size: 72),
     );
     final image = course.imageUrl == null
         ? fallback
         : Image.network(
-      course.imageUrl!,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Container(
-        color: EducanoColors.secondaryBlue,
-        child: const Icon(
-          Icons.menu_book_rounded,
-          color: Colors.white,
-          size: 72,
-        ),
+            course.imageUrl!,
+            fit: BoxFit.cover,
+            webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+            errorBuilder: (_, __, ___) => Container(
+              color: coverIconBackground,
+              alignment: Alignment.center,
+              child: Icon(course.icon, color: course.color, size: 72),
+            ),
+          );
+    Widget coverFrame(Widget child) => Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: course.color,
+        borderRadius: BorderRadius.circular(10),
       ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(6), child: child),
     );
 
     final details = Column(
@@ -432,13 +646,16 @@ class _CourseHero extends StatelessWidget {
         Text(
           course.title,
           style: TextStyle(
-            color: Colors.white,
+            color: foregroundColor,
             fontSize: mobile ? 20 : 22,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 3),
-        Text(course.category, style: const TextStyle(color: Colors.white70)),
+        Text(
+          course.category,
+          style: TextStyle(color: secondaryForegroundColor),
+        ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 14,
@@ -447,14 +664,17 @@ class _CourseHero extends StatelessWidget {
             _HeroMetric(
               icon: Icons.people_alt_rounded,
               label: '${course.enrolledCount} inscritos',
+              foregroundColor: foregroundColor,
             ),
             _HeroMetric(
               icon: Icons.access_time_filled_rounded,
               label: course.duration,
+              foregroundColor: foregroundColor,
             ),
             _HeroMetric(
               icon: Icons.menu_book_rounded,
-              label: '${course.sessions.length} sessões',
+              label: '${course.sessions.length} trilhas',
+              foregroundColor: foregroundColor,
             ),
           ],
         ),
@@ -463,13 +683,17 @@ class _CourseHero extends StatelessWidget {
           course.description,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 12.5, height: 1.25),
+          style: TextStyle(
+            color: secondaryForegroundColor,
+            fontSize: 12.5,
+            height: 1.25,
+          ),
         ),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF627CF0),
+            color: coverIconBackground,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -497,7 +721,7 @@ class _CourseHero extends StatelessWidget {
                   ),
                   const Text(
                     'Responsável pelo Curso',
-                    style: TextStyle(color: Colors.white70, fontSize: 9),
+                    style: TextStyle(color: Colors.white, fontSize: 9),
                   ),
                 ],
               ),
@@ -510,31 +734,21 @@ class _CourseHero extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(mobile ? 12 : 24),
       decoration: BoxDecoration(
-        color: EducanoColors.primaryBlue,
+        color: course.color,
         borderRadius: BorderRadius.circular(mobile ? 12 : 14),
       ),
       child: mobile
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AspectRatio(aspectRatio: 1.65, child: image),
-                ),
+                coverFrame(AspectRatio(aspectRatio: 1.65, child: image)),
                 const SizedBox(height: 12),
                 details,
               ],
             )
           : Row(
               children: [
-                SizedBox(
-                  width: 300,
-                  height: 200,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: image,
-                  ),
-                ),
+                coverFrame(SizedBox(width: 300, height: 200, child: image)),
                 const SizedBox(width: 18),
                 Expanded(child: details),
               ],
@@ -546,22 +760,24 @@ class _CourseHero extends StatelessWidget {
 class _HeroMetric extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color foregroundColor;
 
-  const _HeroMetric({required this.icon, required this.label});
+  const _HeroMetric({
+    required this.icon,
+    required this.label,
+    required this.foregroundColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: Colors.white),
+        Icon(icon, size: 18, color: foregroundColor),
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: foregroundColor, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -650,7 +866,6 @@ class _AboutCourse extends StatelessWidget {
             course.description,
             style: const TextStyle(color: Colors.black54, height: 1.25),
           ),
-
         ],
       ),
     );
@@ -661,6 +876,8 @@ class _ContentCard extends StatelessWidget {
   final Course course;
   final bool mobile;
   final int selectedSession;
+  final String? busySessionId;
+  final String? busyModuleId;
   final ValueChanged<int> onSessionChanged;
   final VoidCallback? onAddSession;
   final Future<void> Function(CourseSession)? onAddModule;
@@ -668,8 +885,10 @@ class _ContentCard extends StatelessWidget {
   final Future<void> Function(CourseSession)? onDeleteSession;
   final Future<void> Function(CourseSession, CourseModule)? onEditModule;
   final Future<void> Function(CourseSession, CourseModule)? onDeleteModule;
-  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)? onEditMaterial;
-  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)? onDeleteMaterial;
+  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)?
+  onEditMaterial;
+  final Future<void> Function(CourseSession, CourseModule, CourseMaterial)?
+  onDeleteMaterial;
   final Future<void> Function(CourseSession, CourseModule)? onAddMaterial;
   final void Function(CourseSession, CourseModule) onToggleModule;
   final Future<void> Function(CourseSession, CourseModule, CourseMaterial)
@@ -679,6 +898,8 @@ class _ContentCard extends StatelessWidget {
     required this.course,
     required this.mobile,
     required this.selectedSession,
+    required this.busySessionId,
+    required this.busyModuleId,
     required this.onSessionChanged,
     this.onAddSession,
     this.onAddModule,
@@ -697,8 +918,8 @@ class _ContentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (course.sessions.isEmpty) {
       return _EmptyState(
-        text: 'Este curso ainda não possui sessões cadastradas.',
-        buttonText: 'Adicionar sessão',
+        text: 'Este curso ainda não possui trilhas cadastradas.',
+        buttonText: 'Adicionar trilha',
         onPressed: onAddSession,
       );
     }
@@ -724,6 +945,14 @@ class _ContentCard extends StatelessWidget {
             onChanged: onSessionChanged,
             onAddSession: onAddSession,
           ),
+          if (busySessionId == session.id &&
+              (busyModuleId == null ||
+                  !session.modules.any(
+                    (module) => module.id == busyModuleId,
+                  ))) ...[
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(),
+          ],
           const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,9 +968,20 @@ class _ContentCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               if (onEditSession != null)
-                IconButton(tooltip: 'Editar sessão', onPressed: () => onEditSession!(session), icon: const Icon(Icons.edit_outlined)),
+                IconButton(
+                  tooltip: 'Editar trilha',
+                  onPressed: () => onEditSession!(session),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
               if (onDeleteSession != null)
-                IconButton(tooltip: 'Excluir sessão', onPressed: () => onDeleteSession!(session), icon: const Icon(Icons.delete_outline, color: Colors.redAccent)),
+                IconButton(
+                  tooltip: 'Excluir trilha',
+                  onPressed: () => onDeleteSession!(session),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 6),
@@ -756,9 +996,11 @@ class _ContentCard extends StatelessWidget {
           if (session.modules.isEmpty)
             _EmptyState(
               compact: true,
-              text: 'Nenhum módulo cadastrado nesta sessão.',
-              buttonText: '',
-              onPressed: null,
+              text: 'Nenhum módulo cadastrado nesta trilha.',
+              buttonText: 'Adicionar módulo',
+              onPressed: onAddModule == null
+                  ? null
+                  : () => onAddModule!(session),
             )
           else
             ...session.modules.map(
@@ -768,19 +1010,39 @@ class _ContentCard extends StatelessWidget {
                   session: session,
                   module: module,
                   mobile: mobile,
+                  isLoading: busyModuleId == module.id,
                   onToggle: () => onToggleModule(session, module),
                   onAddMaterial: onAddMaterial == null
                       ? null
                       : () => onAddMaterial!(session, module),
-                  onEditModule: onEditModule == null ? null : () => onEditModule!(session, module),
-                  onDeleteModule: onDeleteModule == null ? null : () => onDeleteModule!(session, module),
+                  onEditModule: onEditModule == null
+                      ? null
+                      : () => onEditModule!(session, module),
+                  onDeleteModule: onDeleteModule == null
+                      ? null
+                      : () => onDeleteModule!(session, module),
                   onOpenMaterial: onOpenMaterial,
-                  onEditMaterial: onEditMaterial == null ? null : (material) => onEditMaterial!(session, module, material),
-                  onDeleteMaterial: onDeleteMaterial == null ? null : (material) => onDeleteMaterial!(session, module, material),
+                  onEditMaterial: onEditMaterial == null
+                      ? null
+                      : (material) =>
+                            onEditMaterial!(session, module, material),
+                  onDeleteMaterial: onDeleteMaterial == null
+                      ? null
+                      : (material) =>
+                            onDeleteMaterial!(session, module, material),
                 ),
               ),
             ),
-          Align(alignment: Alignment.centerLeft, child: _AddButton(label: 'Adicionar módulo', onPressed: onAddModule == null ? null : () => onAddModule!(session))),
+          if (session.modules.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: _AddButton(
+                label: 'Adicionar módulo',
+                onPressed: onAddModule == null
+                    ? null
+                    : () => onAddModule!(session),
+              ),
+            ),
         ],
       ),
     );
@@ -847,10 +1109,10 @@ class _SessionTimeline extends StatelessWidget {
                           padding: active ? const EdgeInsets.all(2) : null,
                           child: CircleAvatar(
                             radius: mobile ? 17 : 20,
-                            backgroundColor:
-                                completed ? _green : Colors.white,
-                            foregroundColor:
-                                completed ? Colors.white : Colors.black,
+                            backgroundColor: completed ? _green : Colors.white,
+                            foregroundColor: completed
+                                ? Colors.white
+                                : Colors.black,
                             child: Text(
                               '${index + 1}',
                               style: const TextStyle(
@@ -922,6 +1184,7 @@ class _ModuleCard extends StatelessWidget {
   final CourseSession session;
   final CourseModule module;
   final bool mobile;
+  final bool isLoading;
   final VoidCallback onToggle;
   final VoidCallback? onAddMaterial;
   final VoidCallback? onEditModule;
@@ -935,6 +1198,7 @@ class _ModuleCard extends StatelessWidget {
     required this.session,
     required this.module,
     required this.mobile,
+    required this.isLoading,
     required this.onToggle,
     this.onAddMaterial,
     this.onEditModule,
@@ -955,10 +1219,7 @@ class _ModuleCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: completed ? _green : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFD4D4D4),
-          width: 1.3,
-        ),
+        border: Border.all(color: const Color(0xFFD4D4D4), width: 1.3),
       ),
       child: Column(
         children: [
@@ -986,7 +1247,11 @@ class _ModuleCard extends StatelessWidget {
                     IconButton(
                       tooltip: 'Editar módulo',
                       onPressed: onEditModule,
-                      icon: Icon(Icons.edit_outlined, size: 18, color: foreground),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: foreground,
+                      ),
                     ),
                   if (onDeleteModule != null)
                     IconButton(
@@ -1008,6 +1273,11 @@ class _ModuleCard extends StatelessWidget {
               ),
             ),
           ),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: LinearProgressIndicator(),
+            ),
           if (module.expanded)
             Container(
               decoration: const BoxDecoration(
@@ -1024,62 +1294,71 @@ class _ModuleCard extends StatelessWidget {
                   14,
                 ),
                 child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    module.description,
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 12,
-                      height: 1.2,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      module.description,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        height: 1.2,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 12,
-                            backgroundColor: const Color(0xFFD9D9D9),
-                            valueColor: const AlwaysStoppedAnimation(_green),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 12,
+                              backgroundColor: const Color(0xFFD9D9D9),
+                              valueColor: const AlwaysStoppedAnimation(_green),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(progress * 100).round()}%',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (module.materials.isEmpty)
+                      _EmptyState(
+                        compact: true,
+                        text: 'Nenhum material cadastrado.',
+                        buttonText: 'Adicionar material',
+                        onPressed: onAddMaterial,
+                      )
+                    else ...[
+                      ...module.materials.map(
+                        (material) => _MaterialRow(
+                          material: material,
+                          mobile: mobile,
+                          onTap: () =>
+                              onOpenMaterial(session, module, material),
+                          onEdit: onEditMaterial == null
+                              ? null
+                              : () => onEditMaterial!(material),
+                          onDelete: onDeleteMaterial == null
+                              ? null
+                              : () => onDeleteMaterial!(material),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(progress * 100).round()}%',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _AddButton(
+                          label: 'Adicionar material',
+                          onPressed: onAddMaterial,
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (module.materials.isEmpty)
-                    _EmptyState(
-                      compact: true,
-                      text: 'Nenhum material cadastrado.',
-                      buttonText: 'Adicionar material',
-                      onPressed: onAddMaterial,
-                    )
-                  else
-                    ...module.materials.map(
-                      (material) => _MaterialRow(
-                        material: material,
-                        mobile: mobile,
-                        onTap: () => onOpenMaterial(session, module, material),
-                        onEdit: onEditMaterial == null ? null : () => onEditMaterial!(material),
-                        onDelete: onDeleteMaterial == null ? null : () => onDeleteMaterial!(material),
-                      ),
-                    ),
-                  const SizedBox(height: 6),
-                  _AddButton(
-                    label: 'Adicionar material',
-                    onPressed: onAddMaterial,
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -1145,8 +1424,24 @@ class _MaterialRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            if (onEdit != null) IconButton(tooltip: 'Editar material', visualDensity: VisualDensity.compact, onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 17)),
-            if (onDelete != null) IconButton(tooltip: 'Excluir material', visualDensity: VisualDensity.compact, onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 17, color: Colors.redAccent)),
+            if (onEdit != null)
+              IconButton(
+                tooltip: 'Editar material',
+                visualDensity: VisualDensity.compact,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 17),
+              ),
+            if (onDelete != null)
+              IconButton(
+                tooltip: 'Excluir material',
+                visualDensity: VisualDensity.compact,
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 17,
+                  color: Colors.redAccent,
+                ),
+              ),
             Text(
               material.metadataLabel,
               style: const TextStyle(fontSize: 10, color: Colors.black54),
@@ -1208,13 +1503,14 @@ class _EmptyState extends StatelessWidget {
       child: compact
           ? Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Nenhum conteúdo cadastrado ainda.',
-                    style: TextStyle(color: Colors.black54),
+                    text,
+                    style: const TextStyle(color: Colors.black54),
                   ),
                 ),
-                _AddButton(label: buttonText, onPressed: onPressed),
+                if (buttonText.isNotEmpty)
+                  _AddButton(label: buttonText, onPressed: onPressed),
               ],
             )
           : Column(

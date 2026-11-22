@@ -49,18 +49,39 @@ class CoursesService {
   static bool _isApiId(Object? id) => id is String && _uuid.hasMatch(id);
 
   static String? courseCoverUrl(Map<String, dynamic> api) {
-    final cover = api['capa'];
-    final coverUrl = cover is String
-        ? cover
-        : cover is Map
-            ? cover['url'] as String?
-            : null;
-    if (coverUrl != null && coverUrl.isNotEmpty) return coverUrl;
-    final fileCover = api['arquivoCapa'];
-    if (fileCover is Map) {
-      final url = fileCover['url'] as String?;
-      if (url != null && url.isNotEmpty) return url;
+    String? urlFrom(Object? value) {
+      if (value is String) {
+        final candidate = value.trim();
+        if (candidate.isEmpty) return null;
+        final uri = Uri.tryParse(candidate);
+        if (uri == null) return null;
+        if (uri.hasScheme && uri.host.isNotEmpty) {
+          return uri.scheme == 'http' || uri.scheme == 'https'
+              ? candidate
+              : null;
+        }
+        if (candidate.startsWith('/')) {
+          final base = Uri.parse('$apiBaseUrl/');
+          return base
+              .resolve(candidate.replaceFirst(RegExp(r'^/+'), ''))
+              .toString();
+        }
+        return null;
+      }
+      if (value is Map) {
+        for (final key in const ['url', 'arquivo', 'media', 'capa']) {
+          final url = urlFrom(value[key]);
+          if (url != null) return url;
+        }
+      }
+      return null;
     }
+
+    for (final key in const ['capa', 'arquivoCapa']) {
+      final url = urlFrom(api[key]);
+      if (url != null) return url;
+    }
+
     return null;
   }
 
@@ -184,6 +205,7 @@ class CoursesService {
   Future<Course> course(String id) async {
     final data = await detail(id);
     final course = courseFromApi(data);
+    final enrolled = await isEnrolled(id);
     final user = await StorageService.instance.loadCurrentUser();
     final apiCourse = data['curso'] is Map<String, dynamic>
         ? data['curso'] as Map<String, dynamic>
@@ -195,7 +217,9 @@ class CoursesService {
         .whereType<String>()
         .toSet();
     return course.copyWith(
-      canEdit: user != null &&
+      enrolled: enrolled,
+      canEdit:
+          user != null &&
           (owner?['id'] == user.id ||
               (user.type == 'PROFESSOR' && teachers.contains(user.id))),
     );
@@ -208,7 +232,10 @@ class CoursesService {
 
   static Course courseFromApi(Map<String, dynamic> data) {
     return ApiClient.parseResponse('/courses/estrutura', () {
-      final api = ApiClient.responseMap(data['curso'] ?? data, endpoint: '/courses/conteudo.curso');
+      final api = ApiClient.responseMap(
+        data['curso'] ?? data,
+        endpoint: '/courses/conteudo.curso',
+      );
       final progress = ApiClient.responseMap(
         api['progresso'],
         endpoint: '/courses/estrutura.curso.progresso',
@@ -223,10 +250,17 @@ class CoursesService {
         id: api['id'] as String,
         title: api['nome'] as String,
         category: ApiMappers.categoryLabel(api['categoria'] as String?),
-        duration: _workload(ApiClient.responseInt(api['cargaHoraria'], endpoint: '/courses/conteudo.curso.cargaHoraria')),
+        duration: _workload(
+          ApiClient.responseInt(
+            api['cargaHoraria'],
+            endpoint: '/courses/conteudo.curso.cargaHoraria',
+          ),
+        ),
         description: api['descricao'] as String? ?? '',
         imageAsset: 'lib/assets/courses/vestibular_course_image.jpg',
         imageUrl: courseCoverUrl(api),
+        icon: ApiMappers.coverIcon(api['iconeCapa'] as String?),
+        color: ApiMappers.color(api['cor'] as String?),
         progress: ((progress['percentual'] as num?) ?? 0).toDouble() / 100,
         completedMaterials: ApiClient.responseInt(
           progress['concluidos'],
@@ -264,11 +298,17 @@ class CoursesService {
                     title: modulo['titulo'] as String,
                     description: modulo['descricao'] as String? ?? '',
                     materials: [
-                  for (final conteudo in [
-                    ...ApiClient.responseList(modulo['aulas'], endpoint: '/courses/conteudo.modulos.aulas'),
-                    ...ApiClient.responseList(modulo['atividades'] ?? modulo['testes'], endpoint: '/courses/conteudo.modulos.atividades'),
-                  ])
-                    _materialFromApi(conteudo),
+                      for (final conteudo in [
+                        ...ApiClient.responseList(
+                          modulo['aulas'],
+                          endpoint: '/courses/conteudo.modulos.aulas',
+                        ),
+                        ...ApiClient.responseList(
+                          modulo['atividades'] ?? modulo['testes'],
+                          endpoint: '/courses/conteudo.modulos.atividades',
+                        ),
+                      ])
+                        _materialFromApi(conteudo),
                     ],
                   ),
               ],
@@ -283,7 +323,8 @@ class CoursesService {
         final kind = ApiMappers.materialKind(api['tipo'] as String?);
         final file = api['arquivo'] as Map<String, dynamic>?;
         final minutes = api['duracaoMinutos'] as int?;
-        final title = api['titulo'] as String? ?? api['tema'] as String? ?? 'Conteúdo';
+        final title =
+            api['titulo'] as String? ?? api['tema'] as String? ?? 'Conteúdo';
 
         return CourseMaterial(
           id: api['id'] as String,
@@ -303,7 +344,10 @@ class CoursesService {
                   theme: title,
                   durationMinutes: api['tempoMinutos'] as int? ?? 0,
                   questions: const [],
-                  questionCount: api['quantidadeQuestoes'] as int? ?? api['totalQuestoes'] as int? ?? 0,
+                  questionCount:
+                      api['quantidadeQuestoes'] as int? ??
+                      api['totalQuestoes'] as int? ??
+                      0,
                   questionIds: (api['idsQuestoes'] as List? ?? const [])
                       .cast<String>(),
                 )
@@ -330,14 +374,13 @@ class CoursesService {
 
   /// Converte a estrutura do curso no mapa usado pelo editor do dashboard.
   static Map<String, dynamic> editorMap(Map<String, dynamic> data) =>
-      ApiClient.parseResponse(
-        '/courses/conteudo',
-        () {
-          final course = ApiClient.responseMap(data['curso'] ?? data, endpoint: '/courses/conteudo.curso');
-          return {
-          ...listMap(
-            course,
-          ),
+      ApiClient.parseResponse('/courses/conteudo', () {
+        final course = ApiClient.responseMap(
+          data['curso'] ?? data,
+          endpoint: '/courses/conteudo.curso',
+        );
+        return {
+          ...listMap(course),
           'iconKey': course['iconeCapa'],
           'workload': course['cargaHoraria'] ?? 0,
           'price': ApiMappers.number(course['preco']) ?? 0,
@@ -364,8 +407,14 @@ class CoursesService {
                       'description': modulo['descricao'] ?? '',
                       'materiais': <Map<String, dynamic>>[
                         for (final conteudo in [
-                          ...ApiClient.responseList(modulo['aulas'], endpoint: '/courses/conteudo.modulos.aulas'),
-                          ...ApiClient.responseList(modulo['atividades'], endpoint: '/courses/conteudo.modulos.atividades'),
+                          ...ApiClient.responseList(
+                            modulo['aulas'],
+                            endpoint: '/courses/conteudo.modulos.aulas',
+                          ),
+                          ...ApiClient.responseList(
+                            modulo['atividades'],
+                            endpoint: '/courses/conteudo.modulos.atividades',
+                          ),
                         ])
                           _editorMaterial(conteudo),
                       ],
@@ -374,8 +423,7 @@ class CoursesService {
               },
           ],
         };
-        },
-      );
+      });
 
   static Map<String, dynamic> _editorMaterial(Map<String, dynamic> api) {
     final file = api['arquivo'] as Map<String, dynamic>?;
@@ -491,7 +539,8 @@ class CoursesService {
         'titulo': material['name'],
         if (material['tempoMinutos'] != null)
           'tempoMinutos': material['tempoMinutos'],
-        'questaoIds': material['questaoIds'] ??
+        'questaoIds':
+            material['questaoIds'] ??
             material['idsQuestoes'] ??
             const <String>[],
       };
@@ -531,13 +580,33 @@ class CoursesService {
     final coverBytes = map['coverBytes'] as Uint8List?;
     final fields = <String, String>{
       for (final entry in payload.entries)
-        if (entry.key != 'capa' || coverBytes == null) entry.key: '${entry.value ?? 'null'}',
-      if (isAdmin && status != ApiMappers.courseStatusValue(map['originalStatus'] as String? ?? 'Rascunho')) 'status': status,
+        if (entry.key != 'capa' || coverBytes == null)
+          entry.key: '${entry.value ?? 'null'}',
+      if (isAdmin &&
+          status !=
+              ApiMappers.courseStatusValue(
+                map['originalStatus'] as String? ?? 'Rascunho',
+              ))
+        'status': status,
     };
     if (_isApiId(map['id'])) {
       final response = coverBytes == null
-          ? await _api.patch('/courses/${map['id']}', fields.map((key, value) => MapEntry(key, value == 'null' ? null : value)) )
-          : await _api.multipart('PATCH', '/courses/${map['id']}', fields: fields..remove('capa'), file: (field: 'arquivo', bytes: coverBytes, fileName: map['coverFileName'] as String? ?? 'capa.png'));
+          ? await _api.patch(
+              '/courses/${map['id']}',
+              fields.map(
+                (key, value) => MapEntry(key, value == 'null' ? null : value),
+              ),
+            )
+          : await _api.multipart(
+              'PATCH',
+              '/courses/${map['id']}',
+              fields: fields..remove('capa'),
+              file: (
+                field: 'arquivo',
+                bytes: coverBytes,
+                fileName: map['coverFileName'] as String? ?? 'capa.png',
+              ),
+            );
       final data = ApiClient.responseMap(
         response,
         endpoint: '/courses/${map['id']}',
@@ -549,7 +618,13 @@ class CoursesService {
     } else {
       final response = coverBytes == null
           ? await _api.post('/courses', payload)
-          : await _api.upload('/courses', field: 'arquivo', bytes: coverBytes, fileName: map['coverFileName'] as String? ?? 'capa.png', fields: fields..remove('capa'));
+          : await _api.upload(
+              '/courses',
+              field: 'arquivo',
+              bytes: coverBytes,
+              fileName: map['coverFileName'] as String? ?? 'capa.png',
+              fields: fields..remove('capa'),
+            );
       final data = ApiClient.responseMap(response, endpoint: '/courses');
       saved = ApiClient.responseMap(data['curso'], endpoint: '/courses.curso');
       // O curso nasce como rascunho ou inativo; a ativação vem em seguida.
@@ -563,86 +638,191 @@ class CoursesService {
   }
 
   Future<void> _saveStructure(String courseId, Map<String, dynamic> map) async {
-    final original = (map['originalTrilhas'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
-    final sessions = (map['trilhas'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
+    final original = (map['originalTrilhas'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final sessions = (map['trilhas'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
     final keepSessionIds = <String>{};
     for (final session in sessions) {
-      final sessionId = _isApiId(session['id']) ? session['id'] as String : null;
-      final body = {'titulo': session['title'], 'subtitulo': session['subtitle'] ?? '', 'descricao': session['description'] ?? ''};
+      final sessionId = _isApiId(session['id'])
+          ? session['id'] as String
+          : null;
+      final body = {
+        'titulo': session['title'],
+        'subtitulo': session['subtitle'] ?? '',
+        'descricao': session['description'] ?? '',
+      };
       String savedSessionId;
       if (sessionId == null) {
-        final response = await _api.post('/sessions', {'idCurso': courseId, ...body});
+        final response = await _api.post('/sessions', {
+          'idCurso': courseId,
+          ...body,
+        });
         final data = ApiClient.responseMap(response, endpoint: '/sessions');
-        savedSessionId = ApiClient.responseMap(data['sessao'], endpoint: '/sessions.sessao')['id'] as String;
+        savedSessionId =
+            ApiClient.responseMap(
+                  data['sessao'],
+                  endpoint: '/sessions.sessao',
+                )['id']
+                as String;
         session['id'] = savedSessionId;
       } else {
         savedSessionId = sessionId;
         await _api.patch('/sessions/$savedSessionId', body);
       }
       keepSessionIds.add(savedSessionId);
-      final oldSession = original.where((item) => item['id'] == savedSessionId).firstOrNull;
-      final oldModules = (oldSession?['modulos'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
-      final modules = (session['modulos'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
+      final oldSession = original
+          .where((item) => item['id'] == savedSessionId)
+          .firstOrNull;
+      final oldModules = (oldSession?['modulos'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final modules = (session['modulos'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
       final keepModuleIds = <String>{};
       for (final module in modules) {
         final moduleId = _isApiId(module['id']) ? module['id'] as String : null;
-        final moduleBody = {'titulo': module['title'], 'descricao': module['description'] ?? ''};
+        final moduleBody = {
+          'titulo': module['title'],
+          'descricao': module['description'] ?? '',
+        };
         String savedModuleId;
         if (moduleId == null) {
-          final response = await _api.post('/course-modules', {'idSessao': savedSessionId, ...moduleBody});
-          final data = ApiClient.responseMap(response, endpoint: '/course-modules');
-          savedModuleId = ApiClient.responseMap(data['modulo'], endpoint: '/course-modules.modulo')['id'] as String;
+          final response = await _api.post('/course-modules', {
+            'idSessao': savedSessionId,
+            ...moduleBody,
+          });
+          final data = ApiClient.responseMap(
+            response,
+            endpoint: '/course-modules',
+          );
+          savedModuleId =
+              ApiClient.responseMap(
+                    data['modulo'],
+                    endpoint: '/course-modules.modulo',
+                  )['id']
+                  as String;
           module['id'] = savedModuleId;
         } else {
           savedModuleId = moduleId;
           await _api.patch('/course-modules/$savedModuleId', moduleBody);
         }
         keepModuleIds.add(savedModuleId);
-        final oldModule = oldModules.where((item) => item['id'] == savedModuleId).firstOrNull;
-        final oldMaterials = (oldModule?['materiais'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
-        final materials = (module['materiais'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
+        final oldModule = oldModules
+            .where((item) => item['id'] == savedModuleId)
+            .firstOrNull;
+        final oldMaterials = (oldModule?['materiais'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        final materials = (module['materiais'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
         final keepMaterialIds = <String>{};
         for (final material in materials) {
-          final materialId = _isApiId(material['id']) ? material['id'] as String : null;
-          final isActivity = material['tipo'] == 'ATIVIDADE' || material['kind'] == MaterialKind.activity;
+          final materialId = _isApiId(material['id'])
+              ? material['id'] as String
+              : null;
+          final isActivity =
+              material['tipo'] == 'ATIVIDADE' ||
+              material['kind'] == MaterialKind.activity;
           if (isActivity) {
             final activity = material['activity'] as Activity?;
-            final ids = (material['idsQuestoes'] as List? ?? activity?.questionIds ?? const []).cast<String>();
-            final body = {'tema': activity?.theme ?? material['name'], 'tempoMinutos': activity?.durationMinutes ?? material['tempoMinutos'] ?? 5, 'questaoIds': ids};
+            final ids =
+                (material['idsQuestoes'] as List? ??
+                        activity?.questionIds ??
+                        const [])
+                    .cast<String>();
+            final body = {
+              'tema': activity?.theme ?? material['name'],
+              'tempoMinutos':
+                  activity?.durationMinutes ?? material['tempoMinutos'] ?? 5,
+              'questaoIds': ids,
+            };
             if (materialId == null) {
-              final response = await _api.post('/tests/activities', {'idModulo': savedModuleId, ...body});
-              final data = ApiClient.responseMap(response, endpoint: '/tests/activities');
-              material['id'] = ApiClient.responseMap(data['atividade'], endpoint: '/tests/activities.atividade')['id'];
+              final response = await _api.post('/tests/activities', {
+                'idModulo': savedModuleId,
+                ...body,
+              });
+              final data = ApiClient.responseMap(
+                response,
+                endpoint: '/tests/activities',
+              );
+              material['id'] = ApiClient.responseMap(
+                data['atividade'],
+                endpoint: '/tests/activities.atividade',
+              )['id'];
             } else if (activity != null || ids.isNotEmpty) {
               await _api.patch('/tests/$materialId', body);
             }
           } else if (materialId == null) {
             final bytes = material['fileBytes'] as Uint8List?;
-            if (bytes == null) throw const ApiException(400, 'Selecione o arquivo de cada aula antes de salvar o curso.');
-            final kind = material['type'] as editor.MaterialKind? ?? editor.MaterialKind.pdf;
-            final duration = ApiMappers.parseDuration(material['duration'] as String?);
-            final created = await _api.upload('/lessons', field: 'arquivo', bytes: bytes, fileName: material['fileName'] as String? ?? 'material.pdf', fields: {
-              'idModulo': savedModuleId, 'tipo': _editorType(kind), 'titulo': material['name'] as String,
-              'descricao': material['description'] as String? ?? '',
-              if (duration != null) 'duracaoMinutos': '${(duration / 60).ceil()}',
-              if (material['quantidadePaginas'] != null) 'quantidadePaginas': '${material['quantidadePaginas']}',
-            });
-            final createdData = ApiClient.responseMap(created, endpoint: '/lessons');
-            material['id'] = ApiClient.responseMap(createdData['aula'], endpoint: '/lessons.aula')['id'];
+            if (bytes == null)
+              throw const ApiException(
+                400,
+                'Selecione o arquivo de cada aula antes de salvar o curso.',
+              );
+            final kind =
+                material['type'] as editor.MaterialKind? ??
+                editor.MaterialKind.pdf;
+            final duration = ApiMappers.parseDuration(
+              material['duration'] as String?,
+            );
+            final created = await _api.upload(
+              '/lessons',
+              field: 'arquivo',
+              bytes: bytes,
+              fileName: material['fileName'] as String? ?? 'material.pdf',
+              fields: {
+                'idModulo': savedModuleId,
+                'tipo': _editorType(kind),
+                'titulo': material['name'] as String,
+                'descricao': material['description'] as String? ?? '',
+                if (duration != null)
+                  'duracaoMinutos': '${(duration / 60).ceil()}',
+                if (material['quantidadePaginas'] != null)
+                  'quantidadePaginas': '${material['quantidadePaginas']}',
+              },
+            );
+            final createdData = ApiClient.responseMap(
+              created,
+              endpoint: '/lessons',
+            );
+            material['id'] = ApiClient.responseMap(
+              createdData['aula'],
+              endpoint: '/lessons.aula',
+            )['id'];
           } else {
-            await _api.patch('/lessons/$materialId', {'titulo': material['name'], 'descricao': material['description'] ?? ''});
+            await _api.patch('/lessons/$materialId', {
+              'titulo': material['name'],
+              'descricao': material['description'] ?? '',
+            });
           }
-          if (_isApiId(material['id'])) keepMaterialIds.add(material['id'] as String);
+          if (_isApiId(material['id']))
+            keepMaterialIds.add(material['id'] as String);
         }
-        for (final removed in oldMaterials.where((item) => _isApiId(item['id']) && !keepMaterialIds.contains(item['id']))) {
-          await _api.delete(removed['tipo'] == 'ATIVIDADE' ? '/tests/${removed['id']}' : '/lessons/${removed['id']}');
+        for (final removed in oldMaterials.where(
+          (item) =>
+              _isApiId(item['id']) && !keepMaterialIds.contains(item['id']),
+        )) {
+          await _api.delete(
+            removed['tipo'] == 'ATIVIDADE'
+                ? '/tests/${removed['id']}'
+                : '/lessons/${removed['id']}',
+          );
         }
       }
-      for (final removed in oldModules.where((item) => _isApiId(item['id']) && !keepModuleIds.contains(item['id']))) {
+      for (final removed in oldModules.where(
+        (item) => _isApiId(item['id']) && !keepModuleIds.contains(item['id']),
+      )) {
         await _api.delete('/course-modules/${removed['id']}');
       }
     }
-    for (final removed in original.where((item) => _isApiId(item['id']) && !keepSessionIds.contains(item['id']))) {
+    for (final removed in original.where(
+      (item) => _isApiId(item['id']) && !keepSessionIds.contains(item['id']),
+    )) {
       await _api.delete('/sessions/${removed['id']}');
     }
   }
@@ -678,16 +858,24 @@ class CoursesService {
 
   Future<void> updateSession(String id, Map<String, dynamic> data) async {
     await _api.patch('/sessions/$id', {
-      'titulo': data['title'], 'subtitulo': data['subtitle'], 'descricao': data['description'],
+      'titulo': data['title'],
+      'subtitulo': data['subtitle'],
+      'descricao': data['description'],
     });
   }
 
   Future<void> updateModule(String id, Map<String, dynamic> data) async {
-    await _api.patch('/course-modules/$id', {'titulo': data['title'], 'descricao': data['description']});
+    await _api.patch('/course-modules/$id', {
+      'titulo': data['title'],
+      'descricao': data['description'],
+    });
   }
 
   Future<void> updateLesson(String id, CourseMaterial material) async {
-    await _api.patch('/lessons/$id', {'titulo': material.title, 'descricao': material.description});
+    await _api.patch('/lessons/$id', {
+      'titulo': material.title,
+      'descricao': material.description,
+    });
   }
 
   Future<void> updateActivity(String id, CourseMaterial material) async {
@@ -701,23 +889,40 @@ class CoursesService {
 
   Future<CourseMaterial> activityForEdit(CourseMaterial current) async {
     final response = await _api.get('/tests/${current.id}');
-    final data = ApiClient.responseMap(response, endpoint: '/tests/${current.id}');
-    final test = ApiClient.responseMap(data['teste'], endpoint: '/tests/${current.id}.teste');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/tests/${current.id}',
+    );
+    final test = ApiClient.responseMap(
+      data['teste'],
+      endpoint: '/tests/${current.id}.teste',
+    );
     final questions = <ActivityQuestion>[];
     final questionIds = <String>[];
-    for (final link in ApiClient.responseList(test['questoes'], endpoint: '/tests/${current.id}.teste.questoes')) {
-      final question = ApiClient.responseMap(link['questao'], endpoint: '/tests/${current.id}.questoes.questao');
+    for (final link in ApiClient.responseList(
+      test['questoes'],
+      endpoint: '/tests/${current.id}.teste.questoes',
+    )) {
+      final question = ApiClient.responseMap(
+        link['questao'],
+        endpoint: '/tests/${current.id}.questoes.questao',
+      );
       questionIds.add(question['id'] as String);
-      final alternatives = ApiClient.responseList(question['alternativas'], endpoint: '/tests/${current.id}.questoes.alternativas');
-      questions.add(ActivityQuestion(
-        id: question['id'] as String,
-        title: question['titulo'] as String? ?? '',
-        statement: question['enunciado'] as String? ?? '',
-        difficulty: ApiMappers.difficulty(question['dificuldade'] as String?),
-        options: alternatives.map((item) => item['texto'] as String).toList(),
-        optionIds: alternatives.map((item) => item['id'] as String).toList(),
-        correctOptionIndex: -1,
-      ));
+      final alternatives = ApiClient.responseList(
+        question['alternativas'],
+        endpoint: '/tests/${current.id}.questoes.alternativas',
+      );
+      questions.add(
+        ActivityQuestion(
+          id: question['id'] as String,
+          title: question['titulo'] as String? ?? '',
+          statement: question['enunciado'] as String? ?? '',
+          difficulty: ApiMappers.difficulty(question['dificuldade'] as String?),
+          options: alternatives.map((item) => item['texto'] as String).toList(),
+          optionIds: alternatives.map((item) => item['id'] as String).toList(),
+          correctOptionIndex: -1,
+        ),
+      );
     }
     return CourseMaterial(
       id: current.id,
@@ -726,7 +931,10 @@ class CoursesService {
       description: current.description,
       activity: Activity(
         theme: test['tema'] as String? ?? current.title,
-        durationMinutes: ApiClient.responseInt(test['tempoMinutos'], endpoint: '/tests/${current.id}.tempoMinutos'),
+        durationMinutes: ApiClient.responseInt(
+          test['tempoMinutos'],
+          endpoint: '/tests/${current.id}.tempoMinutos',
+        ),
         questions: questions,
         questionCount: questions.length,
         questionIds: questionIds,
@@ -736,25 +944,51 @@ class CoursesService {
   }
 
   Future<void> deleteSession(String id) async => _api.delete('/sessions/$id');
-  Future<void> deleteModule(String id) async => _api.delete('/course-modules/$id');
+  Future<void> deleteModule(String id) async =>
+      _api.delete('/course-modules/$id');
   Future<void> deleteLesson(String id) async => _api.delete('/lessons/$id');
   Future<void> deleteActivity(String id) async => _api.delete('/tests/$id');
 
   Future<List<Map<String, dynamic>>> linkedTeachers(String courseId) async {
     final response = await _api.get('/courses/$courseId/professores');
-    final data = ApiClient.responseMap(response, endpoint: '/courses/$courseId/professores');
-    return ApiClient.responseList(data['dados'], endpoint: '/courses/$courseId/professores.dados');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/courses/$courseId/professores',
+    );
+    return ApiClient.responseList(
+      data['dados'],
+      endpoint: '/courses/$courseId/professores.dados',
+    );
   }
 
   Future<List<Map<String, dynamic>>> availableTeachers(String courseId) async {
     final result = <Map<String, dynamic>>[];
     var page = 1;
     while (true) {
-      final response = await _api.get('/courses/$courseId/professores/disponiveis', query: {'pagina': page});
-      final data = ApiClient.responseMap(response, endpoint: '/courses/$courseId/professores/disponiveis');
-      result.addAll(ApiClient.responseList(data['dados'], endpoint: '/courses/$courseId/professores/disponiveis.dados'));
-      final pagination = ApiClient.responseMap(data['paginacao'], endpoint: '/courses/$courseId/professores/disponiveis.paginacao', optional: true);
-      final totalPages = ApiClient.responseInt(pagination['totalPaginas'], endpoint: '/courses/$courseId/professores/disponiveis.totalPaginas', fallback: page);
+      final response = await _api.get(
+        '/courses/$courseId/professores/disponiveis',
+        query: {'pagina': page},
+      );
+      final data = ApiClient.responseMap(
+        response,
+        endpoint: '/courses/$courseId/professores/disponiveis',
+      );
+      result.addAll(
+        ApiClient.responseList(
+          data['dados'],
+          endpoint: '/courses/$courseId/professores/disponiveis.dados',
+        ),
+      );
+      final pagination = ApiClient.responseMap(
+        data['paginacao'],
+        endpoint: '/courses/$courseId/professores/disponiveis.paginacao',
+        optional: true,
+      );
+      final totalPages = ApiClient.responseInt(
+        pagination['totalPaginas'],
+        endpoint: '/courses/$courseId/professores/disponiveis.totalPaginas',
+        fallback: page,
+      );
       if (page >= totalPages) break;
       page++;
     }
@@ -775,15 +1009,30 @@ class CoursesService {
   ) async {
     final activity = material.activity;
 
-    if (material.kind == MaterialKind.activity && activity != null) {
+    if (material.kind == MaterialKind.activity) {
+      if (activity == null) {
+        throw const ApiException(400, 'Informe os dados da atividade.');
+      }
+      if (activity.durationMinutes < 1 || activity.durationMinutes > 600) {
+        throw const ApiException(
+          400,
+          'A duração da atividade deve ser de 1 a 600 minutos.',
+        );
+      }
+      final questionIds = activity.questionIds.isNotEmpty
+          ? activity.questionIds
+          : activity.questions.map((question) => question.id).toList();
+      if (questionIds.isEmpty) {
+        throw const ApiException(
+          400,
+          'Selecione pelo menos uma questão para a atividade.',
+        );
+      }
       await _api.post('/tests/activities', {
         'idModulo': moduleId,
         'tema': activity.theme.isNotEmpty ? activity.theme : material.title,
-        if (activity.durationMinutes > 0)
-          'tempoMinutos': activity.durationMinutes,
-        'questaoIds': activity.questionIds.isNotEmpty
-            ? activity.questionIds
-            : activity.questions.map((q) => q.id).toList(),
+        'tempoMinutos': activity.durationMinutes,
+        'questaoIds': questionIds,
       });
       return;
     }
@@ -791,6 +1040,18 @@ class CoursesService {
     final bytes = material.fileBytes;
     if (bytes == null) {
       throw const ApiException(400, 'Selecione o arquivo do material.');
+    }
+
+    if (material.kind == MaterialKind.pdf &&
+        (material.pageCount == null || material.pageCount! < 1)) {
+      throw const ApiException(400, 'Informe a quantidade de páginas do PDF.');
+    }
+    if (material.kind != MaterialKind.pdf &&
+        (material.durationSeconds == null || material.durationSeconds! < 1)) {
+      throw const ApiException(
+        400,
+        'Informe a duração do vídeo ou áudio em minutos.',
+      );
     }
 
     final type = ApiMappers.materialType(material.kind);
@@ -807,7 +1068,8 @@ class CoursesService {
         'titulo': material.title,
         'descricao': material.description,
         if (seconds != null) 'duracaoMinutos': '${(seconds / 60).ceil()}',
-        if (material.pageCount != null) 'quantidadePaginas': '${material.pageCount}',
+        if (material.pageCount != null)
+          'quantidadePaginas': '${material.pageCount}',
       },
     );
   }
@@ -843,12 +1105,28 @@ class CoursesService {
 
   Future<String> enroll(String courseId, {String turma = 'EAD'}) async {
     final response = await _api.post('/courses/$courseId/inscricoes');
-    final data = ApiClient.responseMap(response, endpoint: '/courses/$courseId/inscricoes');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/courses/$courseId/inscricoes',
+    );
     return ApiClient.responseString(
           data['message'],
           endpoint: '/courses/$courseId/inscricoes.message',
         ) ??
         'Inscrição realizada.';
+  }
+
+  Future<bool> isEnrolled(String courseId) async {
+    final endpoint = '/courses/$courseId/inscricoes/me';
+    final response = ApiClient.responseMap(
+      await _api.get(endpoint),
+      endpoint: endpoint,
+    );
+    return ApiClient.parseResponse(endpoint, () {
+      final enrolled = response['inscrito'];
+      if (enrolled is bool) return enrolled;
+      throw const FormatException('Estado da inscrição inválido.');
+    });
   }
 
   Future<void> cancelEnrollment(String courseId) =>
@@ -894,31 +1172,36 @@ class CoursesService {
       data['cursos'] ?? data['dados'],
       endpoint: '/courses/minhas-inscricoes.cursos',
     );
-    return Future.wait(courses.map((course) async {
-      try {
-        final detail = ApiClient.responseMap(
-          await _api.get('/courses/${course['id']}'),
-          endpoint: '/courses/${course['id']}',
-        );
-        final basic = ApiClient.responseMap(detail['curso'], endpoint: '/courses/${course['id']}.curso');
-        final detailCover = basic['capa'];
-        final courseCover = course['capa'];
-        final detailCoverUrl = detailCover is String
-            ? detailCover
-            : detailCover is Map
-                ? detailCover['url'] as String?
-                : null;
-        final cover = detailCoverUrl != null && detailCoverUrl.isNotEmpty
-            ? detailCover
-            : courseCover;
-        final coverData = cover == null
-            ? const <String, dynamic>{}
-            : {'capa': cover};
-        return {...course, ...basic, ...coverData};
-      } on ApiException {
-        return course;
-      }
-    }));
+    return Future.wait(
+      courses.map((course) async {
+        try {
+          final detail = ApiClient.responseMap(
+            await _api.get('/courses/${course['id']}'),
+            endpoint: '/courses/${course['id']}',
+          );
+          final basic = ApiClient.responseMap(
+            detail['curso'],
+            endpoint: '/courses/${course['id']}.curso',
+          );
+          final detailCover = basic['capa'];
+          final courseCover = course['capa'];
+          final detailCoverUrl = detailCover is String
+              ? detailCover
+              : detailCover is Map
+              ? detailCover['url'] as String?
+              : null;
+          final cover = detailCoverUrl != null && detailCoverUrl.isNotEmpty
+              ? detailCover
+              : courseCover;
+          final coverData = cover == null
+              ? const <String, dynamic>{}
+              : {'capa': cover};
+          return {...course, ...basic, ...coverData};
+        } on ApiException {
+          return course;
+        }
+      }),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -931,8 +1214,14 @@ class CoursesService {
       response,
       endpoint: '/lessons/$materialId',
     );
-    final aula = ApiClient.responseMap(data['aula'], endpoint: '/lessons/$materialId.aula');
-    final arquivo = ApiClient.responseMap(aula['arquivo'], endpoint: '/lessons/$materialId.aula.arquivo');
+    final aula = ApiClient.responseMap(
+      data['aula'],
+      endpoint: '/lessons/$materialId.aula',
+    );
+    final arquivo = ApiClient.responseMap(
+      aula['arquivo'],
+      endpoint: '/lessons/$materialId.aula.arquivo',
+    );
     final url = ApiClient.responseString(
       arquivo['url'],
       endpoint: '/lessons/$materialId.aula.arquivo.url',

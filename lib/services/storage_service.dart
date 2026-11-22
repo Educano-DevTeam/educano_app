@@ -11,6 +11,7 @@ class StorageService {
 
   static const _currentUserKey = 'educano.current_user';
   static const _tokenKey = 'educano.auth_token';
+  static const _refreshTokenKey = 'educano.refresh_token';
   static const _sidebarExpandedKey = 'educano.sidebar_expanded';
 
   final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
@@ -32,12 +33,19 @@ class StorageService {
   Future<void> clearCurrentUser() async {
     await _preferences.remove(_currentUserKey);
     await _preferences.remove(_tokenKey);
+    await _preferences.remove(_refreshTokenKey);
   }
 
   Future<String?> loadToken() => _preferences.getString(_tokenKey);
 
   Future<void> saveToken(String token) =>
       _preferences.setString(_tokenKey, token);
+
+  Future<String?> loadRefreshToken() =>
+      _preferences.getString(_refreshTokenKey);
+
+  Future<void> saveRefreshToken(String token) =>
+      _preferences.setString(_refreshTokenKey, token);
 
   Future<bool?> loadSidebarExpanded() =>
       _preferences.getBool(_sidebarExpandedKey);

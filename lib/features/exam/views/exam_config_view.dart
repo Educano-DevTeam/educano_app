@@ -10,9 +10,10 @@ import '../widgets/dashboard_scaffold.dart';
 import '../models/exam_session.dart';
 import '../../../services/api_client.dart';
 import '../../../services/exams_service.dart';
+import '../../../services/questions_service.dart';
 
-/// Tela "Configurar/Iniciar" — o aluno escolhe matéria(s), dificuldade e
-/// quantidade de questões antes de iniciar um novo simulado.
+/// Tela de configuração de simulados por tema e dificuldade.
+/// Configure tema, dificuldade, quantidade e duração.
 class ExamConfigView extends StatefulWidget {
   const ExamConfigView({super.key});
 
@@ -23,31 +24,111 @@ class ExamConfigView extends StatefulWidget {
 }
 
 class _ExamConfigViewState extends State<ExamConfigView> {
-  final Set<String> _subjects = {'Matemática'};
+  String? _selectedTheme = '';
+  String? _themeLoadError;
   final Set<String> _difficulty = {'Médio'};
-  int _questionCount = 3;
+  final _customCountController = TextEditingController();
+  final _customTimeController = TextEditingController();
+  List<String> _availableThemes = [];
+  int _questionCount = 10;
+  int _durationMinutes = 10;
+  bool _customCount = false;
+  bool _customTime = false;
 
-  static const _subjectOptions = [
-    'Matemática',
-    'Linguagens',
-    'Ciências da Natureza',
-    'Ciências Humanas',
-    'Redação',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadAvailableThemes());
+  }
+
+  Future<void> _loadAvailableThemes() async {
+    try {
+      final themes = await QuestionsService.instance.themes();
+      if (mounted) setState(() => _availableThemes = themes);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _themeLoadError = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _themeLoadError = 'N\u00e3o foi poss\u00edvel carregar os temas.');
+      }
+    }
+  }
+
 
   static const _difficultyOptions = ['Fácil', 'Médio', 'Difícil'];
 
-  static const _questionCountOptions = [1, 2, 3];
+  static const _questionCountOptions = [10, 20, 50, 100];
 
-  void _toggleSubject(String subject) {
+  static const _timeOptionsByCount = {
+    10: [10, 15, 20, 30],
+    20: [20, 30, 40, 50],
+    50: [50, 60, 75, 90],
+    100: [60, 90, 105, 120],
+  };
+
+  List<int> get _timeOptions => _customCount
+      ? const []
+      : _timeOptionsByCount[_questionCount] ?? const [];
+
+  @override
+  void dispose() {
+    _customCountController.dispose();
+    _customTimeController.dispose();
+    super.dispose();
+  }
+
+  void _selectQuestionCount(int? count) {
     setState(() {
-      if (_subjects.contains(subject)) {
-        _subjects.remove(subject);
+      _customCount = count == null;
+      if (count == null) {
+        _customTime = true;
+        final custom = int.tryParse(_customCountController.text.trim());
+        if (custom != null) _questionCount = custom;
       } else {
-        _subjects.add(subject);
+        _questionCount = count;
+        if (!_customTime ||
+            !_timeOptionsByCount[count]!.contains(_durationMinutes)) {
+          _customTime = false;
+          _durationMinutes = _timeOptionsByCount[count]!.first;
+        }
       }
     });
   }
+
+  void _updateCustomCount(String value) {
+    final count = int.tryParse(value.trim());
+    setState(() {
+      if (count != null) _questionCount = count;
+    });
+  }
+
+  void _updateCustomTime(String value) {
+    final minutes = int.tryParse(value.trim());
+    setState(() {
+      if (minutes != null) _durationMinutes = minutes;
+    });
+  }
+
+  String _formatMinutes(int minutes) {
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    if (rest == 0) return hours == 1 ? '1 hora' : '$hours horas';
+    return '$hours:${rest.toString().padLeft(2, '0')} hora';
+  }
+
+  bool get _customCountValid {
+    if (!_customCount) return true;
+    final count = int.tryParse(_customCountController.text.trim());
+    return count != null && count >= 1 && count <= 100;
+  }
+
+  bool get _customTimeValid {
+    if (!_customTime) return true;
+    final minutes = int.tryParse(_customTimeController.text.trim());
+    return minutes != null && minutes >= 1 && minutes <= 600;
+  }
+
 
   void _toggleDifficulty(String difficulty) {
     setState(() {
@@ -57,27 +138,57 @@ class _ExamConfigViewState extends State<ExamConfigView> {
     });
   }
 
-  bool get _canStart => _subjects.isNotEmpty && _difficulty.isNotEmpty;
+  bool get _canStart =>
+      _selectedTheme != null &&
+      _difficulty.isNotEmpty &&
+      _customCountValid &&
+      _customTimeValid;
 
   bool _creating = false;
 
   /// Confirma e pede à API um simulado com as configurações escolhidas.
+  Future<bool?> _confirmShortTime() => showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Tempo abaixo do recomendado'),
+      content: Text(
+        'O ideal \u00e9 ter pelo menos 1 minuto por quest\u00e3o. '
+        'Voc\u00ea selecionou $_questionCount quest\u00f5es para '
+        '$_durationMinutes minutos. Deseja continuar mesmo assim?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Continuar mesmo assim'),
+        ),
+      ],
+    ),
+  );
+
   Future<void> _createAndStart() async {
+    if (_customTime && _durationMinutes < _questionCount) {
+      final continueAnyway = await _confirmShortTime();
+      if (continueAnyway != true || !mounted) return;
+    }
     final confirmed = await _confirm();
     if (!confirmed || !mounted) return;
 
     setState(() => _creating = true);
     try {
       final session = await ExamsService.instance.create(
-        subjects: _subjects.toList(),
+        theme: _selectedTheme!,
         difficulty: _difficulty.first,
         count: _questionCount,
+        durationMinutes: _durationMinutes,
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed(AppRoutes.exam, arguments: session);
     } on ApiException catch (error) {
       if (!mounted) return;
-      setState(() => _creating = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.message),
@@ -91,6 +202,16 @@ class _ExamConfigViewState extends State<ExamConfigView> {
               : null,
         ),
       );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('N\u00e3o foi poss\u00edvel iniciar o simulado. Tente novamente.'),
+          backgroundColor: EducanoColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
   }
 
@@ -189,17 +310,128 @@ class _ExamConfigViewState extends State<ExamConfigView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ChipSelectorGroup(title: 'Disciplina', options: _subjectOptions, selected: _subjects, onSelected: _toggleSubject),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: _selectedTheme,
+                    decoration: InputDecoration(
+                      labelText: 'Tema do simulado',
+                      helperText: _themeLoadError,
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Todos'),
+                      ),
+                      ..._availableThemes.map(
+                          (theme) => DropdownMenuItem(
+                            value: theme,
+                            child: Text(
+                              theme.isEmpty
+                                  ? theme
+                                  : '${theme[0].toUpperCase()}${theme.substring(1).toLowerCase()}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                    ],
+                    onChanged: (theme) =>
+                        setState(() => _selectedTheme = theme),
+                  ),
                   const SizedBox(height: 30),
-                  const Text('Número de questões', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: EducanoColors.textPrimary)),
+                  const Text(
+                    'N\u00famero de quest\u00f5es',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: EducanoColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  Wrap(spacing: 8, runSpacing: 8, children: [for (final count in _questionCountOptions) SelectableChip(label: '$count questões', selected: _questionCount == count, onTap: () => setState(() => _questionCount = count))]),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final count in _questionCountOptions)
+                        SelectableChip(
+                          label: '$count quest\u00f5es',
+                          selected: !_customCount && _questionCount == count,
+                          onTap: () => _selectQuestionCount(count),
+                        ),
+                      SelectableChip(
+                        label: 'Personalizado',
+                        selected: _customCount,
+                        onTap: () => _selectQuestionCount(null),
+                      ),
+                    ],
+                  ),
+                  if (_customCount) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _customCountController,
+                      keyboardType: TextInputType.number,
+                      onChanged: _updateCustomCount,
+                      decoration: InputDecoration(
+                        labelText: 'Quantidade personalizada',
+                        helperText: 'Informe de 1 a 100 quest\u00f5es.',
+                        errorText: _customCountValid
+                            ? null
+                            : 'Informe um n\u00famero entre 1 e 100.',
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 30),
-                  const Text('Tempo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: EducanoColors.textPrimary)),
+                  const Text(
+                    'Tempo',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: EducanoColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  SelectableChip(label: '${(_questionCount * 2.5).round()} min', selected: true, onTap: () {}),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final minutes in _timeOptions)
+                        SelectableChip(
+                          label: _formatMinutes(minutes),
+                          selected: !_customTime &&
+                              _durationMinutes == minutes,
+                          onTap: () => setState(() {
+                            _customTime = false;
+                            _durationMinutes = minutes;
+                          }),
+                        ),
+                      SelectableChip(
+                        label: 'Personalizado',
+                        selected: _customTime,
+                        onTap: () => setState(() => _customTime = true),
+                      ),
+                    ],
+                  ),
+                  if (_customTime) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _customTimeController,
+                      keyboardType: TextInputType.number,
+                      onChanged: _updateCustomTime,
+                      decoration: InputDecoration(
+                        labelText: 'Tempo personalizado (minutos)',
+                        helperText: 'Informe de 1 a 600 minutos.',
+                        errorText: _customTimeValid
+                            ? null
+                            : 'Informe um n\u00famero entre 1 e 600.',
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 30),
-                  ChipSelectorGroup(title: 'Nível de dificuldade', options: _difficultyOptions, selected: _difficulty, onSelected: _toggleDifficulty),
+                  ChipSelectorGroup(
+                    title: 'N\u00edvel de dificuldade',
+                    options: _difficultyOptions,
+                    selected: _difficulty,
+                    onSelected: _toggleDifficulty,
+                  ),
                 ],
               ),
             ),

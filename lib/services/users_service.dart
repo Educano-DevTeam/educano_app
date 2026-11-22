@@ -120,10 +120,30 @@ class UsersService {
   Future<Map<String, dynamic>> myProfile() async {
     final response = await _api.get('/users/me/profile');
     final data = ApiClient.responseMap(response, endpoint: '/users/me/profile');
-    return ApiClient.responseMap(
+    final profile = ApiClient.responseMap(
       data['perfil'],
       endpoint: '/users/me/profile.perfil',
     );
+    final photoFileId = _profilePhotoFileId(profile['urlFotoPerfil']);
+    if (photoFileId == null) return profile;
+
+    final fileResponse = await _api.get('/files/$photoFileId');
+    final fileData = ApiClient.responseMap(
+      fileResponse,
+      endpoint: '/files/$photoFileId',
+    );
+    final file = ApiClient.responseMap(
+      fileData['arquivo'],
+      endpoint: '/files/$photoFileId.arquivo',
+    );
+    return {
+      ...profile,
+      'urlFotoPerfil': ApiClient.responseString(
+        file['url'],
+        endpoint: '/files/$photoFileId.arquivo.url',
+        required: true,
+      ),
+    };
   }
 
   Future<Map<String, dynamic>> updateMyProfile(
@@ -141,20 +161,54 @@ class UsersService {
     Uint8List bytes,
     String fileName,
   ) async {
-    final response = await _api.upload(
-      '/users/me/profile/photo',
-      field: 'foto',
+    final uploadResponse = await _api.upload(
+      '/files',
+      field: 'arquivo',
       bytes: bytes,
       fileName: fileName,
+      fields: {'tipo': 'IMAGEM', 'finalidade': 'FOTO_PERFIL'},
     );
-    final data = ApiClient.responseMap(
-      response,
-      endpoint: '/users/me/profile/photo',
+    final data = ApiClient.responseMap(uploadResponse, endpoint: '/files');
+    final file = ApiClient.responseMap(
+      data['arquivo'],
+      endpoint: '/files.arquivo',
     );
-    return ApiClient.responseMap(
-      data['perfil'],
-      endpoint: '/users/me/profile/photo.perfil',
-    );
+    final fileId = ApiClient.responseString(
+      file['id'],
+      endpoint: '/files.arquivo.id',
+      required: true,
+    )!;
+    final profileUrl = _profilePhotoUrl(fileId);
+    final profile = await updateMyProfile({'urlFotoPerfil': profileUrl});
+    return {
+      ...profile,
+      'urlFotoPerfil': ApiClient.responseString(
+        file['url'],
+        endpoint: '/files.arquivo.url',
+        required: true,
+      ),
+    };
+  }
+
+  static String _profilePhotoUrl(String fileId) {
+    final base = Uri.parse(apiBaseUrl);
+    final basePath = base.path.replaceFirst(RegExp(r'/$'), '');
+    return base.replace(path: '$basePath/files/$fileId').toString();
+  }
+
+  static String? _profilePhotoFileId(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+
+    final photoUri = Uri.tryParse(value);
+    final base = Uri.parse(apiBaseUrl);
+    if (photoUri == null || photoUri.origin != base.origin) return null;
+
+    final basePath = base.path.replaceFirst(RegExp(r'/$'), '');
+    final prefix = '$basePath/files/';
+    if (!photoUri.path.startsWith(prefix)) return null;
+
+    final fileId = photoUri.path.substring(prefix.length);
+    return fileId.isEmpty || fileId.contains('/') ? null : fileId;
   }
 
   /// Atualiza o nome e a sessão salva no aparelho.
@@ -163,22 +217,6 @@ class UsersService {
     final updated = current.copyWith(name: name.trim());
     await StorageService.instance.saveCurrentUser(updated);
     return updated;
-  }
-
-  Future<String> changePassword(String current, String next) async {
-    final response = await _api.patch('/users/me/password', {
-      'senhaAtual': current,
-      'novaSenha': next,
-    });
-    final data = ApiClient.responseMap(
-      response,
-      endpoint: '/users/me/password',
-    );
-    return ApiClient.responseString(
-          data['message'],
-          endpoint: '/users/me/password.message',
-        ) ??
-        'Senha alterada.';
   }
 
   Future<void> deleteMyAccount() => _api.delete('/users/me');

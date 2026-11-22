@@ -4,11 +4,14 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/educano_colors.dart';
 import '../../../core/utils/api_mappers.dart';
 import '../../../services/api_client.dart';
-import '../../../services/progress_service.dart';
+import '../../../services/courses_service.dart';
+import '../../../services/exams_service.dart';
 import '../../../services/users_service.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/profile_course.dart';
+import '../../../core/models/level_progress.dart';
 import '../../../core/widgets/charts/mini_bar_chart.dart';
+import '../../../core/widgets/ui/profile_avatar.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/navigation/navigation_service.dart';
 import '../../../services/storage_service.dart';
@@ -29,9 +32,26 @@ class _ProfileViewState extends State<ProfileView> {
   List<ChartPoint> _chartData = const [];
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _profile;
+  bool _loadingProfileData = true;
+  String? _profileLoadError;
 
   int? _selectedCourse;
   late final Future<AppUser?> _userFuture;
+
+  static const _monthNames = [
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ];
 
   @override
   void initState() {
@@ -41,45 +61,138 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _load() async {
+    if (!_loadingProfileData) {
+      setState(() {
+        _loadingProfileData = true;
+        _profileLoadError = null;
+      });
+    }
     try {
-      final results = await Future.wait([
-        ProgressService.instance.me(),
+      final results = await Future.wait<dynamic>([
         UsersService.instance.myProfile(),
+        CoursesService.instance.myCourses(),
+        ExamsService.instance.monthlyGrades(),
       ]);
-      final progress = results[0];
-      final courses = ((progress['cursos'] as Map)['lista'] as List).cast<Map<String, dynamic>>();
+      final apiProfile = results[0] as Map<String, dynamic>;
+      final totalXp = ApiClient.responseInt(
+        apiProfile['xp'],
+        endpoint: '/users/me/profile.perfil.xp',
+        required: true,
+      );
+      final profile = {
+        ...apiProfile,
+        'nivel': LevelProgress.fromTotalXp(totalXp).level,
+      };
+      final enrolledCourses = (results[1] as List<Map<String, dynamic>>)
+          .where((course) => course['inscritoEm'] != null)
+          .toList();
+      final chartData = _chartPoints(results[2] as Map<String, dynamic>);
+      final completedCourses = enrolledCourses
+          .where((course) => _courseProgressPercent(course) >= 100)
+          .length;
       if (!mounted) return;
       setState(() {
-        _stats = progress;
-        _profile = results[1];
-        _chartData = [
-          for (final month in (progress['evolucao'] as List).cast<Map<String, dynamic>>())
-            ChartPoint(
-              month['mes'] as String,
-              (month['atividades'] as num).toDouble(),
-              (month['simulados'] as num).toDouble(),
-            ),
-        ];
+        _profile = profile;
+        _stats = {
+          'perfil': profile,
+          'cursos': {'concluidos': completedCourses},
+        };
+        _chartData = chartData;
         _courses = [
-          for (final course in courses)
+          for (final course in enrolledCourses)
             ProfileCourse(
               id: course['id'] as String,
               initials: _initials(course['nome'] as String),
               color: ApiMappers.color(course['cor'] as String?),
               name: course['nome'] as String,
-              progressLabel: '${course['sessoes']} ${course['sessoes'] == 1 ? 'trilha' : 'trilhas'} • '
-                  '${((course['progresso'] as num) * 100).round()}% concluído',
+              progressLabel: _courseProgressPercent(course) >= 100
+                  ? 'Concluído'
+                  : '${_courseProgressPercent(course).round()}% concluído',
             ),
         ];
+        _loadingProfileData = false;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() {
+        _loadingProfileData = false;
+        _profileLoadError = error.message;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
+  static double _courseProgressPercent(Map<String, dynamic> course) {
+    final progress = ApiClient.responseMap(
+      course['progresso'],
+      endpoint: '/courses/minhas-inscricoes.cursos.progresso',
+      optional: true,
+    );
+    final value = ApiMappers.number(progress['percentual'])?.toDouble() ?? 0;
+    return value <= 1 ? value * 100 : value;
+  }
+
+  static List<ChartPoint> _chartPoints(
+    Map<String, dynamic> response,
+  ) => ApiClient.parseResponse('/tests/attempts/grades/monthly.notas', () {
+    final yearlyNotes = ApiClient.responseMap(
+      response['notas'],
+      endpoint: '/tests/attempts/grades/monthly.notas',
+      optional: true,
+    );
+    final points = <(DateTime, ChartPoint)>[];
+
+    double average(Map<String, dynamic> month, String type) {
+      final result = ApiClient.responseMap(
+        month[type],
+        endpoint: '/tests/attempts/grades/monthly.notas.$type',
+      );
+      final value = result['media'];
+      if (value == null) return 0;
+      final score = ApiMappers.number(value);
+      if (score == null) throw const FormatException('Nota inválida.');
+      return score.toDouble();
+    }
+
+    for (final yearEntry in yearlyNotes.entries) {
+      final year = int.tryParse(yearEntry.key);
+      if (year == null) throw const FormatException('Ano inválido.');
+      final months = ApiClient.responseMap(
+        yearEntry.value,
+        endpoint: '/tests/attempts/grades/monthly.notas.${yearEntry.key}',
+      );
+      for (final monthEntry in months.entries) {
+        final monthIndex = _monthNames.indexOf(monthEntry.key);
+        if (monthIndex < 0) {
+          throw const FormatException('Mês inválido.');
+        }
+        final month = ApiClient.responseMap(
+          monthEntry.value,
+          endpoint:
+              '/tests/attempts/grades/monthly.notas.${yearEntry.key}.${monthEntry.key}',
+        );
+        points.add((
+          DateTime(year, monthIndex + 1),
+          ChartPoint(
+            monthEntry.key.substring(0, 3),
+            average(month, 'Atividade'),
+            average(month, 'Simulado'),
+          ),
+        ));
+      }
+    }
+
+    points.sort((a, b) => a.$1.compareTo(b.$1));
+    return points.map((point) => point.$2).toList();
+  });
+
   static String _initials(String name) {
-    final words = name.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+    final words = name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length > 2)
+        .toList();
     if (words.isEmpty) return name.substring(0, 1).toUpperCase();
     return words.take(2).map((w) => w[0].toUpperCase()).join();
   }
@@ -93,12 +206,15 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   void _share() {
-    final perfil = _stats?['perfil'] as Map<String, dynamic>?;
-    final text = 'Estou no nível ${perfil?['nivel'] ?? 0} do Educano, com '
-        '${perfil?['xp'] ?? 0} XP e ${perfil?['sequenciaDias'] ?? 0} dias de sequência!';
+    final profile = _profile;
+    final text =
+        'Estou no nível ${profile?['nivel'] ?? 0} do Educano, com '
+        '${profile?['xp'] ?? 0} XP!';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Resumo do perfil copiado para compartilhar.')),
+      const SnackBar(
+        content: Text('Resumo do perfil copiado para compartilhar.'),
+      ),
     );
   }
 
@@ -143,7 +259,9 @@ class _ProfileViewState extends State<ProfileView> {
           ),
           const SizedBox(height: 16),
           _PlanBanner(
-            planName: ((_stats?['perfil'] as Map?)?['plano'] as Map?)?['nome'] as String?,
+            planName:
+                ((_stats?['perfil'] as Map?)?['plano'] as Map?)?['nome']
+                    as String?,
           ),
           const SizedBox(height: 20),
           AppSectionCard(
@@ -185,10 +303,25 @@ class _ProfileViewState extends State<ProfileView> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (_chartData.isEmpty)
-                  const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
+                if (_loadingProfileData)
+                  const SizedBox(
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_profileLoadError != null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text('Não foi possível carregar as notas.'),
+                  )
+                else if (_chartData.isEmpty)
+                  const SizedBox(
+                    height: 120,
+                    child: Center(
+                      child: Text('Você ainda não possui notas registradas.'),
+                    ),
+                  )
                 else
-                  MiniBarChart(data: _chartData),
+                  MiniBarChart(data: _chartData, maxValue: 100),
               ],
             ),
           ),
@@ -209,7 +342,7 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                     const Spacer(),
                     Text(
-                      '${_courses.length} em andamento',
+                      '${_courses.length} inscritos',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: EducanoColors.legacyTextSecondary,
@@ -218,20 +351,36 @@ class _ProfileViewState extends State<ProfileView> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                for (int i = 0; i < _courses.length; i++)
-                  _CourseRow(
-                    course: _courses[i],
-                    selected: _selectedCourse == i,
-                    onTap: () {
-                      setState(() => _selectedCourse = i);
-                      NavigationService.pushNamed(AppRoutes.course, arguments: _courses[i].id);
-                    },
-                  ),
-                if (_courses.isEmpty)
+                if (_loadingProfileData)
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_profileLoadError != null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Não foi possível carregar os cursos inscritos.',
+                    ),
+                  )
+                else if (_courses.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text('Você ainda não está inscrito em cursos.'),
-                  ),
+                  )
+                else
+                  for (int i = 0; i < _courses.length; i++)
+                    _CourseRow(
+                      course: _courses[i],
+                      selected: _selectedCourse == i,
+                      onTap: () {
+                        setState(() => _selectedCourse = i);
+                        NavigationService.pushNamed(
+                          AppRoutes.course,
+                          arguments: _courses[i].id,
+                        );
+                      },
+                    ),
                 const SizedBox(height: 6),
                 GestureDetector(
                   onTap: () => NavigationService.pushNamed(AppRoutes.courses),
@@ -303,14 +452,15 @@ class _ProfileHeaderCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: Colors.white,
                   ),
-                  child: CircleAvatar(
+                  child: ProfileAvatar(
+                    imageUrl: photoUrl,
+                    radius: 31,
                     backgroundColor: EducanoColors.legacyPrimary,
-                    backgroundImage: (photoUrl?.isNotEmpty ?? false)
-                        ? NetworkImage(photoUrl!)
-                        : null,
-                    child: (photoUrl?.isNotEmpty ?? false)
-                        ? null
-                        : const Icon(Icons.person, color: Colors.white, size: 30),
+                    placeholder: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                   ),
                 ),
               ),
@@ -402,11 +552,14 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final perfil = stats?['perfil'] as Map<String, dynamic>?;
     final cursos = stats?['cursos'] as Map<String, dynamic>?;
-    final sequence = perfil?['sequenciaDias'] ?? 0;
+    final sequence = perfil?['sequenciaDias'];
+    final sequenceLabel = sequence is num
+        ? '${sequence.toInt()} ${sequence == 1 ? 'dia' : 'dias'}'
+        : '—';
     final List<List<String>> items = [
       ['${perfil?['nivel'] ?? '—'}', 'Nível'],
       ['${perfil?['xp'] ?? '—'}', 'XP'],
-      ['$sequence ${sequence == 1 ? 'dia' : 'dias'}', 'Sequência'],
+      [sequenceLabel, 'Sequência'],
       ['${cursos?['concluidos'] ?? '—'}', 'Concluídos'],
     ];
 
@@ -739,13 +892,15 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(
+            ProfileAvatar(
+              imageUrl: _photoUrl,
               radius: 42,
               backgroundColor: EducanoColors.legacyPrimary,
-              backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
-              child: _photoUrl.isEmpty
-                  ? const Icon(Icons.person, color: Colors.white, size: 40)
-                  : null,
+              placeholder: const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 40,
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -765,12 +920,17 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             ),
             const Text(
               'JPG, PNG ou WEBP de até 5 MB.',
-              style: TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary),
+              style: TextStyle(
+                fontSize: 11,
+                color: EducanoColors.legacyTextSecondary,
+              ),
             ),
             const SizedBox(height: 12),
             SwitchListTile(
               value: _public,
-              onChanged: _busy ? null : (value) => setState(() => _public = value),
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() => _public = value),
               title: const Text('Perfil público'),
               subtitle: Text(
                 _public
@@ -789,7 +949,11 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
         ElevatedButton(
           onPressed: _busy ? null : _save,
           child: _busy
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Salvar'),
         ),
       ],

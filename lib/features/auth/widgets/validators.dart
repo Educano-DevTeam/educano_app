@@ -28,6 +28,7 @@ class Validators {
     if (v.length < minLength) {
       return 'A senha deve ter no mínimo $minLength caracteres';
     }
+    if (v.length > 72) return 'A senha deve ter no máximo 72 caracteres';
     if (!RegExp(r'[A-Z]').hasMatch(v)) {
       return 'Inclua ao menos uma letra maiúscula';
     }

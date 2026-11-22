@@ -58,7 +58,7 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
   Future<void> _load() async {
     try {
       final results = await Future.wait([
-        StoreService.instance.items(),
+        StoreService.instance.shop(),
         StoreService.instance.inventory(),
       ]);
       if (!mounted) return;
@@ -102,7 +102,7 @@ class _StoreInventoryViewState extends State<StoreInventoryView>
 
   Future<void> _activate(Map<String, dynamic> item) async {
     try {
-      final snapshot = await StoreService.instance.activate(item['id'] as String);
+      final snapshot = await StoreService.instance.activate(item['inventoryId'] as String);
       if (!mounted) return;
       setState(() {
         _inventoryItems = snapshot.items;

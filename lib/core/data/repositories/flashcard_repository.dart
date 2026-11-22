@@ -19,7 +19,7 @@ class FlashcardRepository {
   }
 
   Future<Flashcard> update(Flashcard flashcard) async {
-    final data = await _api.put('/flashcards/${flashcard.id}', flashcard.toApi())
+    final data = await _api.patch('/flashcards/${flashcard.id}', flashcard.toApi())
         as Map<String, dynamic>;
     return Flashcard.fromApi(data['flashcard'] as Map<String, dynamic>);
   }
@@ -27,7 +27,7 @@ class FlashcardRepository {
   Future<void> delete(String id) => _api.delete('/flashcards/$id');
 
   Future<Flashcard?> review(String id) async {
-    final data = await _api.post('/flashcards/$id/review') as Map<String, dynamic>;
+    final data = await _api.post('/flashcards/$id/visualizar') as Map<String, dynamic>;
     return Flashcard.fromApi(data['flashcard'] as Map<String, dynamic>);
   }
 }

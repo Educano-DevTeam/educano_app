@@ -13,12 +13,17 @@ class FakeApi {
 
   static const password = 'Senha@123';
   static const validCode = 'ABC123';
+  static const initialRefreshToken = 'refresh-token-de-teste';
 
   static final Map<String, Map<String, dynamic>> _users = {};
   static final Set<String> _pending = {};
   static final Map<String, String?> authorizationByPath = {};
+  static final Map<String, Map<String, String>> queryParametersByPath = {};
+  static final Map<String, Map<String, dynamic>> requestBodiesByPath = {};
   static final List<String> requests = [];
   static final Map<String, http.Response> responseOverrides = {};
+  static String _refreshToken = initialRefreshToken;
+  static int _refreshCount = 0;
 
   static void install() {
     reset();
@@ -37,19 +42,28 @@ class FakeApi {
       };
     _pending.clear();
     authorizationByPath.clear();
+    queryParametersByPath.clear();
+    requestBodiesByPath.clear();
     requests.clear();
     responseOverrides.clear();
+    _refreshToken = initialRefreshToken;
+    _refreshCount = 0;
   }
 
   static Future<http.Response> _handle(http.Request request) async {
     final path = request.url.path.replaceFirst(RegExp(r'^/api'), '');
     authorizationByPath[path] = request.headers['Authorization'];
+    queryParametersByPath[path] = request.url.queryParameters;
     requests.add('${request.method} $path');
     final override = responseOverrides['${request.method} $path'];
-    if (override != null) return override;
-    final body = request.body.isEmpty
+    final body =
+        request.body.isEmpty ||
+            !(request.headers['content-type']?.contains('application/json') ??
+                false)
         ? const <String, dynamic>{}
         : jsonDecode(request.body) as Map<String, dynamic>;
+    requestBodiesByPath[path] = body;
+    if (override != null) return override;
 
     http.Response json(Object data, [int status = 200]) => http.Response(
       jsonEncode(data),
@@ -98,8 +112,21 @@ class FakeApi {
         return json({
           'message': 'Login realizado com sucesso.',
           'token': 'token-de-teste',
+          'refreshToken': _refreshToken,
           'usuario': user,
         });
+      case 'POST /auth/refresh':
+        if (body['refreshToken'] != _refreshToken) {
+          return json({'message': 'Refresh token inválido.'}, 401);
+        }
+        _refreshCount++;
+        _refreshToken = 'refresh-token-$_refreshCount';
+        return json({
+          'token': 'token-refresh-$_refreshCount',
+          'refreshToken': _refreshToken,
+        });
+      case 'POST /auth/logout':
+        return json({'message': 'Sessão encerrada.'});
       case 'GET /auth/me':
         return json({
           'autenticado': true,
@@ -116,6 +143,9 @@ class FakeApi {
           },
         });
       case 'GET /progress/me':
+        if (request.headers['Authorization'] == 'Bearer token-expirado') {
+          return json({'message': 'Token expirado.'}, 401);
+        }
         return json(_progress);
       case 'GET /plans':
         return json({'idPlanoAtual': 'p1', 'dados': _plans});

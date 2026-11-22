@@ -23,6 +23,12 @@ class RoleGuard extends StatefulWidget {
   factory RoleGuard.admin(Widget child) =>
       RoleGuard(allow: (user) => user.isAdmin, child: child);
 
+  /// Listagem gerencial de cursos: administrador ou parceiro responsável.
+  factory RoleGuard.coursesManager(Widget child) => RoleGuard(
+    allow: (user) => user.isAdmin || user.type == 'PARCEIRO',
+    child: child,
+  );
+
   @override
   State<RoleGuard> createState() => _RoleGuardState();
 }

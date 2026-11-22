@@ -40,6 +40,15 @@ class _ExamFinishScreenState extends State<ExamFinishScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
       );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('N\u00e3o foi poss\u00edvel finalizar o simulado. Tente novamente.'),
+          backgroundColor: EducanoColors.error,
+        ),
+      );
     }
   }
 

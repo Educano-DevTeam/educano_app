@@ -53,7 +53,11 @@ class _SettingsViewState extends State<SettingsView> {
                         color: EducanoColors.legacyRed.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.warning_amber_rounded, color: EducanoColors.legacyRed, size: 22),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: EducanoColors.legacyRed,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     const Expanded(
@@ -74,7 +78,11 @@ class _SettingsViewState extends State<SettingsView> {
                 const SizedBox(height: 16),
                 const Text(
                   'Essa ação é permanente. Todo o seu progresso, XP, conquistas e histórico de estudos serão removidos e não poderão ser recuperados.',
-                  style: TextStyle(fontSize: 13, color: EducanoColors.legacyTextSecondary, height: 1.5),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: EducanoColors.legacyTextSecondary,
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Container(
@@ -82,16 +90,25 @@ class _SettingsViewState extends State<SettingsView> {
                   decoration: BoxDecoration(
                     color: EducanoColors.legacyRed.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: EducanoColors.legacyRed.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: EducanoColors.legacyRed.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: EducanoColors.legacyRed),
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: EducanoColors.legacyRed,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Recomendamos exportar seus dados antes de continuar.',
-                          style: TextStyle(fontSize: 12, color: EducanoColors.legacyRed),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: EducanoColors.legacyRed,
+                          ),
                         ),
                       ),
                     ],
@@ -105,9 +122,13 @@ class _SettingsViewState extends State<SettingsView> {
                         onPressed: () => Navigator.of(ctx).pop(false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: EducanoColors.legacyTextPrimary,
-                          side: const BorderSide(color: EducanoColors.legacyCardBorder),
+                          side: const BorderSide(
+                            color: EducanoColors.legacyCardBorder,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: const Text('Cancelar'),
                       ),
@@ -121,7 +142,9 @@ class _SettingsViewState extends State<SettingsView> {
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: const Text('Encerrar conta'),
                       ),
@@ -143,11 +166,16 @@ class _SettingsViewState extends State<SettingsView> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Sua conta foi encerrada.')),
         );
-        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
       } on ApiException catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.legacyRed),
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: EducanoColors.legacyRed,
+          ),
         );
       }
     }
@@ -156,39 +184,50 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back, color: EducanoColors.legacyTextPrimary),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: EducanoColors.legacyTextPrimary,
                 ),
-                const Text(
-                  'Configurações',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: EducanoColors.legacyTextPrimary),
+              ),
+              const Text(
+                'Configurações',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: EducanoColors.legacyTextPrimary,
                 ),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.only(left: 48),
-              child: Text(
-                'Gerencie sua conta, notificações e preferências.',
-                style: TextStyle(fontSize: 13, color: EducanoColors.legacyTextSecondary),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(left: 48),
+            child: Text(
+              'Gerencie sua conta, notificações e preferências.',
+              style: TextStyle(
+                fontSize: 13,
+                color: EducanoColors.legacyTextSecondary,
               ),
             ),
-            const SizedBox(height: 20),
-            _buildContent(context),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+          _buildContent(context),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
   Widget _buildContent(BuildContext context) {
-    final bool mobile = (MediaQuery.sizeOf(context).width < AppBreakpoints.medium);
+    final bool mobile =
+        (MediaQuery.sizeOf(context).width < AppBreakpoints.medium);
 
     const Widget dadosConta = _DadosContaCard();
     final Widget notificacoes = _NotificacoesCard(
@@ -207,7 +246,9 @@ class _SettingsViewState extends State<SettingsView> {
       onModoEscuro: (v) => setState(() => _modoEscuro = v),
       onEfeitosSonoros: (v) => setState(() => _efeitosSonoros = v),
     );
-    final Widget encerrarConta = _EncerrarContaCard(onDelete: _confirmarEncerramento);
+    final Widget encerrarConta = _EncerrarContaCard(
+      onDelete: _confirmarEncerramento,
+    );
 
     if (mobile) {
       return Column(
@@ -298,23 +339,32 @@ class _DadosContaCardState extends State<_DadosContaCard> {
     final user = _user;
     if (user == null) return;
     if (_name.text.trim().length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe um nome válido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Informe um nome válido.')));
       return;
     }
     setState(() => _saving = true);
     try {
-      final updated = await UsersService.instance.updateMyName(user, _name.text);
+      final updated = await UsersService.instance.updateMyName(
+        user,
+        _name.text,
+      );
       if (!mounted) return;
       setState(() => _user = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dados atualizados.'), backgroundColor: EducanoColors.successGreen),
+        const SnackBar(
+          content: Text('Dados atualizados.'),
+          backgroundColor: EducanoColors.successGreen,
+        ),
       );
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message), backgroundColor: EducanoColors.legacyRed),
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: EducanoColors.legacyRed,
+          ),
         );
       }
     } finally {
@@ -328,19 +378,33 @@ class _DadosContaCardState extends State<_DadosContaCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Dados da conta',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
+          const Text(
+            'Dados da conta',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: EducanoColors.legacyTextPrimary,
+            ),
+          ),
           const SizedBox(height: 16),
           _ControlledFieldsRow(
             fields: [
               _ControlledField('Nome Completo', _name),
-              _ControlledField('E-mail', TextEditingController(text: _user?.email ?? ''), readOnly: true),
+              _ControlledField(
+                'E-mail',
+                TextEditingController(text: _user?.email ?? ''),
+                readOnly: true,
+              ),
             ],
           ),
           const SizedBox(height: 14),
           _ControlledFieldsRow(
             fields: [
-              _ControlledField('Perfil de acesso', TextEditingController(text: _user?.role ?? ''), readOnly: true),
+              _ControlledField(
+                'Perfil de acesso',
+                TextEditingController(text: _user?.role ?? ''),
+                readOnly: true,
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -363,7 +427,12 @@ class _ControlledField {
   final TextEditingController controller;
   final bool obscure;
   final bool readOnly;
-  const _ControlledField(this.label, this.controller, {this.obscure = false, this.readOnly = false});
+  const _ControlledField(
+    this.label,
+    this.controller, {
+    this.obscure = false,
+    this.readOnly = false,
+  });
 }
 
 class _ControlledFieldsRow extends StatelessWidget {
@@ -380,7 +449,13 @@ class _ControlledFieldsRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(f.label, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                Text(
+                  f.label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: EducanoColors.legacyTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: f.controller,
@@ -388,7 +463,9 @@ class _ControlledFieldsRow extends StatelessWidget {
                   readOnly: f.readOnly,
                   style: TextStyle(
                     fontSize: 13,
-                    color: f.readOnly ? EducanoColors.legacyTextSecondary : null,
+                    color: f.readOnly
+                        ? EducanoColors.legacyTextSecondary
+                        : null,
                   ),
                   decoration: const InputDecoration(isDense: true),
                 ),
@@ -446,10 +523,21 @@ class _NotificacoesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Notificações',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
-          const Text('Escolha o que você quer receber por e-mail ou push.',
-              style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+          const Text(
+            'Notificações',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: EducanoColors.legacyTextPrimary,
+            ),
+          ),
+          const Text(
+            'Escolha o que você quer receber por e-mail ou push.',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: EducanoColors.legacyTextSecondary,
+            ),
+          ),
           const SizedBox(height: 12),
           _ToggleRow(
             title: 'Novidades da plataforma',
@@ -499,15 +587,30 @@ class _ToggleRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13, color: EducanoColors.legacyTextPrimary)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: EducanoColors.legacyTextPrimary,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: EducanoColors.legacyTextSecondary,
+                ),
+              ),
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: EducanoColors.legacyPrimary),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeThumbColor: EducanoColors.legacyPrimary,
+        ),
       ],
     );
   }
@@ -525,14 +628,28 @@ class _SegurancaCard extends StatefulWidget {
 }
 
 class _SegurancaCardState extends State<_SegurancaCard> {
-  final _current = TextEditingController();
+  final _email = TextEditingController();
+  final _code = TextEditingController();
   final _next = TextEditingController();
+  final _confirm = TextEditingController();
   bool _saving = false;
+  bool _codeSent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    StorageService.instance.loadCurrentUser().then((user) {
+      if (!mounted || user == null) return;
+      setState(() => _email.text = user.email);
+    });
+  }
 
   @override
   void dispose() {
-    _current.dispose();
+    _email.dispose();
+    _code.dispose();
     _next.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -540,28 +657,73 @@ class _SegurancaCardState extends State<_SegurancaCard> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
-        backgroundColor: error ? EducanoColors.legacyRed : EducanoColors.successGreen,
+        backgroundColor: error
+            ? EducanoColors.legacyRed
+            : EducanoColors.successGreen,
       ),
     );
   }
 
+  Future<void> _sendCode() async {
+    if (_email.text.trim().isEmpty) {
+      _message('Não foi possível identificar o e-mail da conta.', error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final result = await AuthService.instance.sendPasswordResetCode(
+        email: _email.text,
+      );
+      if (!mounted) return;
+      if (!result.success) {
+        _message(
+          result.message ?? 'Não foi possível enviar o código.',
+          error: true,
+        );
+        return;
+      }
+      setState(() => _codeSent = true);
+      _message(result.message ?? 'Código enviado para o e-mail da conta.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _save() async {
-    final problem = _current.text.isEmpty
-        ? 'Digite sua senha atual'
-        : Validators.password(_next.text);
+    final codeValid = RegExp(r'^[A-Za-z0-9]{6}$').hasMatch(_code.text.trim());
+    final problem = !codeValid
+        ? 'Digite o código de 6 caracteres enviado por e-mail'
+        : _next.text.length > 72
+        ? 'A senha deve ter no máximo 72 caracteres'
+        : Validators.password(_next.text) ??
+              Validators.confirmPassword(_confirm.text, _next.text);
     if (problem != null) {
       _message(problem, error: true);
       return;
     }
     setState(() => _saving = true);
     try {
-      final message = await UsersService.instance.changePassword(_current.text, _next.text);
+      final result = await AuthService.instance.resetPassword(
+        email: _email.text,
+        code: _code.text,
+        newPassword: _next.text,
+      );
       if (!mounted) return;
-      _current.clear();
+      if (!result.success) {
+        _message(
+          result.message ?? 'Não foi possível alterar a senha.',
+          error: true,
+        );
+        return;
+      }
+      await AuthService.instance.logout();
+      if (!mounted) return;
+      _message('Senha alterada. Entre novamente com a nova senha.');
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+      _code.clear();
       _next.clear();
-      _message(message);
-    } on ApiException catch (error) {
-      if (mounted) _message(error.message, error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -573,29 +735,57 @@ class _SegurancaCardState extends State<_SegurancaCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Segurança',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
+          const Text(
+            'Segurança',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: EducanoColors.legacyTextPrimary,
+            ),
+          ),
           const SizedBox(height: 16),
           _ControlledFieldsRow(
             fields: [
-              _ControlledField('Senha atual', _current, obscure: true),
-              _ControlledField('Nova senha', _next, obscure: true),
+              _ControlledField('E-mail da conta', _email, readOnly: true),
+              if (_codeSent)
+                _ControlledField('Código enviado por e-mail', _code),
+              if (_codeSent)
+                _ControlledField('Nova senha', _next, obscure: true),
+              if (_codeSent)
+                _ControlledField(
+                  'Confirmar nova senha',
+                  _confirm,
+                  obscure: true,
+                ),
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'A nova senha precisa ter 8+ caracteres, letra maiúscula, número e símbolo. '
-            'Senhas valem por 90 dias.',
-            style: TextStyle(fontSize: 11, color: EducanoColors.legacyTextSecondary),
+          Text(
+            _codeSent
+                ? 'Informe o código de 6 caracteres recebido no e-mail e escolha uma nova senha.'
+                : 'Enviaremos um código para o e-mail cadastrado para confirmar a alteração.',
+            style: const TextStyle(
+              fontSize: 11,
+              color: EducanoColors.legacyTextSecondary,
+            ),
           ),
           const SizedBox(height: 18),
           HoverButton(
-            label: _saving ? 'Alterando...' : 'Alterar Senha',
-            onPressed: _saving ? () {} : _save,
+            label: _saving
+                ? (_codeSent ? 'Alterando...' : 'Enviando...')
+                : (_codeSent ? 'Alterar Senha' : 'Enviar código'),
+            onPressed: _saving ? () {} : (_codeSent ? _save : _sendCode),
             padding: const EdgeInsets.symmetric(vertical: 14),
             fontSize: 13.5,
             borderRadius: 8,
           ),
+          if (_codeSent) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _saving ? null : _sendCode,
+              child: const Text('Reenviar código'),
+            ),
+          ],
         ],
       ),
     );
@@ -620,20 +810,23 @@ class _PlanoAtualCardState extends State<_PlanoAtualCard> {
   @override
   void initState() {
     super.initState();
-    ProgressService.instance.plans().then((data) {
-      final current = (data['dados'] as List)
-          .cast<Map<String, dynamic>>()
-          .where((p) => p['atual'] == true)
-          .firstOrNull;
-      if (!mounted || current == null) return;
-      final cents = current['precoCentavos'] as int;
-      setState(() {
-        _name = current['nome'] as String;
-        _price = cents == 0
-            ? 'Grátis'
-            : 'R\$ ${(cents / 100).toStringAsFixed(2).replaceAll('.', ',')}/mês';
-      });
-    }).catchError((_) {});
+    ProgressService.instance
+        .plans()
+        .then((data) {
+          final current = (data['dados'] as List)
+              .cast<Map<String, dynamic>>()
+              .where((p) => p['atual'] == true)
+              .firstOrNull;
+          if (!mounted || current == null) return;
+          final cents = current['precoCentavos'] as int;
+          setState(() {
+            _name = current['nome'] as String;
+            _price = cents == 0
+                ? 'Grátis'
+                : 'R\$ ${(cents / 100).toStringAsFixed(2).replaceAll('.', ',')}/mês';
+          });
+        })
+        .catchError((_) {});
   }
 
   @override
@@ -642,30 +835,53 @@ class _PlanoAtualCardState extends State<_PlanoAtualCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Plano atual',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
+          const Text(
+            'Plano atual',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: EducanoColors.legacyTextPrimary,
+            ),
+          ),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration:
-                BoxDecoration(color: EducanoColors.legacyLavender, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: EducanoColors.legacyLavender,
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14, color: EducanoColors.legacyTextPrimary)),
-                      Text(_price, style: const TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary)),
+                      Text(
+                        _name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: EducanoColors.legacyTextPrimary,
+                        ),
+                      ),
+                      Text(
+                        _price,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: EducanoColors.legacyTextSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 HoverButton(
                   label: _name == 'Premium' ? 'Ver planos' : 'Fazer Upgrade',
-                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.accountPlan),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.accountPlan),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ],
             ),
@@ -673,12 +889,19 @@ class _PlanoAtualCardState extends State<_PlanoAtualCard> {
           const SizedBox(height: 10),
           const Text.rich(
             TextSpan(
-              style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary),
+              style: TextStyle(
+                fontSize: 11.5,
+                color: EducanoColors.legacyTextSecondary,
+              ),
               children: [
                 TextSpan(text: 'Veja todos os planos em '),
                 TextSpan(
-                    text: 'Perfil > Planos.',
-                    style: TextStyle(color: EducanoColors.legacyPrimary, fontWeight: FontWeight.w600)),
+                  text: 'Perfil > Planos.',
+                  style: TextStyle(
+                    color: EducanoColors.legacyPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -711,8 +934,14 @@ class _PreferenciasCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Preferências',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: EducanoColors.legacyTextPrimary)),
+          const Text(
+            'Preferências',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: EducanoColors.legacyTextPrimary,
+            ),
+          ),
           const SizedBox(height: 12),
           _ToggleRow(
             title: 'Modo escuro',
@@ -769,12 +998,21 @@ class _EncerrarContaCardState extends State<_EncerrarContaCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Encerrar sua conta',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: EducanoColors.legacyRed)),
+            const Text(
+              'Encerrar sua conta',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: EducanoColors.legacyRed,
+              ),
+            ),
             const SizedBox(height: 6),
             const Text(
               'Encerrar sua conta remove todo o seu progresso permanentemente.',
-              style: TextStyle(fontSize: 11.5, color: EducanoColors.legacyTextSecondary),
+              style: TextStyle(
+                fontSize: 11.5,
+                color: EducanoColors.legacyTextSecondary,
+              ),
             ),
             const SizedBox(height: 14),
             OutlinedButton(
@@ -782,7 +1020,10 @@ class _EncerrarContaCardState extends State<_EncerrarContaCard> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: EducanoColors.legacyRed,
                 side: const BorderSide(color: EducanoColors.legacyRed),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
               child: const Text('Excluir conta'),
             ),

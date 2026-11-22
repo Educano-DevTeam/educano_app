@@ -4,14 +4,12 @@ import 'api_client.dart';
 
 class QuestionPage {
   final List<ActivityQuestion> questions;
-  final List<String> subjects;
   final int page;
   final int totalPages;
   final int total;
 
   const QuestionPage({
     required this.questions,
-    required this.subjects,
     required this.page,
     required this.totalPages,
     required this.total,
@@ -30,20 +28,17 @@ class QuestionsService {
     int page = 1,
     String? search,
     String? difficulty,
-    String? subject,
-    int? alternatives,
-    bool onlyMine = false,
+    String? theme,
+    int limit = 30,
   }) async {
     final response = await _api.get(
       '/questions',
       query: {
         'pagina': page,
-        'limite': 30,
+        'limite': limit,
         'busca': search,
         'dificuldade': difficulty,
-        'materia': subject == null ? null : ApiMappers.subjectValue(subject),
-        'alternativas': alternatives,
-        if (onlyMine) 'minhas': 'true',
+        'tema': theme?.trim().toLowerCase(),
       },
     );
     final data = ApiClient.responseMap(
@@ -66,7 +61,6 @@ class QuestionsService {
           endpoint: '/questions.dados',
         ).map(ApiMappers.question).toList(),
       ),
-      subjects: ApiMappers.subjects.values.toList(),
       page: ApiClient.responseInt(
         pagination['pagina'],
         endpoint: '/questions.paginacao.pagina',
@@ -81,6 +75,21 @@ class QuestionsService {
         endpoint: '/questions.paginacao.total',
       ),
     );
+  }
+
+  /// Temas disponíveis para os filtros de telas que podem consultar o banco.
+  Future<List<String>> themes() async {
+    final firstPage = await list(page: 1, limit: 100);
+    final questions = [...firstPage.questions];
+    for (var page = 2; page <= firstPage.totalPages; page++) {
+      questions.addAll((await list(page: page, limit: 100)).questions);
+    }
+    final themes = <String>{};
+    for (final question in questions) {
+      final theme = question.topic.trim().toLowerCase();
+      if (theme.isNotEmpty) themes.add(theme);
+    }
+    return themes.toList()..sort();
   }
 
   Future<ActivityQuestion> create(ActivityQuestion question) async {
@@ -98,7 +107,7 @@ class QuestionsService {
   }
 
   Future<ActivityQuestion> update(ActivityQuestion question) async {
-    final response = await _api.put(
+    final response = await _api.patch(
       '/questions/${question.id}',
       ApiMappers.questionPayload(question),
     );

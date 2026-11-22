@@ -97,6 +97,56 @@ void main() {
     expect(FakeApi.requests, isNot(contains('POST /auth/refresh')));
   });
 
+  test(
+    'refreshes rotating tokens and retries an unauthorized request',
+    () async {
+      await StorageService.instance.saveToken('token-expirado');
+      await StorageService.instance.saveRefreshToken(
+        FakeApi.initialRefreshToken,
+      );
+
+      final response = await ApiClient.instance.get('/progress/me');
+
+      expect(response, isA<Map<String, dynamic>>());
+      expect(
+        FakeApi.requests.where((request) => request == 'POST /auth/refresh'),
+        hasLength(1),
+      );
+      expect(
+        FakeApi.requests.where((request) => request == 'GET /progress/me'),
+        hasLength(2),
+      );
+      expect(FakeApi.requestBodiesByPath['/auth/refresh'], {
+        'refreshToken': FakeApi.initialRefreshToken,
+      });
+      expect(await StorageService.instance.loadToken(), 'token-refresh-1');
+      expect(
+        await StorageService.instance.loadRefreshToken(),
+        'refresh-token-1',
+      );
+    },
+  );
+
+  test(
+    'logout revokes the refresh token and clears local session data',
+    () async {
+      await StorageService.instance.saveToken('token-de-teste');
+      await StorageService.instance.saveRefreshToken(
+        FakeApi.initialRefreshToken,
+      );
+
+      final error = await AuthService.instance.logout();
+
+      expect(error, isNull);
+      expect(FakeApi.requests, contains('POST /auth/logout'));
+      expect(FakeApi.requestBodiesByPath['/auth/logout'], {
+        'refreshToken': FakeApi.initialRefreshToken,
+      });
+      expect(await StorageService.instance.loadToken(), isNull);
+      expect(await StorageService.instance.loadRefreshToken(), isNull);
+    },
+  );
+
   test('malformed API responses become a controlled login error', () async {
     FakeApi.responseOverrides['POST /auth/login'] = http.Response(
       '<html>gateway error</html>',

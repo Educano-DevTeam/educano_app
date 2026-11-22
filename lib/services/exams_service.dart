@@ -15,21 +15,45 @@ class ExamsService {
   final _api = ApiClient.instance;
 
   Future<ExamSession> create({
-    required List<String> subjects,
+    required String theme,
     required String difficulty,
     required int count,
+    required int durationMinutes,
   }) async {
-    final response = await _api.post('/exams', {
-      'materias': [
-        for (final subject in subjects)
-          ApiMappers.subjectValue(subject) ?? subject,
-      ],
+    final response = await _api.post('/tests/simulados', {
+      'tema': theme.trim().toLowerCase(),
+      'tempoMinutos': durationMinutes,
       'dificuldade': ApiMappers.difficultyFromLabel(difficulty),
-      'quantidade': count,
+      'quantidadeQuestoes': count,
     });
-    final data = ApiClient.responseMap(response, endpoint: '/exams');
-    return sessionFromApi(
-      ApiClient.responseMap(data['simulado'], endpoint: '/exams.simulado'),
+    final data = ApiClient.responseMap(response, endpoint: '/tests/simulados');
+    final simulado = ApiClient.responseMap(
+      data['simulado'],
+      endpoint: '/tests/simulados.simulado',
+    );
+    final testId = ApiClient.responseString(
+      simulado['id'],
+      endpoint: '/tests/simulados.simulado.id',
+      required: true,
+    )!;
+    final attemptResponse = await _api.post('/tests/$testId/attempts');
+    final attemptData = ApiClient.responseMap(
+      attemptResponse,
+      endpoint: '/tests/$testId/attempts',
+    );
+    return _sessionFromAttempt(
+      ApiClient.responseMap(
+        attemptData['tentativa'],
+        endpoint: '/tests/$testId/attempts.tentativa',
+      ),
+      ApiClient.responseMap(
+        attemptData['teste'],
+        endpoint: '/tests/$testId/attempts.teste',
+      ),
+      ApiClient.responseList(
+        attemptData['questoes'],
+        endpoint: '/tests/$testId/attempts.questoes',
+      ),
     );
   }
 
@@ -55,12 +79,16 @@ class ExamsService {
   }
 
   Future<ExamSession> get(String id, {bool review = false}) async {
-    final response = await _api.get('/exams/$id');
-    final data = ApiClient.responseMap(response, endpoint: '/exams/$id');
-    return sessionFromApi(
-      ApiClient.responseMap(data['simulado'], endpoint: '/exams/$id.simulado'),
-      review: review,
+    final response = await _api.get('/tests/attempts/$id');
+    final data = ApiClient.responseMap(
+      response,
+      endpoint: '/tests/attempts/$id',
     );
+    final attempt = ApiClient.responseMap(
+      data['tentativa'],
+      endpoint: '/tests/attempts/$id.tentativa',
+    );
+    return _sessionFromSavedAttempt(attempt, review: review);
   }
 
   /// Salva a resposta da questão (salvamento automático).
@@ -109,10 +137,13 @@ class ExamsService {
       byTopic: const [],
     );
     await SharedPreferencesAsync().remove('educano.exam.$id.answers');
+    // O envio não inclui o gabarito na resposta. Busque a tentativa já
+    // finalizada para exibir as alternativas corretas imediatamente.
+    final reviewed = await get(id, review: true);
     return ExamSession(
-      id: session.id, title: session.title, questions: session.questions,
+      id: session.id, title: session.title, questions: reviewed.questions,
       durationMinutes: session.durationMinutes, isActivity: session.isActivity,
-      isFinished: true, result: result, answers: session.answers,
+      isFinished: true, result: result, answers: reviewed.answers,
     );
   }
 
@@ -130,24 +161,128 @@ class ExamsService {
     final mapped = <ActivityQuestion>[];
     for (final question in questions) {
       const letters = ['A', 'B', 'C', 'D', 'E'];
-      final options = [question['alternativaA'], question['alternativaB'], question['alternativaC'], question['alternativaD'], question['alternativaE']]
-          .whereType<String>().toList();
+      final alternatives = [
+        for (final letter in letters)
+          if (question['alternativa$letter'] is String)
+            MapEntry(letter, question['alternativa$letter'] as String),
+      ];
+      final options = alternatives.map((entry) => entry.value).toList();
       mapped.add(ActivityQuestion(
         id: question['idQuestao'] as String,
         title: question['titulo'] as String? ?? '',
         statement: question['enunciado'] as String? ?? '',
         difficulty: ActivityQuestionDifficulty.medium,
         options: options,
-        optionIds: letters.take(options.length).toList(),
+        optionIds: alternatives.map((entry) => entry.key).toList(),
         correctOptionIndex: -1,
       ));
     }
     return ExamSession(
       id: attempt['id'] as String,
-      title: test['tema'] as String? ?? 'Atividade',
+      title: test['tema'] as String? ??
+          (test['tipo'] == 'SIMULADO' ? 'Simulado' : 'Atividade'),
       questions: mapped,
       durationMinutes: ApiClient.responseInt(test['tempoMinutos'], endpoint: '/tests/attempt.tempoMinutos'),
       isActivity: test['tipo'] == 'ATIVIDADE',
+    );
+  }
+
+  Future<ExamSession> _sessionFromSavedAttempt(
+    Map<String, dynamic> attempt, {
+    bool review = false,
+  }) async {
+    final test = ApiClient.responseMap(
+      attempt['teste'],
+      endpoint: '/tests/attempt.teste',
+    );
+    final rows = ApiClient.responseList(
+      attempt['questoes'],
+      endpoint: '/tests/attempt.questoes',
+    );
+    const letters = ['A', 'B', 'C', 'D', 'E'];
+    final answers = <int, int>{};
+    final questions = <ActivityQuestion>[];
+
+    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index];
+      final options = <String>[];
+      final optionIds = <String>[];
+      for (final letter in letters) {
+        final text = row['alternativa$letter'];
+        if (text is String) {
+          options.add(text);
+          optionIds.add(letter);
+        }
+      }
+      final selected = optionIds.indexOf(
+        row['respostaUsuario'] as String? ?? '',
+      );
+      if (selected >= 0) answers[index] = selected;
+      questions.add(
+        ActivityQuestion(
+          id: row['idQuestao'] as String,
+          title: 'Questão ${index + 1}',
+          statement: row['enunciado'] as String? ?? '',
+          difficulty: ActivityQuestionDifficulty.medium,
+          options: options,
+          optionIds: optionIds,
+          correctOptionIndex: optionIds.indexOf(
+            row['respostaCorreta'] as String? ?? '',
+          ),
+        ),
+      );
+    }
+
+    final attemptId = attempt['id'] as String;
+    final saved = await SharedPreferencesAsync().getString(
+      'educano.exam.$attemptId.answers',
+    );
+    if (saved != null) {
+      final draft = (jsonDecode(saved) as Map).cast<String, dynamic>();
+      for (var index = 0; index < questions.length; index++) {
+        final selected = questions[index].optionIds.indexOf(
+          draft[questions[index].id] as String? ?? '',
+        );
+        if (selected >= 0) answers[index] = selected;
+      }
+    }
+
+    final duration = ApiClient.responseInt(
+      test['tempoMinutos'],
+      endpoint: '/tests/attempt.teste.tempoMinutos',
+    );
+    final elapsed = ApiClient.responseInt(
+      attempt['tempoConsumido'],
+      endpoint: '/tests/attempt.tempoConsumido',
+    );
+    final finished = attempt['enviadoEm'] != null;
+    final score = ApiMappers.number(attempt['notaFinal']);
+    final totalCorrect = rows.where((row) => row['acertou'] == true).length;
+    final result = !finished
+        ? null
+        : ExamResult(
+            correct: totalCorrect,
+            total: rows.length,
+            score: score?.round() ?? 0,
+            xp: 0,
+            coins: 0,
+            bySubject: const [],
+            byTopic: const [],
+          );
+
+    return ExamSession(
+      id: attemptId,
+      title: test['tema'] as String? ?? 'Simulado',
+      questions: questions,
+      durationMinutes: duration,
+      remainingSeconds: finished
+          ? null
+          : (duration * 60 - elapsed).clamp(0, duration * 60).toInt(),
+      isActivity: test['tipo'] == 'ATIVIDADE',
+      isFinished: finished,
+      isReview: review,
+      result: result,
+      answers: answers,
     );
   }
 
@@ -156,15 +291,57 @@ class ExamsService {
     int page = 1,
   }) async {
     final response = await _api.get(
-      '/exams',
-      query: {'tipo': type, 'page': page},
+      '/tests/attempts',
+      query: {'pagina': page, 'limite': 30},
     );
     final data = ApiClient.responseMap(
       response,
-      endpoint: '/exams',
+      endpoint: '/tests/attempts',
       optional: true,
     );
-    return ApiClient.responseList(data['dados'], endpoint: '/exams.dados');
+    final attempts = ApiClient.responseList(
+      data['dados'],
+      endpoint: '/tests/attempts.dados',
+    );
+    return [
+      for (final attempt in attempts)
+        if ((attempt['teste'] as Map?)?['tipo'] == type)
+          _historyItem(attempt),
+    ];
+  }
+
+  Future<Map<String, dynamic>> monthlyGrades({
+    int page = 1,
+    int limit = 7,
+  }) async {
+    final endpoint = '/tests/attempts/grades/monthly';
+    final response = await _api.get(
+      endpoint,
+      query: {'pagina': page, 'limite': limit},
+    );
+    return ApiClient.responseMap(response, endpoint: endpoint);
+  }
+
+  static Map<String, dynamic> _historyItem(Map<String, dynamic> attempt) {
+    final test = attempt['teste'] as Map? ?? const {};
+    final theme = test['tema'] as String?;
+    final duration = (test['tempoMinutos'] as num?)?.toInt() ?? 0;
+    final elapsed = (attempt['tempoConsumido'] as num?)?.toInt() ?? 0;
+    final total = (test['quantidadeQuestoes'] as num?)?.toInt() ?? 0;
+    final score = ApiMappers.number(attempt['notaFinal']);
+    final finished = attempt['enviadoEm'] != null;
+    return {
+      ...attempt,
+      'titulo': theme?.isNotEmpty == true ? theme : 'Simulado',
+      'materias': theme == null || theme.isEmpty ? <String>[] : [theme],
+      'status': finished ? 'FINALIZADO' : 'EM_ANDAMENTO',
+      'finalizadoEm': attempt['enviadoEm'],
+      'acertos': score == null || total == 0
+          ? null
+          : ((score / 100) * total).round(),
+      'total': total,
+      'expirado': !finished && duration > 0 && elapsed >= duration * 60,
+    };
   }
 
   static ExamSession sessionFromApi(

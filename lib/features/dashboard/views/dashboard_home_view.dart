@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:educano_app/core/widgets/ui/app_fab_menu.dart';
+import 'package:educano_app/features/dashboard/views/course_editor_view.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
@@ -9,59 +11,12 @@ import '../../../core/widgets/ui/app_large_card.dart';
 import '../../../core/widgets/ui/app_list.dart';
 import '../../../core/widgets/ui/app_list_item.dart';
 import '../../../core/widgets/charts/revenue_chart.dart';
-import '../../../core/utils/api_mappers.dart';
-import '../../../services/api_client.dart';
-import '../../../services/progress_service.dart';
-import '../../../services/storage_service.dart';
 
-class DashboardHomeView extends StatefulWidget {
+class DashboardHomeView extends StatelessWidget {
   const DashboardHomeView({super.key});
 
   @override
-  State<DashboardHomeView> createState() => _DashboardHomeViewState();
-}
-
-class _DashboardHomeViewState extends State<DashboardHomeView> {
-  Map<String, dynamic>? _summary;
-  String _userName = '';
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final user = await StorageService.instance.loadCurrentUser();
-      final summary = await ProgressService.instance.dashboardSummary();
-      if (!mounted) return;
-      setState(() {
-        _userName = user?.name.split(' ').first ?? '';
-        _summary = summary;
-        _error = null;
-      });
-    } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_summary == null) {
-      return Center(
-        child: _error == null
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_error!),
-                  TextButton(onPressed: _load, child: const Text('Tentar novamente')),
-                ],
-              ),
-      );
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -195,7 +150,7 @@ class _DashboardHomeViewState extends State<DashboardHomeView> {
     return Row(
       children: [
         Text(
-          '${_greeting()}${_userName.isEmpty ? '' : ', $_userName'}!',
+          'Bom dia, Miguel!',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w600,
             color: EducanoColors.textPrimary,
@@ -209,47 +164,44 @@ class _DashboardHomeViewState extends State<DashboardHomeView> {
   // CARDS DE ESTATÍSTICA
   // ============================================================
 
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
-  }
-
   Widget _buildStatistics(BuildContext context) {
-    final summary = _summary!;
-    final users = summary['usuarios'] as Map<String, dynamic>;
-    final plans = (summary['planos'] as List).cast<Map<String, dynamic>>();
-    final total = users['total'] as int;
-    final newUsers = users['novosUltimos30Dias'] as int;
-    const planStyles = [
-      (Icons.school_rounded, Color(0xFF7DAB9E)),
-      (Icons.workspace_premium_rounded, EducanoColors.primaryBlue),
-      (Icons.diamond_rounded, EducanoColors.accentYellow),
-    ];
-    String percent(int value) =>
-        total == 0 ? '0%' : '${(value * 100 / total).toStringAsFixed(1).replaceAll('.', ',')}%';
-
     final statistics = [
       _StatisticData(
         title: 'Usuários',
-        value: '$total',
-        variation: '▲ $newUsers',
-        footer: 'novos nos últimos 30 dias',
+        value: '+1.770',
+        variation: '▲ 15,5%',
+        footer: 'desde 1 de Jul de 2026',
         icon: Icons.person_rounded,
         color: EducanoColors.primaryBlue,
-        variationColor: newUsers > 0 ? EducanoColors.successGreen : EducanoColors.textSecondary,
+        variationColor: EducanoColors.successGreen,
       ),
-      for (var i = 0; i < plans.length && i < 3; i++)
-        _StatisticData(
-          title: 'Plano ${plans[i]['nome']}',
-          value: '${plans[i]['total']}',
-          variation: percent(plans[i]['total'] as int),
-          footer: 'dos usuários',
-          icon: planStyles[i].$1,
-          color: planStyles[i].$2,
-          variationColor: EducanoColors.textSecondary,
-        ),
+      _StatisticData(
+        title: 'Plano Bronze',
+        value: '236',
+        variation: '— 15,5%',
+        footer: 'desde 1 de Jul de 2026',
+        icon: Icons.shield_rounded,
+        color: const Color(0xFFCD7F32),
+        variationColor: EducanoColors.textSecondary,
+      ),
+      _StatisticData(
+        title: 'Plano Prata',
+        value: '-19',
+        variation: '▼ 2,5%',
+        footer: 'desde 1 de Jul de 2026',
+        icon: Icons.menu_book_rounded,
+        color: const Color(0xFFB0B8C1),
+        variationColor: EducanoColors.error,
+      ),
+      _StatisticData(
+        title: 'Plano Ouro',
+        value: '0',
+        variation: '— 0,0%',
+        footer: 'nenhum usuário',
+        icon: Icons.school_rounded,
+        color: EducanoColors.accentYellow,
+        variationColor: EducanoColors.textSecondary,
+      ),
     ];
 
     return LayoutBuilder(
@@ -404,7 +356,7 @@ class _DashboardHomeViewState extends State<DashboardHomeView> {
 
             const SizedBox(height: 8),
 
-            Expanded(child: _UsersDonutChart(summary: _summary!)),
+            const Expanded(child: _UsersDonutChart()),
           ],
         ),
       ),
@@ -428,14 +380,35 @@ class _DashboardHomeViewState extends State<DashboardHomeView> {
   // ============================================================
 
   Widget _buildRecentActivity(BuildContext context) {
-    final events = (_summary!['eventosRecentes'] as List).cast<Map<String, dynamic>>();
     final activities = [
-      for (final event in events)
-        switch (event['tipo']) {
-          'USUARIO' => ('Novo usuário cadastrado', event['descricao'] as String, ApiMappers.formatDate(event['data']), Icons.person_add_alt_rounded, EducanoColors.successGreen),
-          'CURSO' => ('Curso cadastrado', event['descricao'] as String, ApiMappers.formatDate(event['data']), Icons.edit_note_rounded, EducanoColors.accentYellow),
-          _ => ('Questão adicionada', event['descricao'] as String, ApiMappers.formatDate(event['data']), Icons.quiz_rounded, EducanoColors.primaryBlue),
-        },
+      (
+        'Novo usuário cadastrado',
+        'Daniel de Oliveira foi cadastrado.',
+        '1h',
+        Icons.person_add_alt_rounded,
+        EducanoColors.successGreen,
+      ),
+      (
+        'Edição de Curso',
+        'Daniel de Oliveira editou curso de Matemática.',
+        '10:02',
+        Icons.edit_note_rounded,
+        EducanoColors.accentYellow,
+      ),
+      (
+        'Questão de concurso adicionada',
+        'Daniel de Oliveira adicionou uma questão para Ciências Humanas.',
+        'há 5 horas',
+        Icons.quiz_rounded,
+        EducanoColors.successGreen,
+      ),
+      (
+        'Exclusão de Item',
+        'Daniel de Oliveira excluiu o item "XP em dobro" da loja.',
+        'há 1 dia',
+        Icons.delete_outline_rounded,
+        EducanoColors.error,
+      ),
     ];
 
     return AppCard(
@@ -645,9 +618,7 @@ class _DonutData {
 }
 
 class _UsersDonutChart extends StatefulWidget {
-  final Map<String, dynamic> summary;
-
-  const _UsersDonutChart({required this.summary});
+  const _UsersDonutChart();
 
   @override
   State<_UsersDonutChart> createState() => _UsersDonutChartState();
@@ -791,37 +762,64 @@ class _UsersDonutChartState extends State<_UsersDonutChart> {
   // DADOS
   // ================================================================
 
-  static const _colors = [
-    EducanoColors.primaryBlue,
-    EducanoColors.successGreen,
-    EducanoColors.accentYellow,
-    Color(0xFFE94B0C),
-    Colors.grey,
-  ];
-
-  List<_DonutData> _fromList(String key, String labelKey, {String? nested}) {
-    final source = nested == null
-        ? widget.summary[key] as List
-        : (widget.summary[nested] as Map)[key] as List;
-    final items = source.cast<Map<String, dynamic>>();
-    return [
-      for (var i = 0; i < items.length; i++)
-        _DonutData(
-          label: items[i][labelKey] as String,
-          value: (items[i]['total'] as num).toDouble(),
-          color: _colors[i % _colors.length],
-        ),
-    ];
-  }
-
   List<_DonutData> _getData() {
     switch (_type) {
       case _DonutType.plans:
-        return _fromList('planos', 'nome');
+        return const [
+          _DonutData(
+            label: 'Básico',
+            value: 940,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(label: 'Bronze', value: 236, color: Color(0xFFE94B0C)),
+          _DonutData(label: 'Prata', value: 594, color: Colors.grey),
+          _DonutData(
+            label: 'Ouro',
+            value: 0,
+            color: EducanoColors.accentYellow,
+          ),
+        ];
+
       case _DonutType.courses:
-        return _fromList('inscricoesPorAluno', 'faixa', nested: 'cursos');
+        return const [
+          _DonutData(
+            label: '1 curso',
+            value: 480,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(
+            label: '2–3 cursos',
+            value: 720,
+            color: EducanoColors.successGreen,
+          ),
+          _DonutData(
+            label: '4–5 cursos',
+            value: 420,
+            color: EducanoColors.accentYellow,
+          ),
+          _DonutData(label: '6+ cursos', value: 150, color: Color(0xFFE94B0C)),
+        ];
+
       case _DonutType.activity:
-        return _fromList('atividade', 'faixa');
+        return const [
+          _DonutData(
+            label: 'Ativos hoje',
+            value: 780,
+            color: EducanoColors.successGreen,
+          ),
+          _DonutData(
+            label: '3–5 dias',
+            value: 320,
+            color: EducanoColors.primaryBlue,
+          ),
+          _DonutData(
+            label: '6–14 dias',
+            value: 280,
+            color: EducanoColors.accentYellow,
+          ),
+          _DonutData(label: '15–30 dias', value: 210, color: Color(0xFFE94B0C)),
+          _DonutData(label: '+30 dias', value: 150, color: Colors.grey),
+        ];
     }
   }
 }

@@ -90,6 +90,16 @@ class _ExamViewState extends State<ExamView> {
         }
       });
       _showError(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (previous == null) {
+          widget.session.answers.remove(index);
+        } else {
+          widget.session.answers[index] = previous;
+        }
+      });
+      _showError('N\u00e3o foi poss\u00edvel salvar sua resposta. Tente novamente.');
     }
   }
 
@@ -105,6 +115,10 @@ class _ExamViewState extends State<ExamView> {
       });
     } on ApiException catch (error) {
       if (mounted) _showError(error.message);
+    } catch (_) {
+      if (mounted) {
+        _showError('N\u00e3o foi poss\u00edvel usar a dica agora. Tente novamente.');
+      }
     } finally {
       if (mounted) setState(() => _usingHint = false);
     }

@@ -50,6 +50,56 @@ class ApiClient {
 
   /// Chamado quando uma requisição autenticada recebe 401.
   void Function()? onSessionExpired;
+  Future<bool>? _refreshInProgress;
+
+  /// Renova e persiste os tokens; chamadas simultâneas compartilham a mesma
+  /// renovação para que o refresh token rotativo não seja usado duas vezes.
+  Future<bool> refreshSession() {
+    final current = _refreshInProgress;
+    if (current != null) return current;
+
+    final refresh = _refreshSessionRequest();
+    _refreshInProgress = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshInProgress, refresh)) {
+        _refreshInProgress = null;
+      }
+    });
+  }
+
+  Future<bool> _refreshSessionRequest() async {
+    final refreshToken = await StorageService.instance.loadRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+
+    dynamic response;
+    try {
+      response = await _send(
+        'POST',
+        '/auth/refresh',
+        body: {'refreshToken': refreshToken},
+        authenticated: false,
+      );
+    } on ApiException catch (error) {
+      if (error.isUnauthorized) return false;
+      rethrow;
+    }
+
+    final data = responseMap(response, endpoint: '/auth/refresh');
+    final token = responseString(
+      data['token'],
+      endpoint: '/auth/refresh.token',
+      required: true,
+    )!;
+    final rotatedRefreshToken = responseString(
+      data['refreshToken'],
+      endpoint: '/auth/refresh.refreshToken',
+      required: true,
+    )!;
+
+    await StorageService.instance.saveRefreshToken(rotatedRefreshToken);
+    await StorageService.instance.saveToken(token);
+    return true;
+  }
 
   /// Converte falhas de formato em erros controlados da API, em vez de deixar
   /// casts inválidos escaparem como exceções não tratadas no Flutter.
@@ -236,9 +286,12 @@ class ApiClient {
     Map<String, String> fields = const {},
     ({String field, Uint8List bytes, String fileName})? file,
     Map<String, Object?>? query,
+    bool authenticated = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final request = http.MultipartRequest(method, _uri(path, query));
-    request.headers.addAll(await _headers(json: false));
+    final headers = await _headers(json: false, authenticated: authenticated);
+    request.headers.addAll(headers);
     request.fields.addAll(fields);
     if (file != null) {
       final extensao = file.fileName.split('.').last.toLowerCase();
@@ -259,6 +312,21 @@ class ApiClient {
           .send(request)
           .timeout(const Duration(minutes: 15));
       final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 401 &&
+          headers.containsKey('Authorization')) {
+        if (retryOnUnauthorized && await refreshSession()) {
+          return multipart(
+            method,
+            path,
+            fields: fields,
+            file: file,
+            query: query,
+            authenticated: authenticated,
+            retryOnUnauthorized: false,
+          );
+        }
+        onSessionExpired?.call();
+      }
       return _handle(response);
     } on TimeoutException {
       throw const ApiException(0, 'O envio demorou demais. Tente novamente.');
@@ -302,14 +370,30 @@ class ApiClient {
     Object? body,
     Map<String, Object?>? query,
     bool authenticated = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final request = http.Request(method, _uri(path, query));
-    request.headers.addAll(await _headers(authenticated: authenticated));
+    final headers = await _headers(authenticated: authenticated);
+    request.headers.addAll(headers);
     if (body != null) request.body = jsonEncode(body);
 
     try {
       final streamed = await _http.send(request).timeout(_timeout);
       final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 401 &&
+          headers.containsKey('Authorization')) {
+        if (retryOnUnauthorized && await refreshSession()) {
+          return _send(
+            method,
+            path,
+            body: body,
+            query: query,
+            authenticated: authenticated,
+            retryOnUnauthorized: false,
+          );
+        }
+        onSessionExpired?.call();
+      }
       return _handle(response);
     } on TimeoutException {
       throw const ApiException(
@@ -348,12 +432,6 @@ class ApiClient {
     final code = data is Map && data['code'] is String
         ? data['code'] as String
         : null;
-    final hadToken = response.request?.headers['Authorization'] != null;
-
-    if (response.statusCode == 401 && hadToken) {
-      onSessionExpired?.call();
-    }
-
     throw ApiException(response.statusCode, message, code: code);
   }
 

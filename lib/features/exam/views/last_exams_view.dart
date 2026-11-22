@@ -69,6 +69,14 @@ class _UltimosSimuladosScreenState extends State<UltimosSimuladosScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message), backgroundColor: EducanoColors.error),
       );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('N\u00e3o foi poss\u00edvel abrir este simulado. Tente novamente.'),
+          backgroundColor: EducanoColors.error,
+        ),
+      );
     }
   }
 

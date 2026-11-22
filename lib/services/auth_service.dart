@@ -24,8 +24,8 @@ class AuthResult {
 
 /// Camada de serviço responsável pela autenticação na API do Educano.
 ///
-/// A sessão é validada pela API; quando o token JWT expira, o usuário volta
-/// ao login na próxima requisição autenticada.
+/// A sessão é validada pela API; access tokens expirados são renovados com o
+/// refresh token antes de encerrar a sessão.
 class AuthService {
   AuthService._internal() {
     ApiClient.instance.onSessionExpired = _handleSessionExpired;
@@ -63,6 +63,12 @@ class AuthService {
       if (token == null || token.isEmpty) {
         throw const ApiException(502, 'A API não retornou o token da sessão.');
       }
+      final refreshToken = ApiClient.responseString(
+        data['refreshToken'],
+        endpoint: '/auth/login.refreshToken',
+        required: true,
+      )!;
+      await StorageService.instance.saveRefreshToken(refreshToken);
       await StorageService.instance.saveToken(token);
       await StorageService.instance.saveCurrentUser(user);
       _expiring = false;
@@ -222,7 +228,7 @@ class AuthService {
           .postPublic('/auth/reset-password', {
             'email': email.trim(),
             'codigo': code.trim().toUpperCase(),
-            'novaSenha': newPassword,
+            'senha': newPassword,
           });
       final data = ApiClient.responseMap(
         response,
@@ -242,12 +248,17 @@ class AuthService {
   /// Confere no servidor se a sessão salva ainda é válida.
   Future<AppUser?> restoreSession() async {
     final token = await StorageService.instance.loadToken();
-    if (token == null) {
+    final refreshToken = await StorageService.instance.loadRefreshToken();
+    if (token == null && refreshToken == null) {
       await StorageService.instance.clearCurrentUser();
       return null;
     }
 
     try {
+      if (token == null && !await ApiClient.instance.refreshSession()) {
+        await StorageService.instance.clearCurrentUser();
+        return null;
+      }
       final response = await ApiClient.instance.get('/auth/me');
       final me = ApiClient.responseMap(response, endpoint: '/auth/me');
       final user = ApiClient.parseResponse(
@@ -266,14 +277,27 @@ class AuthService {
     }
   }
 
-  Future<void> logout() async {
+  Future<ApiException?> logout() async {
+    final refreshToken = await StorageService.instance.loadRefreshToken();
+    ApiException? remoteError;
+    if (refreshToken != null) {
+      try {
+        await ApiClient.instance.postPublic('/auth/logout', {
+          'refreshToken': refreshToken,
+        });
+      } on ApiException catch (error) {
+        if (!error.isUnauthorized) remoteError = error;
+      }
+    }
     await StorageService.instance.clearCurrentUser();
+    _expiring = false;
+    return remoteError;
   }
 
   Future<void> _handleSessionExpired() async {
     if (_expiring) return;
     _expiring = true;
-    await logout();
+    await StorageService.instance.clearCurrentUser();
     NavigationService.pushNamedAndRemoveUntil(
       AppRoutes.login,
       (route) => false,

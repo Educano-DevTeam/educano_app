@@ -72,16 +72,16 @@ class Flashcard {
     title: json['titulo'] as String? ?? 'Flashcard',
     question: json['pergunta'] as String,
     answer: json['resposta'] as String,
-    monthlyRepetitions: (json['repeticoesMensais'] as num?)?.toInt() ?? 4,
-    lastReviewedAt: _date(json['ultimaRevisaoEm'])?.toLocal(),
-    nextReviewAt: _date(json['proximaRevisaoEm'])?.toLocal(),
+    monthlyRepetitions: (json['repeticoesMes'] as num?)?.toInt() ?? 4,
+    lastReviewedAt: _date(json['ultimaVisualizacao'])?.toLocal(),
+    nextReviewAt: _date(json['proximaVisualizacao'])?.toLocal(),
   );
 
   Map<String, dynamic> toApi() => {
     'titulo': title,
     'pergunta': question,
     'resposta': answer,
-    'repeticoesMensais': monthlyRepetitions,
+    'repeticoesMes': monthlyRepetitions,
   };
 
   static DateTime? _date(dynamic value) {

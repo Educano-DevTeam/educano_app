@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/utils/api_mappers.dart';
-import '../models/home_level_progress.dart';
+import '../../../core/models/level_progress.dart';
 import '../../../services/api_client.dart';
 import '../../../services/courses_service.dart';
 import '../../../services/users_service.dart';
@@ -24,7 +24,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   List<_CourseData> _courses = const [];
-  HomeLevelProgress? _level;
+  LevelProgress? _level;
   bool _loading = true;
   bool _levelLoading = true;
   String? _error;
@@ -80,7 +80,7 @@ class _HomeViewState extends State<HomeView> {
       );
       if (!mounted) return;
       setState(() {
-        _level = HomeLevelProgress.fromTotalXp(totalXp);
+        _level = LevelProgress.fromTotalXp(totalXp);
         _levelLoading = false;
         _levelError = null;
       });
@@ -151,7 +151,7 @@ class _HomeViewState extends State<HomeView> {
 
 class _OverviewCard extends StatelessWidget {
   final bool isMobile;
-  final HomeLevelProgress? level;
+  final LevelProgress? level;
   final bool loading;
   final String? error;
   final VoidCallback onRetry;
@@ -204,7 +204,7 @@ class _OverviewCard extends StatelessWidget {
           else
             _LevelCard(
               isMobile: isMobile,
-              level: level ?? HomeLevelProgress.fromTotalXp(0),
+              level: level ?? LevelProgress.fromTotalXp(0),
             ),
         ],
       ),
@@ -218,7 +218,7 @@ class _OverviewCard extends StatelessWidget {
 
 class _LevelCard extends StatelessWidget {
   final bool isMobile;
-  final HomeLevelProgress level;
+  final LevelProgress level;
 
   const _LevelCard({required this.isMobile, required this.level});
 
@@ -500,34 +500,46 @@ class _CourseCard extends StatelessWidget {
           ).pushNamed(AppRoutes.course, arguments: course.id);
         },
         child: Container(
+          height: 200,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(17),
             border: Border.all(color: const Color(0xFFD4D4D4), width: 1.5),
           ),
           clipBehavior: Clip.antiAlias,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 315,
-                  child: _CourseImage(course: course),
-                ),
-
-                const SizedBox(width: 18),
-
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 10,
-                      right: 16,
-                      bottom: 10,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 315,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFD4D4D4),
+                        width: 1.2,
+                      ),
                     ),
-                    child: _CourseInformation(course: course),
+                    clipBehavior: Clip.antiAlias,
+                    child: _CourseImage(course: course),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(width: 18),
+
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    top: 10,
+                    right: 16,
+                    bottom: 10,
+                  ),
+                  child: _CourseInformation(course: course),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -556,7 +568,20 @@ class _CourseCard extends StatelessWidget {
               SizedBox(
                 width: 112,
                 height: double.infinity,
-                child: _CourseImage(course: course),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFD4D4D4),
+                        width: 1.2,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _CourseImage(course: course),
+                  ),
+                ),
               ),
 
               const SizedBox(width: 8),
@@ -807,6 +832,7 @@ class _CourseImage extends StatelessWidget {
     return Image.network(
       course.image,
       fit: BoxFit.cover,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
       errorBuilder: (_, __, ___) => fallback,
     );
   }

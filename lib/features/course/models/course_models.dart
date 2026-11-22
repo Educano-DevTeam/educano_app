@@ -20,6 +20,8 @@ class Course {
 
   // Dados vindos da API.
   final String? imageUrl;
+  final IconData icon;
+  final Color color;
   final bool canEdit;
   final bool enrolled;
   final int enrolledCount;
@@ -38,6 +40,8 @@ class Course {
     required this.totalMaterials,
     required this.sessions,
     this.imageUrl,
+    this.icon = Icons.menu_book_rounded,
+    this.color = const Color(0xFF425BC2),
     this.canEdit = false,
     this.enrolled = false,
     this.enrolledCount = 0,
@@ -55,6 +59,9 @@ class Course {
     int? completedMaterials,
     int? totalMaterials,
     List<CourseSession>? sessions,
+    IconData? icon,
+    Color? color,
+    bool? enrolled,
     bool? canEdit,
   }) => Course(
     id: id,
@@ -68,8 +75,10 @@ class Course {
     totalMaterials: totalMaterials ?? this.totalMaterials,
     sessions: sessions ?? this.sessions,
     imageUrl: imageUrl,
+    icon: icon ?? this.icon,
+    color: color ?? this.color,
+    enrolled: enrolled ?? this.enrolled,
     canEdit: canEdit ?? this.canEdit,
-    enrolled: enrolled,
     enrolledCount: enrolledCount,
     creatorName: creatorName,
     status: status,

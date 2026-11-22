@@ -125,14 +125,15 @@ class AppSidebar extends StatelessWidget {
                       expanded: sidebarExpanded,
                       onTap: () => onMenuSelected(AppMenu.usersListage),
                     ),
-                    SidebarItem(
-                      icon: Icons.school_rounded,
-                      title: "Cursos",
-                      menu: AppMenu.coursesListage,
-                      selectedMenu: selectedMenu,
-                      expanded: sidebarExpanded,
-                      onTap: () => onMenuSelected(AppMenu.coursesListage),
-                    ),
+                    if (user!.isAdmin || user!.type == 'PARCEIRO')
+                      SidebarItem(
+                        icon: Icons.school_rounded,
+                        title: "Cursos",
+                        menu: AppMenu.coursesListage,
+                        selectedMenu: selectedMenu,
+                        expanded: sidebarExpanded,
+                        onTap: () => onMenuSelected(AppMenu.coursesListage),
+                      ),
                     SidebarItem(
                       icon: Icons.quiz_rounded,
                       title: "Questões",
