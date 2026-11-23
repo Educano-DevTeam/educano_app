@@ -137,36 +137,14 @@ class _RankingViewState extends State<RankingView> {
 
     setState(() => _openingProfileIds.add(id));
     try {
-      final profile = await UsersService.instance.profileOf(id);
-      if (!mounted) return;
-      if (profile == null || profile['tipoPerfil'] != 'PUBLICO') {
-        await _showPrivateProfileMessage();
-        return;
-      }
-      NavigationService.pushNamed(AppRoutes.publicProfile, arguments: profile);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      await NavigationService.pushNamed(
+        AppRoutes.publicProfile,
+        arguments: PublicProfileRouteArgs(userId: id, userName: entry.name),
+      );
     } finally {
       if (mounted) setState(() => _openingProfileIds.remove(id));
     }
   }
-
-  Future<void> _showPrivateProfileMessage() => showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Perfil privado'),
-      content: const Text('Este perfil é privado e não pode ser exibido.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Fechar'),
-        ),
-      ],
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {

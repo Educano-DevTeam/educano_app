@@ -21,7 +21,9 @@ import '../../../core/widgets/ui/app_card.dart';
 import '../../../core/widgets/ui/app_button.dart';
 
 class ProfileView extends StatefulWidget {
-  const ProfileView({super.key});
+  final Map<String, dynamic>? publicProfile;
+
+  const ProfileView({super.key, this.publicProfile});
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -37,6 +39,8 @@ class _ProfileViewState extends State<ProfileView> {
 
   int? _selectedCourse;
   late final Future<AppUser?> _userFuture;
+
+  bool get _isPublic => widget.publicProfile != null;
 
   static const _monthNames = [
     'Janeiro',
@@ -56,8 +60,34 @@ class _ProfileViewState extends State<ProfileView> {
   @override
   void initState() {
     super.initState();
-    _userFuture = StorageService.instance.loadCurrentUser();
-    _load();
+    if (_isPublic) {
+      _userFuture = Future.value(null);
+      _loadPublicProfile(widget.publicProfile!);
+    } else {
+      _userFuture = StorageService.instance.loadCurrentUser();
+      _load();
+    }
+  }
+
+  void _loadPublicProfile(Map<String, dynamic> profile) {
+    try {
+      final xp = ApiClient.responseInt(
+        profile['xp'],
+        endpoint: '/users/:identifier/profile.xp',
+        required: true,
+      );
+      final level = ApiClient.responseInt(
+        profile['nivel'],
+        endpoint: '/users/:identifier/profile.nivel',
+        required: true,
+      );
+      final publicProfile = {...profile, 'xp': xp, 'nivel': level};
+      _profile = publicProfile;
+      _stats = {'perfil': publicProfile};
+    } on ApiException catch (error) {
+      _profileLoadError = error.message;
+    }
+    _loadingProfileData = false;
   }
 
   Future<void> _load() async {
@@ -220,13 +250,18 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    final profileName = _profile?['nome'];
+    final profileType = _profile?['tipo'];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Meu Perfil',
+          Text(
+            _isPublic
+                ? 'Perfil de ${_profile?['nome'] ?? 'usuário'}'
+                : 'Meu Perfil',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -234,14 +269,25 @@ class _ProfileViewState extends State<ProfileView> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Gerencie suas informações e confira seu progresso.',
-            style: TextStyle(
+          Text(
+            _isPublic
+                ? 'Informações públicas de ${_profile?['nome'] ?? 'este usuário'}.'
+                : 'Gerencie suas informações e confira seu progresso.',
+            style: const TextStyle(
               fontSize: 13,
               color: EducanoColors.legacyTextSecondary,
             ),
           ),
           const SizedBox(height: 16),
+          if (_isPublic && _profileLoadError != null) ...[
+            AppSectionCard(
+              child: Text(
+                _profileLoadError!,
+                style: const TextStyle(color: EducanoColors.error),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           FutureBuilder<AppUser?>(
             future: _userFuture,
             builder: (context, snapshot) {
@@ -250,153 +296,163 @@ class _ProfileViewState extends State<ProfileView> {
               }
               return _ProfileHeaderCard(
                 user: snapshot.data,
+                name: _isPublic && profileName is String ? profileName : null,
+                subtitle: _isPublic
+                    ? AppUser.roleLabel(
+                        profileType is String ? profileType : 'ALUNO',
+                      )
+                    : null,
                 photoUrl: _profile?['urlFotoPerfil'] as String?,
                 stats: _stats,
+                showEdit: !_isPublic,
                 onEdit: _editProfile,
                 onShare: _share,
               );
             },
           ),
           const SizedBox(height: 16),
-          _PlanBanner(
-            planName:
-                ((_stats?['perfil'] as Map?)?['plano'] as Map?)?['nome']
-                    as String?,
-          ),
-          const SizedBox(height: 20),
-          AppSectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Text(
-                      'Evolução das notas',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: EducanoColors.legacyTextPrimary,
-                      ),
-                    ),
-                    Spacer(),
-                    Text(
-                      'Últimos 7 meses',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: EducanoColors.legacyTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Row(
-                  children: [
-                    _LegendDot(
-                      color: EducanoColors.legacyRed,
-                      label: 'Atividades',
-                    ),
-                    SizedBox(width: 16),
-                    _LegendDot(
-                      color: EducanoColors.legacyPrimary,
-                      label: 'Simulados',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_loadingProfileData)
-                  const SizedBox(
-                    height: 120,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_profileLoadError != null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text('Não foi possível carregar as notas.'),
-                  )
-                else if (_chartData.isEmpty)
-                  const SizedBox(
-                    height: 120,
-                    child: Center(
-                      child: Text('Você ainda não possui notas registradas.'),
-                    ),
-                  )
-                else
-                  MiniBarChart(data: _chartData, maxValue: 100),
-              ],
+          if (!_isPublic)
+            _PlanBanner(
+              planName:
+                  ((_stats?['perfil'] as Map?)?['plano'] as Map?)?['nome']
+                      as String?,
             ),
-          ),
-          const SizedBox(height: 20),
-          AppSectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Meus Cursos',
+          if (!_isPublic) const SizedBox(height: 20),
+          if (!_isPublic)
+            AppSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Text(
+                        'Evolução das notas',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: EducanoColors.legacyTextPrimary,
+                        ),
+                      ),
+                      Spacer(),
+                      Text(
+                        'Últimos 7 meses',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: EducanoColors.legacyTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Row(
+                    children: [
+                      _LegendDot(
+                        color: EducanoColors.legacyRed,
+                        label: 'Atividades',
+                      ),
+                      SizedBox(width: 16),
+                      _LegendDot(
+                        color: EducanoColors.legacyPrimary,
+                        label: 'Simulados',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_loadingProfileData)
+                    const SizedBox(
+                      height: 120,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_profileLoadError != null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Text('Não foi possível carregar as notas.'),
+                    )
+                  else if (_chartData.isEmpty)
+                    const SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: Text('Você ainda não possui notas registradas.'),
+                      ),
+                    )
+                  else
+                    MiniBarChart(data: _chartData, maxValue: 100),
+                ],
+              ),
+            ),
+          if (!_isPublic) const SizedBox(height: 20),
+          if (!_isPublic)
+            AppSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Meus Cursos',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: EducanoColors.legacyTextPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_courses.length} inscritos',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: EducanoColors.legacyTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_loadingProfileData)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_profileLoadError != null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Não foi possível carregar os cursos inscritos.',
+                      ),
+                    )
+                  else if (_courses.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('Você ainda não está inscrito em cursos.'),
+                    )
+                  else
+                    for (int i = 0; i < _courses.length; i++)
+                      _CourseRow(
+                        course: _courses[i],
+                        selected: _selectedCourse == i,
+                        onTap: () {
+                          setState(() => _selectedCourse = i);
+                          NavigationService.pushNamed(
+                            AppRoutes.course,
+                            arguments: _courses[i].id,
+                          );
+                        },
+                      ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => NavigationService.pushNamed(AppRoutes.courses),
+                    child: const Text(
+                      'Ver todos os cursos  ›',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: EducanoColors.legacyTextPrimary,
+                        color: EducanoColors.legacyPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${_courses.length} inscritos',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: EducanoColors.legacyTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_loadingProfileData)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_profileLoadError != null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Não foi possível carregar os cursos inscritos.',
-                    ),
-                  )
-                else if (_courses.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('Você ainda não está inscrito em cursos.'),
-                  )
-                else
-                  for (int i = 0; i < _courses.length; i++)
-                    _CourseRow(
-                      course: _courses[i],
-                      selected: _selectedCourse == i,
-                      onTap: () {
-                        setState(() => _selectedCourse = i);
-                        NavigationService.pushNamed(
-                          AppRoutes.course,
-                          arguments: _courses[i].id,
-                        );
-                      },
-                    ),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => NavigationService.pushNamed(AppRoutes.courses),
-                  child: const Text(
-                    'Ver todos os cursos  ›',
-                    style: TextStyle(
-                      color: EducanoColors.legacyPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+          if (!_isPublic) const SizedBox(height: 20),
         ],
       ),
     );
@@ -405,15 +461,21 @@ class _ProfileViewState extends State<ProfileView> {
 
 class _ProfileHeaderCard extends StatelessWidget {
   final AppUser? user;
+  final String? name;
+  final String? subtitle;
   final String? photoUrl;
   final Map<String, dynamic>? stats;
+  final bool showEdit;
   final VoidCallback onEdit;
   final VoidCallback onShare;
 
   const _ProfileHeaderCard({
     required this.user,
+    required this.name,
+    required this.subtitle,
     required this.photoUrl,
     required this.stats,
+    required this.showEdit,
     required this.onEdit,
     required this.onShare,
   });
@@ -477,7 +539,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      user?.name ?? 'Conta Educano',
+                      name ?? user?.name ?? 'Conta Educano',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -486,7 +548,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      user?.email ?? '',
+                      subtitle ?? user?.email ?? '',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: EducanoColors.legacyTextSecondary,
@@ -498,12 +560,13 @@ class _ProfileHeaderCard extends StatelessWidget {
                 final Widget buttons = Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    HoverOutlineButton(
-                      label: 'Editar Perfil',
-                      leadingIcon: Icons.edit_outlined,
-                      onPressed: onEdit,
-                    ),
-                    const SizedBox(width: 10),
+                    if (showEdit)
+                      HoverOutlineButton(
+                        label: 'Editar Perfil',
+                        leadingIcon: Icons.edit_outlined,
+                        onPressed: onEdit,
+                      ),
+                    if (showEdit) const SizedBox(width: 10),
                     HoverOutlineButton(
                       label: 'Compartilhar',
                       leadingIcon: Icons.ios_share,
@@ -531,7 +594,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                             ],
                           ),
                     const SizedBox(height: 20),
-                    _StatsRow(stats: stats),
+                    _StatsRow(stats: stats, isPublic: !showEdit),
                   ],
                 );
               },
@@ -545,8 +608,9 @@ class _ProfileHeaderCard extends StatelessWidget {
 
 class _StatsRow extends StatelessWidget {
   final Map<String, dynamic>? stats;
+  final bool isPublic;
 
-  const _StatsRow({required this.stats});
+  const _StatsRow({required this.stats, required this.isPublic});
 
   @override
   Widget build(BuildContext context) {
@@ -556,12 +620,18 @@ class _StatsRow extends StatelessWidget {
     final sequenceLabel = sequence is num
         ? '${sequence.toInt()} ${sequence == 1 ? 'dia' : 'dias'}'
         : '—';
-    final List<List<String>> items = [
-      ['${perfil?['nivel'] ?? '—'}', 'Nível'],
-      ['${perfil?['xp'] ?? '—'}', 'XP'],
-      [sequenceLabel, 'Sequência'],
-      ['${cursos?['concluidos'] ?? '—'}', 'Concluídos'],
-    ];
+    final List<List<String>> items = isPublic
+        ? [
+            ['${perfil?['nivel'] ?? '—'}', 'Nível'],
+            ['${perfil?['xp'] ?? '—'}', 'XP'],
+            ['${perfil?['moedas'] ?? '—'}', 'Moedas'],
+          ]
+        : [
+            ['${perfil?['nivel'] ?? '—'}', 'Nível'],
+            ['${perfil?['xp'] ?? '—'}', 'XP'],
+            [sequenceLabel, 'Sequência'],
+            ['${cursos?['concluidos'] ?? '—'}', 'Concluídos'],
+          ];
 
     return Row(
       children: [

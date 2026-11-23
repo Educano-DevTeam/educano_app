@@ -1,137 +1,116 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/app_scaffold.dart';
-import '../../../core/models/level_progress.dart';
-import '../../../core/models/app_user.dart';
 import '../../../core/navigation/app_menu.dart';
-import '../../../core/theme/educano_colors.dart';
-import '../../../core/utils/api_mappers.dart';
-import '../../../core/widgets/ui/app_card.dart';
-import '../../../core/widgets/ui/profile_avatar.dart';
-import '../../../core/widgets/ui/stat_card.dart';
+import '../../../services/api_client.dart';
+import '../../../services/users_service.dart';
+import '../views/profile_view.dart';
 
-class PublicProfilePage extends StatelessWidget {
-  final Map<String, dynamic> profile;
+class PublicProfilePage extends StatefulWidget {
+  final String userId;
+  final String userName;
 
-  const PublicProfilePage({super.key, required this.profile});
+  const PublicProfilePage({
+    super.key,
+    required this.userId,
+    required this.userName,
+  });
+
+  @override
+  State<PublicProfilePage> createState() => _PublicProfilePageState();
+}
+
+class _PublicProfilePageState extends State<PublicProfilePage> {
+  Map<String, dynamic>? _profile;
+  String? _error;
+  bool _isPrivate = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _isPrivate = false;
+    });
+
+    try {
+      final profile = await UsersService.instance.profileOf(widget.userId);
+      if (!mounted) return;
+
+      if (profile == null || profile['tipoPerfil'] != 'PUBLICO') {
+        setState(() {
+          _isPrivate = true;
+          _loading = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _profile = {
+          ...profile,
+          if (profile['nome'] is! String || (profile['nome'] as String).isEmpty)
+            'nome': widget.userName,
+        };
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) => AppScaffold(
     selectedMenu: AppMenu.profile,
-    child: _PublicProfileView(profile: profile),
+    child: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+        ? _ProfileLoadError(message: _error!, onRetry: _loadProfile)
+        : _isPrivate
+        ? const _PrivateProfileMessage()
+        : ProfileView(publicProfile: _profile!),
   );
 }
 
-class _PublicProfileView extends StatelessWidget {
-  final Map<String, dynamic> profile;
+class _ProfileLoadError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _PublicProfileView({required this.profile});
+  const _ProfileLoadError({required this.message, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
-    final name = profile['nome'] as String? ?? 'Usuário Educano';
-    final type = profile['tipo'] as String? ?? 'ALUNO';
-    final color = ApiMappers.color(profile['cor'] as String?);
-    final photoUrl = profile['urlFotoPerfil'] as String?;
-    final xp = _number(profile['xp']);
-    final level = LevelProgress.fromTotalXp(xp).level;
-    final coins = _number(profile['moedas']);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Perfil do usuário',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: EducanoColors.legacyTextPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Informações públicas deste perfil.',
-            style: TextStyle(
-              fontSize: 13,
-              color: EducanoColors.legacyTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          AppSectionCard(
-            child: Row(
-              children: [
-                ProfileAvatar(
-                  imageUrl: photoUrl,
-                  radius: 36,
-                  backgroundColor: color,
-                  placeholder: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 34,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: EducanoColors.legacyTextPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        AppUser.roleLabel(type),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: EducanoColors.legacyTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cards = [
-                StatCard(label: 'Nível', value: '$level'),
-                StatCard(label: 'XP total', value: '$xp XP'),
-                StatCard(label: 'Moedas', value: '$coins'),
-              ];
-              if (constraints.maxWidth < 520) {
-                return Column(
-                  children: [
-                    for (var index = 0; index < cards.length; index++) ...[
-                      SizedBox(width: double.infinity, child: cards[index]),
-                      if (index != cards.length - 1) const SizedBox(height: 12),
-                    ],
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  for (var index = 0; index < cards.length; index++) ...[
-                    Expanded(child: cards[index]),
-                    if (index != cards.length - 1) const SizedBox(width: 12),
-                  ],
-                ],
-              );
-            },
-          ),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onRetry, child: const Text('Tentar novamente')),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  static int _number(Object? value) =>
-      value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+class _PrivateProfileMessage extends StatelessWidget {
+  const _PrivateProfileMessage();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Padding(
+      padding: EdgeInsets.all(24),
+      child: Text('Este perfil é privado e não pode ser exibido.'),
+    ),
+  );
 }

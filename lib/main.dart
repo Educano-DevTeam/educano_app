@@ -89,11 +89,14 @@ class EducanoApp extends StatelessWidget {
             return _buildRoute(const ProfilePage(), settings);
 
           case AppRoutes.publicProfile:
-            final profile = settings.arguments;
-            if (profile is! Map<String, dynamic>) {
+            final args = settings.arguments;
+            if (args is! PublicProfileRouteArgs) {
               return _buildRoute(const ProfilePage(), settings);
             }
-            return _buildRoute(PublicProfilePage(profile: profile), settings);
+            return _buildRoute(
+              PublicProfilePage(userId: args.userId, userName: args.userName),
+              settings,
+            );
 
           case AppRoutes.accountPlan:
             return _buildRoute(const AccountPlanPage(), settings);

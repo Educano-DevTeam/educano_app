@@ -12,6 +12,7 @@ import 'storage_service.dart';
 const String apiBaseUrl = String.fromEnvironment(
   'API_URL',
   defaultValue: 'http://localhost:3000/api',
+  // defaultValue: 'https://educano-api.onrender.com/api',
 );
 
 /// Erro retornado pela API (ou falha de rede), com a mensagem para o usuário.

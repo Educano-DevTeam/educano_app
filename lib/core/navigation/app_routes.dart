@@ -33,3 +33,10 @@ class AppRoutes {
   static const String dashboardQuestions = '/dashboard/questoes';
   static const String dashboardItems = '/dashboard/itens';
 }
+
+class PublicProfileRouteArgs {
+  final String userId;
+  final String userName;
+
+  const PublicProfileRouteArgs({required this.userId, required this.userName});
+}
