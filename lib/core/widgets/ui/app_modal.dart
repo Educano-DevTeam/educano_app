@@ -38,12 +38,19 @@ class AppModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final isCompact = screenSize.width < 600;
+
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 12 : 24,
+        vertical: isCompact ? 16 : 24,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
+          maxHeight: screenSize.height - (isCompact ? 32 : 48),
         ),
         child: Container(
           decoration: BoxDecoration(
@@ -51,55 +58,61 @@ class AppModal extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            padding: EdgeInsets.all(isCompact ? 16 : 24),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: EducanoColors.textPrimary,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: isCompact ? 18 : 20,
+                              fontWeight: FontWeight.w600,
+                              color: EducanoColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Fechar',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.zero,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: constraints.maxWidth,
+                          ),
+                          child: child,
                         ),
                       ),
                     ),
-
-                    IconButton(
-                      tooltip: 'Fechar',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: child,
-                  ),
-                ),
-
-                if (actions != null && actions!.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ...actions!.map(
-                        (action) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: action,
+                    if (actions != null && actions!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OverflowBar(
+                          alignment: MainAxisAlignment.end,
+                          spacing: 8,
+                          overflowSpacing: 8,
+                          overflowAlignment: OverflowBarAlignment.end,
+                          overflowDirection: VerticalDirection.up,
+                          children: actions!,
                         ),
                       ),
                     ],
-                  ),
-                ],
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ),

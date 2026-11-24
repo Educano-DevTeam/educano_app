@@ -1,0 +1,317 @@
+Educano — Educação, tecnologia e aprendizado.
+
+2. Política de Privacidade — Educano
+
+POLÍTICA DE PRIVACIDADE DA PLATAFORMA EDUCANO
+
+Última atualização: 23 de novembro de 2026
+Versão: 1.0
+
+1. Introdução
+
+A presente Política de Privacidade descreve como a plataforma Educano coleta, utiliza, armazena e protege os dados pessoais de seus usuários.
+
+O Educano é uma plataforma educacional digital que oferece recursos de aprendizagem, cursos, materiais didáticos, atividades, simulados, questões, flashcards e acompanhamento de desempenho.
+
+A proteção da privacidade e dos dados pessoais dos usuários é uma preocupação da plataforma. Por isso, o tratamento de informações deverá observar a legislação brasileira aplicável, especialmente a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).
+
+Ao utilizar a plataforma, o usuário poderá fornecer dados pessoais ou gerar informações decorrentes de sua utilização dos serviços, conforme descrito neste documento.
+
+2. Identificação do controlador
+
+O Educano é um projeto acadêmico desenvolvido por estudantes da Fatec Carapicuíba, no âmbito do curso de Análise e Desenvolvimento de Sistemas — AMS.
+
+Por se tratar de um projeto acadêmico ainda não formalizado como empresa, o tratamento de dados pessoais é de responsabilidade de:
+
+Responsável pelo tratamento (controlador): Miguel Soares de Sousa
+Projeto: Educano
+Instituição de ensino: Fatec Carapicuíba
+Contato para assuntos de privacidade: equipe.educano@gmail.com
+
+O responsável deverá atender às solicitações relacionadas ao tratamento de dados pessoais, observando os direitos dos titulares e as disposições da Lei Geral de Proteção de Dados Pessoais (LGPD).3. Quais dados pessoais podem ser coletados?
+
+O Educano poderá tratar diferentes categorias de dados pessoais, de acordo com as funcionalidades utilizadas pelo usuário.
+
+3.1. Dados de cadastro e identificação
+
+Durante o cadastro e a utilização da conta, poderão ser tratados:
+
+- Nome completo;
+- Endereço de e-mail;
+- Senha armazenada de forma protegida por mecanismos de hash;
+- Identificador interno da conta;
+- Tipo de usuário ou perfil de acesso;
+- Informações de verificação de e-mail e recuperação de senha.
+
+A senha não deve ser armazenada em texto puro. O sistema utiliza mecanismos de proteção para evitar que a senha original seja diretamente registrada no banco de dados.
+
+3.2. Dados de perfil
+
+Conforme os recursos disponíveis, poderão ser tratados:
+
+- Foto de perfil;
+- Imagem de fundo;
+- Cor e elementos de personalização;
+- Preferências de exibição;
+- Configuração de perfil público ou privado;
+- Informações complementares fornecidas voluntariamente.
+
+3.3. Dados de aprendizagem e desempenho
+
+Para disponibilizar os recursos educacionais, o Educano poderá tratar:
+
+- Cursos nos quais o usuário está inscrito;
+- Sessões, módulos e aulas acessados;
+- Progresso de aprendizagem;
+- Respostas enviadas em atividades;
+- Resultados de testes e simulados;
+- Notas, acertos e erros;
+- Tempo de realização de atividades;
+- Informações relacionadas a flashcards e revisões;
+- Pontuação de experiência (XP), níveis e classificação em rankings.
+
+Essas informações permitem apresentar o progresso individual e oferecer recursos de acompanhamento educacional.
+
+3.4. Arquivos e materiais
+
+Quando o usuário utilizar funcionalidades que permitam selecionar ou enviar arquivos, poderão ser tratados dados associados aos documentos enviados, como nome, tipo, finalidade, referência de armazenamento e vínculo com cursos ou aulas.
+
+O usuário deverá enviar apenas arquivos que tenha autorização para utilizar e que sejam necessários à finalidade educacional pretendida.
+
+3.5. Dados técnicos e de utilização
+
+Durante o funcionamento da plataforma, poderão ser tratados dados técnicos necessários à autenticação, à comunicação com a API, à manutenção dos serviços e à segurança dos sistemas.
+
+Esses dados poderão incluir identificadores de sessão, registros técnicos de requisições e informações necessárias para diagnosticar falhas e investigar incidentes.
+
+O Educano não declara, nesta versão da Política, utilizar ferramentas de publicidade comportamental ou rastreamento publicitário. Caso essas tecnologias sejam implementadas, esta Política deverá ser atualizada antes de sua utilização.
+
+4. Para quais finalidades utilizamos os dados?
+
+Os dados pessoais poderão ser utilizados para:
+
+- Criar e administrar contas de usuários;
+- Realizar autenticação e controle de acesso;
+- Verificar endereços de e-mail;
+- Permitir a recuperação de senhas;
+- Disponibilizar cursos, módulos, aulas e materiais;
+- Registrar inscrições e progresso de aprendizagem;
+- Processar respostas e apresentar resultados de atividades;
+- Disponibilizar flashcards e recursos de revisão;
+- Calcular pontuações, níveis e rankings;
+- Personalizar a experiência de utilização;
+- Manter a segurança e a integridade da plataforma;
+- Corrigir falhas e aprimorar funcionalidades;
+- Atender solicitações dos usuários;
+- Cumprir obrigações legais e regulatórias;
+- Exercer direitos em procedimentos administrativos, judiciais ou extrajudiciais, quando necessário.
+
+O tratamento será limitado às finalidades legítimas e compatíveis com a utilização da plataforma, respeitando os princípios de necessidade, adequação, transparência e segurança.
+
+5. Bases legais para o tratamento
+
+O tratamento de dados pessoais poderá ocorrer com fundamento nas hipóteses legais previstas na LGPD, conforme a finalidade e a situação concreta.
+
+Entre as bases legais que poderão ser aplicáveis estão:
+
+- Execução de contrato ou procedimentos preliminares: para permitir a criação da conta e a disponibilização dos recursos solicitados pelo usuário;
+- Consentimento: quando a legislação exigir autorização específica do titular;
+- Legítimo interesse: quando aplicável, após avaliação de necessidade, proporcionalidade e respeito aos direitos e às expectativas legítimas do titular;
+- Cumprimento de obrigação legal ou regulatória: para atender exigências legais;
+- Exercício regular de direitos: para defesa ou exercício de direitos em procedimentos administrativos, judiciais ou arbitrais.
+
+A base legal será definida de acordo com cada operação de tratamento, não sendo o consentimento utilizado como justificativa genérica para todas as atividades realizadas pela plataforma.
+
+6. Autenticação e segurança da conta
+
+O Educano utiliza mecanismos de autenticação para controlar o acesso às contas.
+
+O sistema poderá utilizar tokens de acesso e renovação de sessão, além de mecanismos criptográficos para proteger informações relacionadas à autenticação.
+
+No aplicativo, determinadas informações necessárias ao funcionamento da sessão poderão ser armazenadas localmente no dispositivo do usuário, por meio de armazenamento de preferências.
+
+Essas informações podem incluir identificadores da conta e tokens de autenticação.
+
+O usuário deverá manter seu dispositivo protegido e evitar compartilhar suas credenciais com terceiros.
+
+O encerramento da sessão ou a utilização da opção de sair da conta remove as informações de autenticação local gerenciadas pelo aplicativo, conforme o funcionamento da versão utilizada.
+
+7. Comunicação por e-mail
+
+O Educano poderá enviar mensagens eletrônicas relacionadas ao funcionamento da conta, incluindo:
+
+- Verificação de endereço de e-mail;
+- Recuperação de senha;
+- Comunicações necessárias à segurança e à administração da conta.
+
+Para viabilizar esses envios, a plataforma utiliza a infraestrutura da API do Gmail, por meio de autenticação autorizada.
+
+Essa integração é utilizada para o envio de mensagens pelo Educano e não significa que a plataforma tenha acesso à caixa de entrada, às mensagens pessoais ou aos contatos do usuário.
+
+O usuário deverá manter seu endereço de e-mail atualizado para receber comunicações essenciais à utilização da plataforma.
+
+8. Armazenamento e infraestrutura
+
+Os dados utilizados pelo Educano são processados por sua API e armazenados em infraestrutura tecnológica contratada para manter o funcionamento dos serviços.
+
+A arquitetura atual utiliza:
+
+- Render: hospedagem da API e disponibilização dos serviços de backend;
+- Neon: serviço de banco de dados PostgreSQL utilizado para armazenar informações da plataforma;
+- Google: infraestrutura da API do Gmail utilizada para envio de mensagens transacionais.
+
+Os arquivos enviados ou associados aos conteúdos da plataforma poderão utilizar serviços específicos de armazenamento, conforme a configuração técnica vigente.
+
+Fornecedor de armazenamento de arquivos: [IDENTIFICAR O SERVIÇO UTILIZADO ANTES DA PUBLICAÇÃO DEFINITIVA].
+
+Os fornecedores de infraestrutura poderão processar informações na medida necessária para executar os serviços contratados, observadas as obrigações de segurança e proteção de dados aplicáveis.
+
+A localização dos servidores e a possibilidade de transferência internacional de dados deverão ser avaliadas conforme a configuração efetiva dos fornecedores e dos serviços utilizados.
+
+9. Compartilhamento de dados pessoais
+
+O Educano não comercializa dados pessoais de seus usuários.
+
+Os dados poderão ser compartilhados, quando necessário, com:
+
+- Provedores de hospedagem e infraestrutura;
+- Serviços de banco de dados;
+- Serviços de envio de e-mails;
+- Fornecedores de armazenamento de arquivos;
+- Prestadores de serviços técnicos necessários à operação;
+- Autoridades públicas, quando houver obrigação legal ou determinação válida;
+- Terceiros envolvidos em procedimentos necessários ao exercício regular de direitos.
+
+O compartilhamento será limitado às informações necessárias para cada finalidade.
+
+O Educano não declara compartilhar dados pessoais com anunciantes para direcionamento de publicidade comportamental na versão atual da plataforma.
+
+Caso novos parceiros, serviços de publicidade ou ferramentas de análise sejam incorporados, as informações correspondentes serão incluídas nesta Política.
+
+10. Perfis públicos e rankings
+
+Algumas funcionalidades do Educano poderão permitir a visualização de informações de perfil e de classificação entre usuários.
+
+Quando o usuário optar por manter o perfil público, determinadas informações poderão ser exibidas conforme os recursos disponíveis na plataforma.
+
+Os rankings poderão apresentar informações de desempenho ou pontuação necessárias à classificação dos participantes.
+
+O usuário deverá observar suas configurações de privacidade e evitar disponibilizar informações pessoais excessivas em áreas públicas.
+
+11. Crianças e adolescentes
+
+O Educano reconhece que sua finalidade educacional pode envolver usuários crianças e adolescentes.
+
+O tratamento de dados pessoais desses usuários deverá observar o melhor interesse da criança e do adolescente, conforme o artigo 14 da LGPD e as orientações aplicáveis da Autoridade Nacional de Proteção de Dados (ANPD).
+
+Quando necessário, o Educano poderá adotar medidas para verificar a idade do usuário e solicitar autorização ou participação de pais ou responsáveis legais.
+
+Os responsáveis poderão solicitar informações sobre o tratamento de dados pessoais do menor, bem como exercer os direitos previstos na legislação, observadas as regras aplicáveis.
+
+A plataforma deverá evitar a coleta de informações desnecessárias e limitar o tratamento ao que for adequado à finalidade educacional.
+
+12. Segurança das informações
+
+O Educano adota medidas técnicas e organizacionais destinadas a proteger os dados pessoais contra acessos não autorizados, perda, alteração, divulgação ou tratamento inadequado.
+
+Entre os mecanismos utilizados pela arquitetura atual estão:
+
+- Autenticação de usuários;
+- Controle de permissões e perfis de acesso;
+- Proteção de senhas por mecanismos de hash;
+- Utilização de tokens de sessão;
+- Comunicação com a infraestrutura por conexões seguras;
+- Separação entre aplicação, API e banco de dados;
+- Utilização de provedores especializados de infraestrutura.
+
+Apesar dos esforços para proteger as informações, nenhum sistema eletrônico pode garantir segurança absoluta.
+
+Na hipótese de incidente de segurança que possa acarretar risco ou dano relevante aos titulares, serão adotadas as providências legalmente exigidas, inclusive comunicações aos titulares e à autoridade competente, quando aplicável.
+
+13. Retenção e eliminação dos dados
+
+Os dados pessoais serão mantidos pelo período necessário para cumprir as finalidades descritas nesta Política.
+
+A conservação poderá ocorrer enquanto:
+
+- A conta do usuário estiver ativa;
+- Os dados forem necessários à disponibilização das funcionalidades;
+- Existirem obrigações legais ou regulatórias de armazenamento;
+- Houver necessidade de preservação para exercício regular de direitos;
+- Existirem hipóteses legais que autorizem a conservação.
+
+Quando os dados deixarem de ser necessários e não houver fundamento legal para sua manutenção, poderão ser eliminados, anonimizados ou bloqueados, conforme aplicável.
+
+A exclusão de uma conta não significa necessariamente a remoção imediata de todos os registros técnicos, cópias de segurança ou informações cuja conservação seja permitida ou exigida pela legislação.
+
+14. Direitos dos titulares
+
+Nos termos da LGPD, o titular poderá solicitar, conforme aplicável:
+
+- Confirmação da existência de tratamento de dados pessoais;
+- Acesso aos dados tratados;
+- Correção de informações incompletas, inexatas ou desatualizadas;
+- Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a legislação;
+- Portabilidade dos dados, observadas as regras aplicáveis;
+- Eliminação de dados tratados com base no consentimento, ressalvadas as hipóteses legais de conservação;
+- Informação sobre compartilhamento de dados;
+- Informação sobre a possibilidade de não fornecer consentimento e suas consequências;
+- Revogação do consentimento, quando essa for a base legal utilizada;
+- Revisão de decisões tomadas unicamente com base em tratamento automatizado, quando aplicável.
+
+As solicitações serão analisadas conforme a legislação e poderão exigir procedimentos de confirmação de identidade para evitar o acesso indevido a informações pessoais.
+
+15. Como exercer seus direitos
+
+Para solicitar informações, correções, exclusões ou esclarecimentos sobre o tratamento de dados pessoais, o usuário poderá entrar em contato pelo canal abaixo:
+
+E-mail de privacidade: [E-MAIL DE PRIVACIDADE DO EDUCANO]
+
+Controlador: [NOME COMPLETO OU RAZÃO SOCIAL]
+
+A solicitação deverá apresentar informações suficientes para identificar a conta e compreender o pedido, sem que o usuário precise fornecer dados excessivos ou desnecessários.
+
+O Educano buscará responder às solicitações dentro dos prazos e das condições previstos na legislação aplicável.
+
+16. Links e serviços de terceiros
+
+A plataforma poderá disponibilizar links, conteúdos ou integrações com serviços externos.
+
+Esses serviços poderão possuir suas próprias políticas de privacidade e condições de utilização.
+
+O Educano não controla integralmente as práticas de tratamento de dados realizadas por terceiros independentes. Por isso, recomenda-se que o usuário consulte as políticas dos respectivos serviços antes de utilizá-los.
+
+17. Alterações desta Política
+
+Esta Política de Privacidade poderá ser atualizada sempre que houver mudanças nas funcionalidades, nos processos internos, nos fornecedores, nas práticas de tratamento de dados ou na legislação aplicável.
+
+As alterações poderão ocorrer, por exemplo, em razão de:
+
+- Inclusão de novos recursos educacionais;
+- Implantação de ferramentas de análise ou publicidade;
+- Implementação de planos pagos, assinaturas ou pagamentos;
+- Alteração dos serviços de armazenamento ou infraestrutura;
+- Novas formas de coleta, utilização ou compartilhamento de dados;
+- Mudanças nas obrigações legais e regulatórias.
+
+A versão atualizada será disponibilizada nos canais oficiais do Educano, acompanhada da data da última atualização.
+
+Quando uma alteração modificar significativamente a forma de tratamento dos dados ou exigir novo consentimento, o usuário será informado e, quando necessário, será solicitado novo consentimento ou aceite.
+
+A atualização deste documento não elimina direitos já assegurados aos titulares pela legislação aplicável.
+
+18. Legislação aplicável
+
+Esta Política é interpretada de acordo com a legislação brasileira, especialmente:
+- Lei nº 13.709/2018 — Lei Geral de Proteção de Dados Pessoais (LGPD);
+- Lei nº 12.965/2014 — Marco Civil da Internet;
+- Lei nº 8.078/1990 — Código de Defesa do Consumidor, quando aplicável;
+- Demais normas relacionadas à privacidade, proteção de dados e utilização de serviços digitais.
+
+19. Contato
+
+Para dúvidas, solicitações ou comunicações relacionadas a esta Política de Privacidade, entre em contato:
+
+E-mail: equipe.educano@gmail.com
+
+Responsável: Miguel Soares de Sousa

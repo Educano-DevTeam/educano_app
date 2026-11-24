@@ -1,5 +1,6 @@
 import '../../../core/theme/educano_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../widgets/validators.dart';
 import '../../../core/constants/app_breakpoints.dart';
 import '../../../core/navigation/app_routes.dart';
@@ -30,9 +31,22 @@ class _SignupViewState extends State<SignupView> {
   bool _isLoading = false;
   bool _termsError = false;
   String? _errorMessage;
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => NavigationService.pushNamed(AppRoutes.termsOfUse);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => NavigationService.pushNamed(AppRoutes.privacyPolicy);
+  }
 
   @override
   void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -96,10 +110,7 @@ class _SignupViewState extends State<SignupView> {
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 40),
-              child: SizedBox(
-                width: 420,
-                child: _buildForm(isWeb: true),
-              ),
+              child: SizedBox(width: 420, child: _buildForm(isWeb: true)),
             ),
           ),
         ),
@@ -221,10 +232,8 @@ class _SignupViewState extends State<SignupView> {
             obscureText: _obscureConfirmPassword,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _handleSignup(),
-            validator: (value) => Validators.confirmPassword(
-              value,
-              _passwordController.text,
-            ),
+            validator: (value) =>
+                Validators.confirmPassword(value, _passwordController.text),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureConfirmPassword
@@ -240,7 +249,7 @@ class _SignupViewState extends State<SignupView> {
             ),
           ),
           SizedBox(height: gap),
-          _buildTermsCheckbox(isWeb: isWeb),
+          _buildTermsCheckbox(),
           SizedBox(height: gap),
           PrimaryButton(
             label: 'Criar conta',
@@ -258,72 +267,67 @@ class _SignupViewState extends State<SignupView> {
     );
   }
 
-  Widget _buildTermsCheckbox({required bool isWeb}) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _acceptedTerms = !_acceptedTerms;
-          if (_acceptedTerms) _termsError = false;
-        });
-      },
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: Checkbox(
-              value: _acceptedTerms,
-              activeColor: EducanoColors.primaryBlue,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              side: BorderSide(
-                color: _termsError ? EducanoColors.error : EducanoColors.border,
-                width: 1.5,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _acceptedTerms = value ?? false;
-                  if (_acceptedTerms) _termsError = false;
-                });
-              },
+  Widget _buildTermsCheckbox() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 20,
+          height: 20,
+          child: Checkbox(
+            value: _acceptedTerms,
+            activeColor: EducanoColors.primaryBlue,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            side: BorderSide(
+              color: _termsError ? EducanoColors.error : EducanoColors.border,
+              width: 1.5,
             ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(5),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _acceptedTerms = value ?? false;
+                if (_acceptedTerms) _termsError = false;
+              });
+            },
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: EducanoColors.textSecondary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 13,
+                color: EducanoColors.textSecondary,
+              ),
+              children: [
+                const TextSpan(text: 'Eu concordo com os '),
+                TextSpan(
+                  text: 'Termos de Uso',
+                  recognizer: _termsRecognizer,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: EducanoColors.primaryBlue,
+                  ),
                 ),
-                children: [
-                  const TextSpan(text: 'Eu concordo com os '),
-                  TextSpan(
-                    text: 'Termos de Uso',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: EducanoColors.primaryBlue,
-                    ),
+                const TextSpan(text: ' e a '),
+                TextSpan(
+                  text: 'Política de Privacidade',
+                  recognizer: _privacyRecognizer,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: EducanoColors.primaryBlue,
                   ),
-                  const TextSpan(text: ' e '),
-                  TextSpan(
-                    text: 'Política de Privacidade',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: EducanoColors.primaryBlue,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const TextSpan(text: '.'),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

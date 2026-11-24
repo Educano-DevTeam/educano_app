@@ -19,6 +19,7 @@ import 'package:educano_app/features/profile/pages/profile_page.dart';
 import 'package:educano_app/features/profile/pages/public_profile_page.dart';
 import 'package:educano_app/features/settings/pages/settings_page.dart';
 import 'package:educano_app/features/account_plan/account_plan_page.dart';
+import 'package:educano_app/features/legal/pages/legal_document_page.dart';
 
 import 'features/dashboard/pages/dashboard_page.dart';
 import 'package:educano_app/features/dashboard/pages/dashboard_items_page.dart';
@@ -75,6 +76,24 @@ class EducanoApp extends StatelessWidget {
 
           case AppRoutes.forgotPassword:
             return _buildRoute(const ForgotPasswordPage(), settings);
+
+          case AppRoutes.termsOfUse:
+            return _buildRoute(
+              const LegalDocumentPage(
+                title: 'Termos de Uso',
+                assetPath: 'lib/assets/legal/termos-de-uso.txt',
+              ),
+              settings,
+            );
+
+          case AppRoutes.privacyPolicy:
+            return _buildRoute(
+              const LegalDocumentPage(
+                title: 'Política de Privacidade',
+                assetPath: 'lib/assets/legal/politica-de-privacidade.txt',
+              ),
+              settings,
+            );
 
           case AppRoutes.flashcards:
             return _buildRoute(const FlashcardsPage(), settings);

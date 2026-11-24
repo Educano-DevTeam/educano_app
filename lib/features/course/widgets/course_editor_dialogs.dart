@@ -190,11 +190,18 @@ class _MaterialEditorDialogState extends State<_MaterialEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: screenSize.width < 600 ? 12 : 20,
+        vertical: screenSize.height < 700 ? 12 : 24,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: screenSize.height - (screenSize.width < 600 ? 24 : 48),
+        ),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           transitionBuilder: (child, animation) {
@@ -449,7 +456,7 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nao foi possivel selecionar o arquivo: $error'),
+          content: Text('Não foi possível selecionar o arquivo: $error'),
         ),
       );
     } finally {
@@ -469,73 +476,100 @@ class _MaterialFormStepState extends State<_MaterialFormStep> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(28),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        final submitLabel = widget.initialMaterial == null
+            ? (isActivity ? 'Cadastrar atividade' : 'Cadastrar aula')
+            : 'Salvar alterações';
+
+        return Padding(
+          padding: EdgeInsets.all(compact ? 16 : 28),
+          child: Form(
+            key: _formKey,
+            child: Column(
               children: [
-                IconButton(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Voltar',
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    widget.initialMaterial != null
-                        ? 'Editar ${isActivity ? 'atividade' : 'aula'}'
-                        : (isActivity
-                              ? 'Cadastrar atividade'
-                              : 'Cadastrar aula'),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      tooltip: 'Voltar',
                     ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.initialMaterial != null
+                            ? 'Editar ${isActivity ? 'atividade' : 'aula'}'
+                            : (isActivity
+                                  ? 'Cadastrar atividade'
+                                  : 'Cadastrar aula'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: compact ? 18 : 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 8),
+                      Chip(
+                        avatar: Icon(
+                          isActivity
+                              ? Icons.assignment
+                              : Icons.play_lesson_outlined,
+                          size: 17,
+                        ),
+                        label: Text(isActivity ? 'Atividade' : 'Aula'),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: isActivity ? _activityForm() : _lessonForm(),
                   ),
                 ),
-                Chip(
-                  avatar: Icon(
-                    isActivity ? Icons.assignment : Icons.play_lesson_outlined,
-                    size: 17,
+                const SizedBox(height: 12),
+                if (compact)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancelar'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _submit,
+                        icon: const Icon(Icons.check_rounded),
+                        label: Text(submitLabel),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancelar'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _submit,
+                        icon: const Icon(Icons.check_rounded),
+                        label: Text(submitLabel),
+                      ),
+                    ],
                   ),
-                  label: Text(isActivity ? 'Atividade' : 'Aula'),
-                ),
               ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: isActivity ? _activityForm() : _lessonForm(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _submit,
-                  icon: const Icon(Icons.check_rounded),
-                  label: Text(
-                    widget.initialMaterial == null
-                        ? (isActivity
-                              ? 'Cadastrar atividade'
-                              : 'Cadastrar aula')
-                        : 'Salvar alteraÃ§Ãµes',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

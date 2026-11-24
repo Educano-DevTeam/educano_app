@@ -28,6 +28,13 @@ class EducanoTheme {
         margin: EdgeInsets.all(8),
       ),
 
+      dialogTheme: const DialogThemeData(
+        insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+
       // Campo de texto
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -40,9 +47,7 @@ class EducanoTheme {
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: EducanoColors.border,
-          ),
+          borderSide: const BorderSide(color: EducanoColors.border),
         ),
 
         focusedBorder: OutlineInputBorder(
@@ -62,10 +67,7 @@ class EducanoTheme {
           backgroundColor: EducanoColors.primaryBlue,
           foregroundColor: EducanoColors.textWhite,
 
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
 
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

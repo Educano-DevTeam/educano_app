@@ -62,6 +62,7 @@ dev_dependencies:
 flutter:
 
   assets:
+    - lib/assets/legal/
     - lib/assets/courses/vestibular_course_image.jpg
     - lib/assets/courses/ai_course_image.jpg
     - lib/assets/courses/finances_course_image.jpg

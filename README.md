@@ -15,6 +15,8 @@ celulares e telas maiores. Tudo (login, cursos, simulados, loja...) vem da
   resolução com salvamento automático, gabarito comentado e resultado.
 - **Área do estudante:** perfil, plano de conta, ranking, loja e inventário,
   configurações e navegação adaptada ao tamanho da tela.
+- **Documentos legais:** termos de uso e política de privacidade disponíveis
+  durante o cadastro e pelas respectivas rotas da aplicação.
 - **Área administrativa:** telas para visão geral, cursos, usuários, questões e
   itens da loja.
 - **Experiência responsiva:** navegação com barra inferior em telas estreitas e
@@ -27,6 +29,8 @@ celulares e telas maiores. Tudo (login, cursos, simulados, loja...) vem da
 - **Material Design** e tema próprio do Educano, definidos em `lib/core/theme/`.
 - **shared_preferences** para preferências e dados locais, incluindo a sessão do
   usuário e os flashcards.
+- **http** para comunicação com a API, incluindo envio de arquivos e renovação
+  de sessão.
 - **just_audio** e **video_player** para reprodução de áudio e vídeo.
 - **syncfusion_flutter_pdfviewer** para visualização de PDFs.
 - **file_picker** para seleção de arquivos.
@@ -70,17 +74,20 @@ largura disponível.
 
 ### Integração com a API
 
-- `lib/services/api_client.dart` faz as chamadas HTTP e manda o token. A URL
-  da API vem de `--dart-define=API_URL=...` (padrão `http://localhost:3000/api`).
+- `lib/services/api_client.dart` faz as chamadas HTTP e envia o token. A URL
+  vem de `--dart-define=API_URL=...`; por padrão, usa
+  `https://educano-api.onrender.com/api`.
 - Respostas inválidas da API viram erros controlados; coleções opcionais em
   telas de leitura podem aparecer vazias. Operações de escrita não simulam
   sucesso quando a API não confirma o resultado.
 - Os outros arquivos de `lib/services/` cuidam de cada parte (login, cursos,
   simulados, questões, loja, usuários e progresso) e já entregam os dados no
   formato das telas.
-- A sessão é validada pela API; como não há rota de renovação de token, quando
-  o JWT expira o app volta para o login na próxima requisição autenticada.
+- Quando o token de acesso expira, o app tenta renová-lo com o refresh token e
+  repete a requisição. Se a renovação falhar, a sessão é encerrada e o usuário
+  volta para o login.
 - O dashboard só aparece para admin, professor e parceiro. Painel, Usuários e
+  Itens são só do admin.
   Itens são só do admin.
 - Para rodar local: suba a API e rode `pnpm seed` nela. O seed cria uma conta de
   teste para cada tipo de usuário (está no README da API).

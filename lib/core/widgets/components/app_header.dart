@@ -80,22 +80,7 @@ class AppHeader extends StatelessWidget {
               SizedBox(width: isMobile ? 12 : 32),
 
               // O placeholder preserva o espaço da busca para os demais perfis.
-              if (!isMobile)
-                Expanded(
-                  child: user?.isAdmin == true
-                      ? SizedBox(
-                          height: 45,
-                          child: TextField(
-                            controller: searchController,
-                            decoration: const InputDecoration(
-                              hintText:
-                                  "Pesquisar usuários, cursos, questões...",
-                              prefixIcon: Icon(Icons.search),
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+              if (!isMobile) const Expanded(child: SizedBox.shrink()),
 
               if (isMobile) const Spacer() else const SizedBox(width: 30),
 

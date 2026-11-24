@@ -11,8 +11,8 @@ import 'storage_service.dart';
 /// `flutter run --dart-define=API_URL=https://api.exemplo.com/api`
 const String apiBaseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://localhost:3000/api',
-  // defaultValue: 'https://educano-api.onrender.com/api',
+  // defaultValue: 'http://localhost:3000/api',
+  defaultValue: 'https://educano-api.onrender.com/api',
 );
 
 /// Erro retornado pela API (ou falha de rede), com a mensagem para o usuário.

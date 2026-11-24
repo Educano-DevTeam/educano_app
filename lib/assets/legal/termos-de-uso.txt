@@ -1,0 +1,226 @@
+1. Termos de Uso — Educano
+
+TERMOS DE USO DA PLATAFORMA EDUCANO
+
+Última atualização: 23 de novembro de 2026
+Versão: 1.0
+
+1. Sobre estes Termos
+
+Estes Termos de Uso estabelecem as condições para acesso e utilização da plataforma Educano, ambiente digital voltado à educação, organização dos estudos e disponibilização de recursos de aprendizagem.
+
+Ao acessar, criar uma conta ou utilizar os recursos do Educano, o usuário declara que leu e compreendeu estes Termos e concorda com as condições aqui estabelecidas.
+
+Caso não concorde com alguma disposição, o usuário deverá deixar de utilizar a plataforma.
+
+2. Identificação da plataforma e responsável
+
+O Educano é um projeto acadêmico de plataforma educacional digital, desenvolvido por uma equipe de estudantes como parte de suas atividades acadêmicas na Fatec Carapicuíba.
+
+Projeto: Educano
+Instituição de ensino: Fatec Carapicuíba
+Curso: Análise e Desenvolvimento de Sistemas — AMS
+Equipe desenvolvedora: Marianne Sales Ciardi, Miguel Soares de Sousa, Pietro Cabo Avelino e Rebeca Pereira dos Santos
+Responsável pelo projeto: Miguel Soares de Sousa
+Contato: mgsousa23lv@gmail.com
+
+O Educano encontra-se em fase de desenvolvimento acadêmico, não constituindo, até o momento, uma pessoa jurídica ou empresa formalmente registrada.
+
+3. Cadastro e conta do usuário
+
+Para utilizar determinadas funcionalidades, o usuário deverá criar uma conta, fornecendo informações verdadeiras, completas e atualizadas.
+
+O cadastro poderá solicitar informações como:
+
+- Nome completo;
+- Endereço de e-mail;
+- Senha de acesso;
+- Informações complementares de perfil, quando disponíveis.
+
+O usuário é responsável por manter a confidencialidade de suas credenciais e por todas as atividades realizadas por meio de sua conta.
+
+O usuário deverá informar ao responsável pela plataforma, por meio dos canais oficiais, caso identifique utilização não autorizada de sua conta ou qualquer incidente relacionado à segurança de seu acesso.
+
+A plataforma poderá solicitar a verificação do endereço de e-mail informado durante o cadastro, bem como utilizar mecanismos de recuperação de senha.
+
+Cada usuário deverá utilizar sua própria conta, não sendo permitido compartilhar credenciais de acesso de forma que comprometa a segurança ou a integridade da plataforma.
+
+4. Funcionalidades disponíveis
+
+O Educano disponibiliza ou poderá disponibilizar funcionalidades educacionais, incluindo:
+
+- Acesso a cursos e conteúdos organizados por sessões, módulos e aulas;
+- Consulta e utilização de materiais didáticos;
+- Realização de testes, simulados e atividades;
+- Resolução de questões e consulta de alternativas;
+- Criação e utilização de flashcards;
+- Acompanhamento do progresso de aprendizagem;
+- Registro de desempenho e resultados;
+- Sistema de experiência (XP), níveis e rankings;
+- Personalização de perfil e elementos visuais;
+- Recursos complementares de organização dos estudos.
+
+A disponibilidade de cada funcionalidade poderá variar conforme a versão da plataforma, o tipo de usuário, a situação do serviço e as permissões atribuídas à conta.
+
+O Educano poderá receber atualizações, correções, melhorias e novas funcionalidades ao longo de seu desenvolvimento.
+
+5. Cursos, materiais e conteúdos educacionais
+
+Os conteúdos disponibilizados na plataforma poderão ser produzidos pela equipe do Educano, por professores, parceiros ou outros colaboradores autorizados.
+
+O usuário compromete-se a utilizar os materiais exclusivamente para fins pessoais e educacionais, respeitando os direitos autorais e demais direitos de propriedade intelectual aplicáveis.
+
+Salvo autorização expressa, é proibido:
+
+- Copiar, reproduzir, distribuir ou comercializar materiais protegidos;
+- Compartilhar conteúdos de acesso restrito com pessoas não autorizadas;
+- Utilizar os materiais para fins comerciais sem autorização;
+- Remover créditos, marcas ou identificações de autoria;
+- Modificar ou redistribuir conteúdos de terceiros sem autorização.
+
+A disponibilização de um conteúdo na plataforma não significa transferência de sua propriedade intelectual ao usuário.
+
+O Educano poderá corrigir, atualizar, substituir ou remover materiais quando necessário, inclusive em razão de solicitações de seus autores, parceiros ou titulares de direitos.
+
+6. Atividades, simulados e acompanhamento de desempenho
+
+A plataforma poderá registrar informações relacionadas à utilização de atividades educacionais, como respostas selecionadas, acertos, erros, notas, tempo de realização e progresso nas aulas.
+
+Esses registros poderão ser utilizados para apresentar resultados, acompanhar a evolução do usuário e disponibilizar recursos de aprendizagem.
+
+Os resultados apresentados têm finalidade educacional e informativa. O Educano não garante aprovação em vestibulares, concursos, processos seletivos ou qualquer outra avaliação externa.
+
+O desempenho obtido na plataforma depende de diversos fatores, incluindo a participação do usuário, a qualidade dos materiais disponíveis e as características de cada atividade.
+
+7. Gamificação, experiência e rankings
+
+O Educano poderá utilizar mecanismos de gamificação, como pontos de experiência (XP), níveis, conquistas, itens virtuais e rankings.
+
+Esses recursos têm finalidade motivacional e educacional, buscando incentivar a continuidade dos estudos.
+
+Os pontos, níveis e itens virtuais não representam dinheiro, saldo financeiro, investimento ou qualquer direito de resgate em moeda.
+
+O Educano poderá modificar regras de pontuação, critérios de classificação, disponibilidade de itens e demais elementos de gamificação, desde que preserve a transparência e comunique alterações relevantes quando necessário.
+
+O usuário não poderá utilizar mecanismos artificiais, automatizações indevidas ou qualquer prática destinada a manipular resultados, pontuações ou classificações.
+
+8. Condutas proibidas
+
+Ao utilizar o Educano, o usuário compromete-se a não:
+
+- Utilizar a plataforma para atividades ilícitas;
+- Fornecer informações falsas ou utilizar a identidade de terceiros;
+- Tentar acessar contas, dados ou áreas sem autorização;
+- Explorar falhas, vulnerabilidades ou mecanismos internos da plataforma;
+- Interferir no funcionamento dos sistemas ou prejudicar outros usuários;
+- Distribuir vírus, códigos maliciosos ou ferramentas que comprometam a segurança;
+- Utilizar robôs, scripts ou mecanismos automatizados de maneira abusiva;
+- Publicar ou transmitir conteúdo ofensivo, discriminatório, ilegal ou que viole direitos de terceiros;
+- Copiar, extrair ou comercializar conteúdos sem autorização.
+
+O descumprimento destas regras poderá resultar em advertência, limitação de funcionalidades, suspensão ou encerramento da conta, conforme a gravidade da situação e a legislação aplicável.
+
+Sempre que possível, o usuário será informado sobre a medida adotada e poderá apresentar esclarecimentos pelos canais de atendimento.
+
+9. Perfil e informações públicas
+
+O Educano poderá oferecer configurações de perfil que permitam ao usuário escolher se determinadas informações serão exibidas publicamente.
+
+Quando o perfil estiver configurado como público, algumas informações poderão ser visualizadas por outros usuários, conforme as funcionalidades disponíveis.
+
+O usuário deverá evitar inserir informações pessoais desnecessárias em campos de perfil ou em conteúdos que possam ser visualizados por terceiros.
+
+A plataforma poderá limitar a exposição de informações para preservar a segurança e a privacidade dos usuários.
+
+10. Disponibilidade e manutenção
+
+O Educano buscará manter a plataforma disponível e funcional, mas não garante funcionamento ininterrupto ou livre de falhas.
+
+Poderão ocorrer interrupções temporárias em razão de:
+
+- Manutenções programadas ou emergenciais;
+- Atualizações de software;
+- Falhas de conexão ou infraestrutura;
+- Problemas em serviços de terceiros;
+- Eventos técnicos ou externos fora do controle razoável da equipe responsável.
+
+Sempre que viável, a equipe buscará minimizar os impactos dessas interrupções e restabelecer o funcionamento normal dos serviços.
+
+11. Planos, funcionalidades pagas e pagamentos futuros
+
+Na versão atual, o Educano não disponibiliza contratação de assinaturas ou processamento de pagamentos como funcionalidades operacionais da plataforma.
+
+Eventuais telas, referências ou demonstrações de planos e categorias de acesso não representam, por si só, uma contratação, cobrança ou obrigação financeira.
+
+Caso sejam implementados recursos pagos futuramente, o Educano deverá apresentar previamente informações claras sobre preços, benefícios, duração, renovação, formas de pagamento, cancelamento e demais condições aplicáveis.
+
+A disponibilização de serviços pagos poderá exigir a atualização destes Termos e a apresentação de condições específicas de contratação, respeitando a legislação aplicável, inclusive as normas de proteção ao consumidor.
+
+12. Encerramento da conta
+
+O usuário poderá solicitar o encerramento de sua conta pelos recursos disponibilizados na plataforma ou pelos canais oficiais de atendimento.
+
+O encerramento poderá ocasionar a perda de acesso ao perfil, ao progresso, às pontuações, aos registros de atividades e a outros recursos associados à conta.
+
+A exclusão de dados pessoais será realizada conforme a Política de Privacidade e a legislação aplicável. Determinadas informações poderão ser mantidas pelo período necessário ao cumprimento de obrigações legais, exercício regular de direitos ou outras hipóteses legalmente permitidas.
+
+O encerramento da conta não implica necessariamente a eliminação imediata de todos os registros técnicos, cópias de segurança ou informações cuja conservação seja legalmente necessária.
+
+13. Propriedade intelectual
+
+A estrutura da plataforma, sua identidade visual, marca, logotipos, elementos gráficos, organização, funcionalidades e demais componentes desenvolvidos especificamente para o Educano são protegidos pela legislação aplicável de propriedade intelectual.
+
+É proibida a reprodução, distribuição, modificação ou exploração comercial desses elementos sem autorização do respectivo titular.
+
+Os conteúdos de terceiros permanecem sujeitos aos direitos de seus respectivos autores e titulares.
+
+14. Privacidade e proteção de dados
+
+O tratamento de dados pessoais realizado pelo Educano seguirá as condições descritas na Política de Privacidade da plataforma e a legislação brasileira aplicável, especialmente a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).
+
+A Política de Privacidade apresenta informações sobre os dados coletados, suas finalidades, formas de utilização, armazenamento, compartilhamento e direitos dos titulares.
+
+Ao utilizar a plataforma, o usuário declara estar ciente da existência da Política de Privacidade, sem que isso represente renúncia a qualquer direito garantido pela legislação.
+
+15. Crianças e adolescentes
+
+O Educano reconhece que seus recursos educacionais podem ser de interesse de crianças e adolescentes.
+
+O tratamento de dados pessoais desses usuários deverá observar a legislação aplicável, o melhor interesse da criança e do adolescente e as medidas de proteção pertinentes.
+
+Quando necessário, poderão ser solicitadas informações ou autorizações de pais ou responsáveis legais.
+
+O responsável legal poderá entrar em contato pelos canais oficiais para solicitar esclarecimentos ou exercer direitos relacionados aos dados pessoais do menor.
+
+16. Alterações destes Termos
+
+O Educano poderá atualizar estes Termos de Uso a qualquer momento, especialmente em razão de:
+
+- Alterações nas funcionalidades da plataforma;
+- Inclusão de novos serviços ou recursos;
+- Mudanças operacionais ou tecnológicas;
+- Alterações na legislação aplicável;
+- Implantação de planos, assinaturas ou formas de pagamento;
+- Necessidade de aprimorar a segurança, a transparência e as condições de utilização.
+
+A versão atualizada será disponibilizada nos canais oficiais da plataforma, acompanhada da respectiva data de atualização.
+
+Quando as alterações forem relevantes ou exigirem novo consentimento ou aceite, o usuário poderá ser comunicado e solicitado a concordar novamente com as condições atualizadas antes de continuar utilizando determinadas funcionalidades.
+
+A continuidade do uso da plataforma após a divulgação de alterações não afastará direitos legalmente assegurados ao usuário.
+
+17. Legislação aplicável e disposições finais
+
+Estes Termos são regidos pelas leis da República Federativa do Brasil.
+
+Eventuais controvérsias serão tratadas conforme a legislação brasileira, respeitadas as regras de competência e os direitos assegurados ao consumidor e aos demais usuários.
+
+Caso alguma disposição destes Termos seja considerada inválida ou inexequível, as demais disposições permanecerão aplicáveis naquilo que não forem afetadas.
+
+18. Contato
+
+Em caso de dúvidas, solicitações, reclamações ou comunicações relacionadas à utilização da plataforma, o usuário poderá entrar em contato pelo seguinte canal:
+
+E-mail: equipe.educano@gmail.com
+
+Responsável: Miguel Soares de Sousa

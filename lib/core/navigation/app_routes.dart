@@ -7,6 +7,8 @@ class AppRoutes {
   static const String signup = '/signup';
   static const String verifyAccount = '/verify-account';
   static const String forgotPassword = '/forgot-password';
+  static const String termsOfUse = '/termos-de-uso';
+  static const String privacyPolicy = '/politica-de-privacidade';
   static const String flashcards = '/flashcards';
   static const String ranking = '/ranking';
   static const String storeInventory = '/loja_e_inventario';
